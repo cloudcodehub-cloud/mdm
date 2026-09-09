@@ -7,4 +7,9 @@ enum EmploymentStatus: string
     case Active = 'active';
     case Inactive = 'inactive';
     case Terminated = 'terminated';
+
+    public function allowsLogin(): bool
+    {
+        return $this === self::Active;
+    }
 }

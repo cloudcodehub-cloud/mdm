@@ -34,7 +34,7 @@ Public self-registration is **not** the intended final production account-provis
 
 In production, accounts should ultimately be **provisioned and controlled by administrators** rather than allowing unrestricted public registration.
 
-The starter kit’s registration routes may remain available during early development; they should not be treated as the long-term production model. Do not rewrite authentication solely for this note in Phase 0.
+Public registration routes are disabled. Accounts are provisioned by administrators.
 
 ## Local setup (Phase 0)
 

@@ -80,4 +80,23 @@ class User extends Authenticatable implements PasskeyUser
     {
         return $this->hasRole(Role::Dsp);
     }
+
+    /**
+     * Admins may sign in without an employee profile.
+     * Linked supervisor/DSP accounts may sign in only while employment is active.
+     */
+    public function canAccessApplication(): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        $employee = $this->employee;
+
+        if ($employee === null) {
+            return true;
+        }
+
+        return $employee->employment_status->allowsLogin();
+    }
 }

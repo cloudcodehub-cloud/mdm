@@ -20,7 +20,9 @@ Module-specific permissions for visits, EVV, payroll, and messaging will be adde
 
 ## Account provisioning note
 
-Production accounts should be admin-provisioned. Unrestricted public self-registration is not the intended long-term model. During development, new registrations default to the **DSP** role and do not create an employee profile automatically.
+Accounts are admin-provisioned. Public self-registration is disabled.
+
+ADMIN users may sign in without an employee profile. SUPERVISOR and DSP users linked to an employee may sign in only while that employee’s `employment_status` is **active**. Inactive and terminated employees keep their User and Employee records; login is blocked server-side.
 
 ## Demo logins
 
