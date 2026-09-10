@@ -24,9 +24,14 @@ DSP coverage is modeled in `client_dsp_assignments`:
 
 Do not store DSP or client lists as comma-separated IDs.
 
+## Phase 1B-1 authorizations
+
+`client_authorizations` stores payer authorizations for a client: unique authorization number, payer, service type, date window, authorized units, unit type, and status.
+
+Admins create and update authorizations. Supervisors may view authorizations for assigned clients. DSPs may view authorizations for currently assigned clients. Authorization history is retained (no hard delete).
+
 ## Planned later
 
-- Authorizations
 - Care plans
 - Care-plan task templates
 - Client management UI

@@ -22,10 +22,16 @@ A **User** is a login account. An **Employee** is the HR/workforce profile. Supe
 
 Records are not hard-deleted. Use status for lifecycle and soft deletes if a row is archived.
 
+## Phase 1B-1 credentials and training
+
+`employee_credentials` tracks required workforce credentials per employee (type, issuer, number, issue/expiry dates, status).
+
+`employee_trainings` tracks training titles, provider, hours, completion, expiry, and status.
+
+Admins create and update these records. Supervisors may view credentials and training for assigned DSP reports. DSPs may view their own. Records are retained (no hard delete) so history remains after expiry, revocation, or termination.
+
 ## Planned later
 
-- Credentials
 - Documents
-- Training records
 - Compliance status related to employment
 - Employee management UI

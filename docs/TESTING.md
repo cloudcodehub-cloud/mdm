@@ -6,6 +6,8 @@ The Laravel React starter includes feature tests for authentication, dashboard a
 
 Phase 1A adds PHPUnit feature tests under `tests/Feature/Domain` for roles, User ↔ Employee, supervisor relationships, clients, DSP ↔ client assignments, factories/seeders, and policies.
 
+Phase 1B-1 adds PHPUnit feature tests for employee credentials, training, client authorizations, shift templates (including overnight 11–7 windows), related policies, and demo seed coverage.
+
 Pest was not added: `laravel/pao` in this starter conflicts with `pestphp/pest`. Tests use the existing PHPUnit + `php artisan test` setup.
 
 ## Expectations going forward

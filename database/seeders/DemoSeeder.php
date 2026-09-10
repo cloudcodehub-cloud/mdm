@@ -3,12 +3,21 @@
 namespace Database\Seeders;
 
 use App\Enums\AssignmentStatus;
+use App\Enums\AuthorizationStatus;
+use App\Enums\AuthorizationUnit;
 use App\Enums\ClientStatus;
+use App\Enums\CredentialStatus;
+use App\Enums\CredentialType;
 use App\Enums\EmploymentStatus;
 use App\Enums\JobType;
+use App\Enums\TrainingStatus;
 use App\Models\Client;
+use App\Models\ClientAuthorization;
 use App\Models\ClientDspAssignment;
 use App\Models\Employee;
+use App\Models\EmployeeCredential;
+use App\Models\EmployeeTraining;
+use App\Models\ShiftTemplate;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -157,7 +166,7 @@ class DemoSeeder extends Seeder
             hiredOn: '2022-04-19',
         );
 
-        $this->createDsp(
+        $owen = $this->createDsp(
             userId: $owenUser->id,
             number: 'EMP-2004',
             first: 'Owen',
@@ -170,7 +179,7 @@ class DemoSeeder extends Seeder
             hiredOn: '2019-10-02',
         );
 
-        Employee::query()->create([
+        $sara = Employee::query()->create([
             'employee_number' => 'EMP-2005',
             'user_id' => $saraUser->id,
             'first_name' => 'Sara',
@@ -200,7 +209,7 @@ class DemoSeeder extends Seeder
         $harper = $this->createClient('CLT-3003', 'Harper', 'Jane', 'Cole', $jordan->id, ClientStatus::Active);
         $malik = $this->createClient('CLT-3004', 'Malik', null, 'Hassan', $priya->id, ClientStatus::Active);
         $ruby = $this->createClient('CLT-3005', 'Ruby', 'Ann', 'Foster', $priya->id, ClientStatus::Active);
-        $this->createClient('CLT-3006', 'Ian', null, 'Brooks', $priya->id, ClientStatus::Inactive);
+        $ian = $this->createClient('CLT-3006', 'Ian', null, 'Brooks', $priya->id, ClientStatus::Inactive);
 
         ClientDspAssignment::query()->create([
             'employee_id' => $maya->id,
@@ -253,9 +262,267 @@ class DemoSeeder extends Seeder
             'notes' => 'Previous assignment closed when coverage changed.',
         ]);
 
+        $this->seedShiftTemplates();
+        $this->seedCredentials($jordan, $priya, $maya, $luis, $nina, $owen, $sara);
+        $this->seedTrainings($maya, $luis, $nina, $owen, $sara);
+        $this->seedAuthorizations($elena, $theo, $harper, $malik, $ruby, $ian);
+
         if ($admin->employee()->exists()) {
             throw new \RuntimeException('Demo admin accounts must not have an employee profile.');
         }
+    }
+
+    private function seedShiftTemplates(): void
+    {
+        ShiftTemplate::query()->create([
+            'name' => '7–3',
+            'code' => 'day_7_3',
+            'starts_at' => '07:00:00',
+            'ends_at' => '15:00:00',
+            'description' => 'Day shift, 7 a.m. to 3 p.m.',
+            'is_active' => true,
+        ]);
+
+        ShiftTemplate::query()->create([
+            'name' => '3–11',
+            'code' => 'evening_3_11',
+            'starts_at' => '15:00:00',
+            'ends_at' => '23:00:00',
+            'description' => 'Evening shift, 3 p.m. to 11 p.m.',
+            'is_active' => true,
+        ]);
+
+        ShiftTemplate::query()->create([
+            'name' => '11–7',
+            'code' => 'overnight_11_7',
+            'starts_at' => '23:00:00',
+            'ends_at' => '07:00:00',
+            'description' => 'Overnight shift, 11 p.m. to 7 a.m. next calendar day.',
+            'is_active' => true,
+        ]);
+    }
+
+    private function seedCredentials(
+        Employee $jordan,
+        Employee $priya,
+        Employee $maya,
+        Employee $luis,
+        Employee $nina,
+        Employee $owen,
+        Employee $sara,
+    ): void {
+        $this->createCredential($jordan, CredentialType::Cpr, 'CPR Certification', CredentialStatus::Active, '2024-03-01', '2026-03-01');
+        $this->createCredential($priya, CredentialType::Cpr, 'CPR Certification', CredentialStatus::Active, '2024-06-12', '2026-06-12');
+
+        $this->createCredential($maya, CredentialType::Cpr, 'CPR Certification', CredentialStatus::Active, '2025-01-10', '2027-01-10', 'American Red Cross', 'CPR-2001');
+        $this->createCredential($maya, CredentialType::FirstAid, 'First Aid Certification', CredentialStatus::Active, '2025-01-10', '2027-01-10', 'American Red Cross', 'FA-2001');
+        $this->createCredential($maya, CredentialType::DriversLicense, "Driver's License", CredentialStatus::Active, '2022-08-01', '2028-08-01', 'Ohio BMV', 'OH-DL-2001');
+
+        $this->createCredential($luis, CredentialType::Cpr, 'CPR Certification', CredentialStatus::Expired, '2022-02-01', '2024-02-01', 'American Red Cross', 'CPR-2002');
+        $this->createCredential($luis, CredentialType::FirstAid, 'First Aid Certification', CredentialStatus::Active, '2025-04-18', '2027-04-18', 'American Red Cross', 'FA-2002');
+
+        $this->createCredential($nina, CredentialType::BackgroundCheck, 'Background Check', CredentialStatus::Active, '2025-03-01', '2027-03-01', 'County Board', 'BGC-2003');
+        $this->createCredential($nina, CredentialType::MedicationAdministration, 'Medication Administration', CredentialStatus::Active, '2024-11-15', '2026-11-15', 'Agency Nursing', 'MED-2003');
+
+        $this->createCredential($owen, CredentialType::Cpr, 'CPR Certification', CredentialStatus::Active, '2024-09-20', '2026-09-20');
+        $this->createCredential($owen, CredentialType::TbScreening, 'TB Screening', CredentialStatus::Active, '2026-01-08', '2027-01-08', 'County Health');
+        $this->createCredential($owen, CredentialType::DriversLicense, "Driver's License", CredentialStatus::Pending, null, null, 'Ohio BMV');
+
+        $this->createCredential($sara, CredentialType::Cpr, 'CPR Certification', CredentialStatus::Expired, '2020-05-01', '2022-05-01', 'American Red Cross', 'CPR-2005', 'Historical credential retained after termination.');
+    }
+
+    private function seedTrainings(Employee $maya, Employee $luis, Employee $nina, Employee $owen, Employee $sara): void
+    {
+        EmployeeTraining::query()->create([
+            'employee_id' => $maya->id,
+            'title' => 'DSP Orientation',
+            'provider' => 'Agency Training',
+            'completed_on' => '2021-01-20',
+            'expires_on' => null,
+            'hours' => '8.00',
+            'status' => TrainingStatus::Completed,
+        ]);
+
+        EmployeeTraining::query()->create([
+            'employee_id' => $maya->id,
+            'title' => 'Bloodborne Pathogens',
+            'provider' => 'Agency Training',
+            'completed_on' => '2025-02-02',
+            'expires_on' => '2027-02-02',
+            'hours' => '2.00',
+            'status' => TrainingStatus::Completed,
+        ]);
+
+        EmployeeTraining::query()->create([
+            'employee_id' => $luis->id,
+            'title' => 'Crisis Intervention',
+            'provider' => 'County Board',
+            'completed_on' => '2025-06-01',
+            'expires_on' => '2027-06-01',
+            'hours' => '8.00',
+            'status' => TrainingStatus::Completed,
+        ]);
+
+        EmployeeTraining::query()->create([
+            'employee_id' => $nina->id,
+            'title' => 'Medication Administration',
+            'provider' => 'Agency Nursing',
+            'completed_on' => '2024-11-15',
+            'expires_on' => '2026-11-15',
+            'hours' => '4.00',
+            'status' => TrainingStatus::Completed,
+        ]);
+
+        EmployeeTraining::query()->create([
+            'employee_id' => $nina->id,
+            'title' => 'Fire Safety',
+            'provider' => 'Agency Training',
+            'completed_on' => null,
+            'expires_on' => null,
+            'hours' => '2.00',
+            'status' => TrainingStatus::InProgress,
+        ]);
+
+        EmployeeTraining::query()->create([
+            'employee_id' => $owen->id,
+            'title' => 'DSP Orientation',
+            'provider' => 'Agency Training',
+            'completed_on' => '2019-10-15',
+            'expires_on' => null,
+            'hours' => '8.00',
+            'status' => TrainingStatus::Completed,
+        ]);
+
+        EmployeeTraining::query()->create([
+            'employee_id' => $sara->id,
+            'title' => 'DSP Orientation',
+            'provider' => 'Agency Training',
+            'completed_on' => '2017-05-10',
+            'expires_on' => null,
+            'hours' => '8.00',
+            'status' => TrainingStatus::Completed,
+            'notes' => 'Historical training retained after termination.',
+        ]);
+    }
+
+    private function seedAuthorizations(
+        Client $elena,
+        Client $theo,
+        Client $harper,
+        Client $malik,
+        Client $ruby,
+        Client $ian,
+    ): void {
+        ClientAuthorization::query()->create([
+            'client_id' => $elena->id,
+            'authorization_number' => 'AUTH-3001001',
+            'payer' => 'Ohio Medicaid',
+            'service_type' => 'Residential Habilitation',
+            'starts_on' => '2026-01-01',
+            'ends_on' => '2026-12-31',
+            'authorized_units' => '40.00',
+            'unit' => AuthorizationUnit::Hour,
+            'status' => AuthorizationStatus::Active,
+            'notes' => 'Weekly authorized hours.',
+        ]);
+
+        ClientAuthorization::query()->create([
+            'client_id' => $theo->id,
+            'authorization_number' => 'AUTH-3002001',
+            'payer' => 'County Board Waiver',
+            'service_type' => 'Personal Care',
+            'starts_on' => '2026-03-01',
+            'ends_on' => '2026-12-31',
+            'authorized_units' => '20.00',
+            'unit' => AuthorizationUnit::Hour,
+            'status' => AuthorizationStatus::Active,
+        ]);
+
+        ClientAuthorization::query()->create([
+            'client_id' => $harper->id,
+            'authorization_number' => 'AUTH-3003001',
+            'payer' => 'Ohio Medicaid',
+            'service_type' => 'Community Integration',
+            'starts_on' => '2026-10-01',
+            'ends_on' => '2027-03-31',
+            'authorized_units' => '15.00',
+            'unit' => AuthorizationUnit::Hour,
+            'status' => AuthorizationStatus::Pending,
+            'notes' => 'Renewal pending payer approval.',
+        ]);
+
+        ClientAuthorization::query()->create([
+            'client_id' => $harper->id,
+            'authorization_number' => 'AUTH-3003000',
+            'payer' => 'Ohio Medicaid',
+            'service_type' => 'Community Integration',
+            'starts_on' => '2025-10-01',
+            'ends_on' => '2026-09-30',
+            'authorized_units' => '15.00',
+            'unit' => AuthorizationUnit::Hour,
+            'status' => AuthorizationStatus::Active,
+        ]);
+
+        ClientAuthorization::query()->create([
+            'client_id' => $malik->id,
+            'authorization_number' => 'AUTH-3004001',
+            'payer' => 'Ohio Medicaid',
+            'service_type' => 'Residential Habilitation',
+            'starts_on' => '2026-02-01',
+            'ends_on' => '2027-01-31',
+            'authorized_units' => '40.00',
+            'unit' => AuthorizationUnit::Hour,
+            'status' => AuthorizationStatus::Active,
+        ]);
+
+        ClientAuthorization::query()->create([
+            'client_id' => $ruby->id,
+            'authorization_number' => 'AUTH-3005001',
+            'payer' => 'Private Pay',
+            'service_type' => 'Personal Care',
+            'starts_on' => '2026-01-15',
+            'ends_on' => '2026-12-15',
+            'authorized_units' => '10.00',
+            'unit' => AuthorizationUnit::Visit,
+            'status' => AuthorizationStatus::Active,
+        ]);
+
+        ClientAuthorization::query()->create([
+            'client_id' => $ian->id,
+            'authorization_number' => 'AUTH-3006001',
+            'payer' => 'County Board Waiver',
+            'service_type' => 'Personal Care',
+            'starts_on' => '2024-01-01',
+            'ends_on' => '2025-06-30',
+            'authorized_units' => '20.00',
+            'unit' => AuthorizationUnit::Hour,
+            'status' => AuthorizationStatus::Expired,
+            'notes' => 'Closed with inactive client record.',
+        ]);
+    }
+
+    private function createCredential(
+        Employee $employee,
+        CredentialType $type,
+        string $name,
+        CredentialStatus $status,
+        ?string $issuedOn,
+        ?string $expiresOn,
+        ?string $issuer = 'American Red Cross',
+        ?string $number = null,
+        ?string $notes = null,
+    ): EmployeeCredential {
+        return EmployeeCredential::query()->create([
+            'employee_id' => $employee->id,
+            'type' => $type,
+            'name' => $name,
+            'issuer' => $issuer,
+            'credential_number' => $number,
+            'issued_on' => $issuedOn,
+            'expires_on' => $expiresOn,
+            'status' => $status,
+            'notes' => $notes,
+        ]);
     }
 
     private function createDsp(

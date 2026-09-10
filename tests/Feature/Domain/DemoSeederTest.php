@@ -4,8 +4,12 @@ namespace Tests\Feature\Domain;
 
 use App\Enums\Role;
 use App\Models\Client;
+use App\Models\ClientAuthorization;
 use App\Models\ClientDspAssignment;
 use App\Models\Employee;
+use App\Models\EmployeeCredential;
+use App\Models\EmployeeTraining;
+use App\Models\ShiftTemplate;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\DemoSeeder;
@@ -40,6 +44,17 @@ class DemoSeederTest extends TestCase
                 ->assignedClients
                 ->contains(fn (Client $client): bool => $client->client_number === 'CLT-3001'),
         );
+
+        $this->assertSame(13, EmployeeCredential::query()->count());
+        $this->assertSame(7, EmployeeTraining::query()->count());
+        $this->assertSame(7, ClientAuthorization::query()->count());
+        $this->assertSame(3, ShiftTemplate::query()->count());
+
+        $overnight = ShiftTemplate::query()->where('code', 'overnight_11_7')->firstOrFail();
+        $this->assertTrue($overnight->spansOvernight());
+        $this->assertSame(480, $overnight->durationInMinutes());
+        $this->assertNotNull(ShiftTemplate::query()->where('code', 'day_7_3')->first());
+        $this->assertNotNull(ShiftTemplate::query()->where('code', 'evening_3_11')->first());
     }
 
     public function test_demo_accounts_use_the_documented_password(): void

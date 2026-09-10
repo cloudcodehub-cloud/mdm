@@ -8,13 +8,19 @@ Roles live on `users.role` as a PHP backed enum (`App\Enums\Role`):
 - **SUPERVISOR** — assigned DSPs/clients, visits, attendance, exceptions, progress, handovers, operational issues
 - **DSP** — own schedule, assigned client selection, clock-in/out, care-plan tasks, notes/measurements, mandatory skip reasons, visit summary/handover
 
-This is the simplest Laravel approach for three application roles. Authorization is enforced with Policies (`EmployeePolicy`, `ClientPolicy`, `ClientDspAssignmentPolicy`) and `User` helpers (`isAdmin()`, `isSupervisor()`, `isDsp()`). Never rely on UI hiding alone.
+This is the simplest Laravel approach for three application roles. Authorization is enforced with Policies (`EmployeePolicy`, `ClientPolicy`, `ClientDspAssignmentPolicy`, `EmployeeCredentialPolicy`, `EmployeeTrainingPolicy`, `ClientAuthorizationPolicy`, `ShiftTemplatePolicy`) and `User` helpers (`isAdmin()`, `isSupervisor()`, `isDsp()`). Never rely on UI hiding alone.
 
 ## Phase 1A policy scope
 
 - Admin: view/create/update employees, clients, and assignments. Cannot hard-delete employees or clients.
 - Supervisor: view assigned DSP reports (`employees.supervisor_id`) and assigned clients (`clients.supervisor_id`).
 - DSP: view own employee profile and currently assigned clients (active `client_dsp_assignments`).
+
+## Phase 1B-1 policy scope
+
+- Admin: create/update credentials, training, authorizations, and shift templates. Cannot hard-delete these records.
+- Supervisor: view credentials/training for assigned DSP reports; view authorizations for assigned clients; view shift templates. Cannot create or update them.
+- DSP: view own credentials/training, authorizations for currently assigned clients, and shift templates.
 
 Module-specific permissions for visits, EVV, payroll, and messaging will be added with those features.
 

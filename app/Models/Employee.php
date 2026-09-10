@@ -46,6 +46,8 @@ use Illuminate\Support\Carbon;
  * @property-read string $full_name
  * @property-read User|null $user
  * @property-read Employee|null $supervisor
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, EmployeeCredential> $credentials
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, EmployeeTraining> $trainings
  */
 #[Fillable([
     'employee_number',
@@ -139,6 +141,22 @@ class Employee extends Model
         return $this->belongsToMany(Client::class, 'client_dsp_assignments')
             ->withPivot(['status', 'started_on', 'ended_on', 'notes'])
             ->withTimestamps();
+    }
+
+    /**
+     * @return HasMany<EmployeeCredential, $this>
+     */
+    public function credentials(): HasMany
+    {
+        return $this->hasMany(EmployeeCredential::class);
+    }
+
+    /**
+     * @return HasMany<EmployeeTraining, $this>
+     */
+    public function trainings(): HasMany
+    {
+        return $this->hasMany(EmployeeTraining::class);
     }
 
     /**

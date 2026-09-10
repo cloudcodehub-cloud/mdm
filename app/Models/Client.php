@@ -39,6 +39,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $deleted_at
  * @property-read string $full_name
  * @property-read Employee|null $supervisor
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, ClientAuthorization> $authorizations
  */
 #[Fillable([
     'client_number',
@@ -100,6 +101,14 @@ class Client extends Model
         return $this->belongsToMany(Employee::class, 'client_dsp_assignments')
             ->withPivot(['status', 'started_on', 'ended_on', 'notes'])
             ->withTimestamps();
+    }
+
+    /**
+     * @return HasMany<ClientAuthorization, $this>
+     */
+    public function authorizations(): HasMany
+    {
+        return $this->hasMany(ClientAuthorization::class);
     }
 
     /**
