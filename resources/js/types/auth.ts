@@ -1,7 +1,10 @@
+export type AppRole = 'ADMIN' | 'SUPERVISOR' | 'DSP';
+
 export type User = {
     id: number;
     name: string;
     email: string;
+    role: AppRole;
     avatar?: string;
     email_verified_at: string | null;
     two_factor_enabled?: boolean;
@@ -12,6 +15,13 @@ export type User = {
 
 export type Auth = {
     user: User;
+};
+
+export type DemoWeather = {
+    source: string;
+    location: string;
+    condition: string;
+    temperature: string;
 };
 
 export type Passkey = {

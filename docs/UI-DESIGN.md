@@ -1,15 +1,18 @@
 # UI design
 
-## Current state (Phase 0)
+## Current state (Phase 2A)
 
-The UI is the Laravel React starter kit (welcome, dashboard, auth, settings). No MDM domain redesign yet.
+Authenticated screens use a collapsible operations sidebar, a top bar with local date/time, demo weather, alerts, and the user menu, and role-aware dashboards (ADMIN, SUPERVISOR, DSP).
+
+Login uses the same MDM product treatment. Public Sign up remains disabled.
 
 ## Direction
 
 - Keep screens role-aware (ADMIN, SUPERVISOR, DSP).
 - Prefer clear operational workflows over decorative redesign.
+- Aim for restrained healthcare/business polish: system typography, tight spacing, glass surfaces, and information-dense cards.
 - DSP flows should prioritize schedule → client → clock-in → tasks → notes/skips → handover → clock-out.
-- Do not redesign in Phase 0; document intent here as modules are specified.
+- Clock-in is reserved on the DSP dashboard and is not functional yet.
 
 ## Fonts
 

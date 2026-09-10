@@ -1,4 +1,4 @@
-import type { Auth } from '@/types/auth';
+import type { Auth, DemoWeather } from '@/types/auth';
 
 declare module 'react' {
     interface InputHTMLAttributes<T> {
@@ -12,6 +12,7 @@ declare module '@inertiajs/core' {
             name: string;
             auth: Auth;
             sidebarOpen: boolean;
+            demoWeather: DemoWeather;
             [key: string]: unknown;
         };
     }
