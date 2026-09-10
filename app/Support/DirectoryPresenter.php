@@ -20,6 +20,7 @@ use App\Models\ShiftTemplate;
 use App\Models\SkipReason;
 use App\Models\User;
 use App\Models\Visit;
+use App\Models\VisitException;
 use App\Models\VisitTask;
 use App\Services\SettingsService;
 use Carbon\CarbonInterface;
@@ -404,6 +405,7 @@ final class DirectoryPresenter
                 'status' => $scheduled->status->value,
             ],
             'tasks' => self::visitTasks($tasks),
+            'exceptions' => self::visitExceptions($visit->relationLoaded('exceptions') ? $visit->exceptions : $visit->exceptions()->with(['visitTask', 'reviewedBy', 'resolvedBy'])->get()),
         ];
     }
 
@@ -472,6 +474,48 @@ final class DirectoryPresenter
             'skip_comment' => $task->skip_comment,
             'completion_note' => $task->completion_note,
         ]));
+    }
+
+    /**
+     * @param  Collection<int, VisitException>|iterable<VisitException>  $exceptions
+     * @return list<array<string, mixed>>
+     */
+    public static function visitExceptions(iterable $exceptions): array
+    {
+        return self::values(collect($exceptions)->map(fn (VisitException $exception): array => self::visitException($exception)));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function visitException(VisitException $exception): array
+    {
+        $visit = $exception->relationLoaded('visit') ? $exception->visit : null;
+        $settings = app(SettingsService::class);
+
+        return [
+            'id' => $exception->id,
+            'visit_id' => $exception->visit_id,
+            'visit_task_id' => $exception->visit_task_id,
+            'type' => $exception->type->value,
+            'type_label' => $exception->type->label(),
+            'status' => $exception->status->value,
+            'status_label' => $exception->status->label(),
+            'message' => $exception->message,
+            'context' => $exception->context,
+            'task_title' => $exception->visitTask?->title,
+            'review_notes' => $exception->review_notes,
+            'resolution_notes' => $exception->resolution_notes,
+            'reviewed_at_label' => $exception->reviewed_at === null ? null : $settings->formatTime($exception->reviewed_at),
+            'resolved_at_label' => $exception->resolved_at === null ? null : $settings->formatTime($exception->resolved_at),
+            'reviewed_by_name' => $exception->reviewedBy?->name,
+            'resolved_by_name' => $exception->resolvedBy?->name,
+            'status_history' => $exception->status_history ?? [],
+            'created_at_label' => $exception->created_at === null ? null : $settings->formatTime($exception->created_at),
+            'client_name' => $visit?->client?->full_name,
+            'dsp_name' => $visit?->employee?->full_name,
+            'service_type' => $visit?->service_type,
+        ];
     }
 
     /**

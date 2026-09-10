@@ -6,6 +6,7 @@ import { VisitClockOutReview } from '@/components/mdm/visit-clock-out-review';
 import { VisitNotesForm } from '@/components/mdm/visit-notes-form';
 import { VisitTaskCard } from '@/components/mdm/visit-task-card';
 import { dashboard } from '@/routes';
+import { show as showException } from '@/routes/visit-exceptions';
 import { show as showScheduled } from '@/routes/scheduled-visits';
 import { show } from '@/routes/visits';
 import type {
@@ -25,12 +26,16 @@ export default function VisitsShow({
         record_tasks?: boolean;
         update_notes?: boolean;
         clock_out?: boolean;
+        view_exceptions?: boolean;
     };
 }) {
     const completed = visit.status === 'completed';
+    const monitoring = !can?.record_tasks && !can?.clock_out;
     const title = completed
         ? `Visit summary · ${visit.client.name}`
-        : `Active visit · ${visit.client.name}`;
+        : monitoring
+          ? `Visit monitoring · ${visit.client.name}`
+          : `Active visit · ${visit.client.name}`;
 
     return (
         <>
@@ -46,7 +51,9 @@ export default function VisitsShow({
                         </Link>
                     </p>
                     <h1 className="text-xl font-semibold tracking-tight">
-                        {completed ? 'Visit summary' : visit.client.name}
+                        {completed || monitoring
+                            ? visit.client.name
+                            : visit.client.name}
                     </h1>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                         <StatusBadge
@@ -59,8 +66,11 @@ export default function VisitsShow({
                     </div>
                 </div>
 
-                {completed ? (
-                    <VisitSummary visit={visit} />
+                {completed || monitoring ? (
+                    <VisitMonitoring
+                        visit={visit}
+                        canViewExceptions={Boolean(can?.view_exceptions)}
+                    />
                 ) : (
                     <ActiveVisit
                         visit={visit}
@@ -157,15 +167,28 @@ function ActiveVisit({
     );
 }
 
-function VisitSummary({ visit }: { visit: ActiveVisitRecord }) {
+function VisitMonitoring({
+    visit,
+    canViewExceptions,
+}: {
+    visit: ActiveVisitRecord;
+    canViewExceptions: boolean;
+}) {
     const skipped = visit.tasks.filter((task) => task.status === 'skipped');
+    const pending = visit.tasks.filter((task) => task.status === 'pending');
+    const exceptions = visit.exceptions ?? [];
 
     return (
         <div className="grid gap-4 lg:grid-cols-2">
             <Panel title="Visit">
                 <dl className="grid gap-3 text-sm">
+                    <Detail label="DSP" value={visit.employee.name} />
                     <Detail label="Client" value={visit.client.name} />
                     <Detail label="Service" value={visit.service_type} />
+                    <Detail
+                        label="Scheduled time"
+                        value={`${visit.scheduled_visit.service_date} · ${visit.scheduled_visit.time_label}${visit.scheduled_visit.shift_name ? ` · ${visit.scheduled_visit.shift_name}` : ''}`}
+                    />
                     <Detail
                         label="Clock-in"
                         value={visit.clocked_in_at_label}
@@ -173,6 +196,10 @@ function VisitSummary({ visit }: { visit: ActiveVisitRecord }) {
                     <Detail
                         label="Clock-out"
                         value={visit.clocked_out_at_label ?? '—'}
+                    />
+                    <Detail
+                        label="Visit status"
+                        value={visit.status_label}
                     />
                     <Detail
                         label="Clock-in location"
@@ -187,7 +214,7 @@ function VisitSummary({ visit }: { visit: ActiveVisitRecord }) {
                     />
                 </dl>
             </Panel>
-            <Panel title="Task summary">
+            <Panel title="Task completion">
                 <dl className="grid gap-3 text-sm">
                     <Detail
                         label="Completed"
@@ -198,7 +225,7 @@ function VisitSummary({ visit }: { visit: ActiveVisitRecord }) {
                         value={String(visit.task_summary.skipped)}
                     />
                     <Detail
-                        label="Still pending"
+                        label="Pending"
                         value={String(visit.task_summary.pending)}
                     />
                     <Detail
@@ -214,9 +241,17 @@ function VisitSummary({ visit }: { visit: ActiveVisitRecord }) {
                                       .join('; ')
                         }
                     />
+                    <Detail
+                        label="Pending items"
+                        value={
+                            pending.length === 0
+                                ? 'None'
+                                : pending.map((task) => task.title).join('; ')
+                        }
+                    />
                 </dl>
             </Panel>
-            <Panel title="Notes and handover">
+            <Panel title="DSP notes and handover">
                 <dl className="grid gap-3 text-sm">
                     <Detail
                         label="Visit notes"
@@ -228,7 +263,34 @@ function VisitSummary({ visit }: { visit: ActiveVisitRecord }) {
                     />
                 </dl>
             </Panel>
-            <Panel title="Care-plan tasks">
+            <Panel title="Related exceptions">
+                {exceptions.length === 0 ? (
+                    <EmptyState message="No exceptions recorded for this visit." />
+                ) : (
+                    <ul className="space-y-2 text-sm">
+                        {exceptions.map((exception) => (
+                            <li key={exception.id}>
+                                {canViewExceptions ? (
+                                    <Link
+                                        href={showException.url(exception.id)}
+                                        className="hover:text-foreground font-medium"
+                                    >
+                                        {exception.type_label}
+                                    </Link>
+                                ) : (
+                                    <p className="font-medium">
+                                        {exception.type_label}
+                                    </p>
+                                )}
+                                <p className="text-muted-foreground text-xs">
+                                    {exception.status_label} · {exception.message}
+                                </p>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </Panel>
+            <Panel title="Care-plan tasks" className="lg:col-span-2">
                 {visit.tasks.length === 0 ? (
                     <EmptyState message="No care-plan tasks applied to this visit." />
                 ) : (
@@ -245,6 +307,19 @@ function VisitSummary({ visit }: { visit: ActiveVisitRecord }) {
                                         label={task.status_label}
                                     />
                                 </div>
+                                {task.skip_reason_name && (
+                                    <p className="text-muted-foreground mt-1 text-xs">
+                                        {task.skip_reason_name}
+                                        {task.skip_comment
+                                            ? ` · ${task.skip_comment}`
+                                            : ''}
+                                    </p>
+                                )}
+                                {task.completion_note && (
+                                    <p className="text-muted-foreground mt-1 text-xs">
+                                        {task.completion_note}
+                                    </p>
+                                )}
                             </li>
                         ))}
                     </ul>

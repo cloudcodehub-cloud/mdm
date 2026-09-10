@@ -54,6 +54,15 @@ export type ActiveVisitRecord = {
         pending: number;
         pending_required: number;
     };
+    exceptions: Array<{
+        id: number;
+        type: string;
+        type_label: string;
+        status: string;
+        status_label: string;
+        message: string;
+        task_title: string | null;
+    }>;
     client: {
         id: number;
         name: string;

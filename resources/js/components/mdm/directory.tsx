@@ -22,9 +22,13 @@ export function StatusBadge({
                 status === 'discharged' ||
                 status === 'cancelled' ||
                 status === 'revoked' ||
-                status === 'expired'
+                status === 'expired' ||
+                status === 'late' ||
+                status === 'exception'
               ? 'bg-destructive/10 text-destructive'
-              : 'bg-amber-500/10 text-amber-800 dark:text-amber-200';
+              : status === 'resolved'
+                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                : 'bg-amber-500/10 text-amber-800 dark:text-amber-200';
 
     return (
         <span

@@ -8,7 +8,7 @@ Roles live on `users.role` as a PHP backed enum (`App\Enums\Role`):
 - **SUPERVISOR** — assigned DSPs/clients, visits, attendance, exceptions, progress, handovers, operational issues
 - **DSP** — own schedule, assigned client selection, clock-in/out, care-plan tasks, notes/measurements, mandatory skip reasons, visit summary/handover
 
-This is the simplest Laravel approach for three application roles. Authorization is enforced with Policies (`EmployeePolicy`, `ClientPolicy`, `ClientDspAssignmentPolicy`, `EmployeeCredentialPolicy`, `EmployeeTrainingPolicy`, `ClientAuthorizationPolicy`, `ShiftTemplatePolicy`, `CarePlanPolicy`, `CarePlanTaskTemplatePolicy`, `ScheduledVisitPolicy`, `SkipReasonPolicy`, `VisitPolicy`) and `User` helpers (`isAdmin()`, `isSupervisor()`, `isDsp()`). Never rely on UI hiding alone.
+This is the simplest Laravel approach for three application roles. Authorization is enforced with Policies (`EmployeePolicy`, `ClientPolicy`, `ClientDspAssignmentPolicy`, `EmployeeCredentialPolicy`, `EmployeeTrainingPolicy`, `ClientAuthorizationPolicy`, `ShiftTemplatePolicy`, `CarePlanPolicy`, `CarePlanTaskTemplatePolicy`, `ScheduledVisitPolicy`, `SkipReasonPolicy`, `VisitPolicy`, `VisitExceptionPolicy`) and `User` helpers (`isAdmin()`, `isSupervisor()`, `isDsp()`). Never rely on UI hiding alone.
 
 ## Phase 1A policy scope
 
@@ -39,12 +39,18 @@ This is the simplest Laravel approach for three application roles. Authorization
 - DSP: clock in only on their own scheduled visit, and only while their employee record is an active DSP. One active visit at a time.
 - Admin / Supervisor: may view in-scope active visit records (admin: all; supervisor: same scheduled-visit caseload rules). Cannot clock in.
 
-Module-specific permissions for payroll and messaging will be added with those features.
-
 ## Phase 3B-2B clock-out and task policy scope
 
-- DSP: complete/skip own in-progress visit tasks, save visit notes/handover, and clock out own in-progress visit. Cannot act on another DSP’s visit. Duplicate clock-out is blocked.
-- Admin / Supervisor: may view in-scope visit records. Cannot complete tasks or clock out. Supervisor exception-management UI is later work.
+- DSP: complete/skip own in-progress visit tasks, save visit notes/handover, and clock out own in-progress visit. Cannot act on another DSP's visit. Duplicate clock-out is blocked.
+- Admin / Supervisor: may view in-scope visit records. Cannot complete tasks or clock out.
+
+## Phase 3C supervisor operations and exception review
+
+- Admin: view the operations board; view and review/resolve any visit exception; view the supervisor directory and each supervisor's caseload board. Cannot alter DSP clock events.
+- Supervisor: view the operations board, visits, and exceptions only for their caseload (assigned DSPs, assigned clients, or supervisor of record). May mark in-scope exceptions reviewed or resolved. Cannot open another supervisor's caseload. Cannot clock in, complete tasks, or clock out.
+- DSP: cannot open operations, exception review, or the supervisor directory.
+
+Module-specific permissions for payroll and messaging will be added with those features.
 
 ## Account provisioning note
 

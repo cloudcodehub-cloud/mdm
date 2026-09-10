@@ -12,6 +12,11 @@ class EmployeePolicy
         return $user->isAdmin() || $user->isSupervisor();
     }
 
+    public function viewSupervisorDirectory(User $user): bool
+    {
+        return $user->isAdmin();
+    }
+
     public function view(User $user, Employee $employee): bool
     {
         if ($user->isAdmin()) {

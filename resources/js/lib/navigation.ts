@@ -4,6 +4,7 @@ import {
     ClipboardCheck,
     HeartHandshake,
     LayoutDashboard,
+    ListChecks,
     MessageSquare,
     ShieldCheck,
     UserCog,
@@ -15,6 +16,7 @@ import { index as clients } from '@/routes/clients';
 import { index as compliance } from '@/routes/compliance';
 import { index as employees } from '@/routes/employees';
 import { index as messages } from '@/routes/messages';
+import { index as operations } from '@/routes/operations';
 import { index as reports } from '@/routes/reports';
 import { index as scheduledVisits } from '@/routes/scheduled-visits';
 import { index as supervisors } from '@/routes/supervisors';
@@ -49,6 +51,12 @@ export const mainNavigation: RoleNavItem[] = [
         href: scheduledVisits(),
         icon: CalendarClock,
         roles: ['ADMIN', 'SUPERVISOR', 'DSP'],
+    },
+    {
+        title: 'Operations',
+        href: operations(),
+        icon: ListChecks,
+        roles: ['ADMIN', 'SUPERVISOR'],
     },
     {
         title: 'Supervisors',

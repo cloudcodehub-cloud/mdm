@@ -4,11 +4,13 @@ namespace App\Services;
 
 use App\Enums\VisitExceptionStatus;
 use App\Enums\VisitExceptionType;
+use App\Models\User;
 use App\Models\Visit;
 use App\Models\VisitException;
 use App\Models\VisitTask;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Validation\ValidationException;
 
 class VisitExceptionService
 {
@@ -46,6 +48,81 @@ class VisitExceptionService
 
             throw $exception;
         }
+    }
+
+    public function review(VisitException $exception, User $user, ?string $notes = null): VisitException
+    {
+        if (! $exception->isOpen()) {
+            throw ValidationException::withMessages([
+                'status' => 'Only open exceptions can be marked reviewed.',
+            ]);
+        }
+
+        $notes = $this->normalizeNotes($notes);
+
+        $exception->forceFill([
+            'status' => VisitExceptionStatus::Reviewed,
+            'reviewed_by_user_id' => $user->id,
+            'reviewed_at' => now(),
+            'review_notes' => $notes,
+            'status_history' => $this->appendHistory($exception, VisitExceptionStatus::Reviewed, $user, $notes),
+        ])->save();
+
+        return $exception->refresh();
+    }
+
+    public function resolve(VisitException $exception, User $user, ?string $notes = null): VisitException
+    {
+        if ($exception->isResolved()) {
+            throw ValidationException::withMessages([
+                'status' => 'This exception is already resolved.',
+            ]);
+        }
+
+        $notes = $this->normalizeNotes($notes);
+
+        $exception->forceFill([
+            'status' => VisitExceptionStatus::Resolved,
+            'resolved_by_user_id' => $user->id,
+            'resolved_at' => now(),
+            'resolution_notes' => $notes,
+            'status_history' => $this->appendHistory($exception, VisitExceptionStatus::Resolved, $user, $notes),
+        ])->save();
+
+        return $exception->refresh();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function appendHistory(
+        VisitException $exception,
+        VisitExceptionStatus $status,
+        User $user,
+        ?string $notes,
+    ): array {
+        $history = $exception->status_history ?? [];
+
+        $history[] = [
+            'status' => $status->value,
+            'at' => now()->toIso8601String(),
+            'user_id' => $user->id,
+            'user_name' => $user->name,
+            'notes' => $notes,
+        ];
+
+        return $history;
+    }
+
+    private function normalizeNotes(?string $notes): ?string
+    {
+        if ($notes === null) {
+            return null;
+        }
+
+        $notes = trim($notes);
+
+        return $notes === '' ? null : $notes;
     }
 
     private function existing(Visit $visit, VisitExceptionType $type, ?VisitTask $task): ?VisitException

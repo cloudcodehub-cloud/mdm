@@ -1,10 +1,11 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { AttentionList } from '@/components/mdm/attention-list';
 import { ClockInAction } from '@/components/mdm/clock-in-action';
 import { ActivityList, PersonList } from '@/components/mdm/person-list';
 import { Panel, StatCard } from '@/components/mdm/stat-card';
 import { VisitList } from '@/components/mdm/visit-list';
 import { dashboard } from '@/routes';
+import { index as operationsIndex } from '@/routes/operations';
 import type { DashboardPayload } from '@/types/dashboard';
 
 export default function Dashboard({
@@ -108,7 +109,7 @@ function SupervisorDashboard({ data }: { data: DashboardPayload }) {
         <div className="grid gap-4 xl:grid-cols-3">
             <Panel
                 title="Today's scheduled visits"
-                description="Visits for assigned DSPs and clients."
+                description="Open the operations board for live caseload monitoring."
                 className="xl:col-span-2"
             >
                 <VisitList
@@ -116,6 +117,14 @@ function SupervisorDashboard({ data }: { data: DashboardPayload }) {
                     showEmployee
                     empty="No visits scheduled for your caseload today."
                 />
+                <p className="mt-3 text-sm">
+                    <Link
+                        href={operationsIndex()}
+                        className="hover:text-foreground font-medium"
+                    >
+                        Open supervisor operations
+                    </Link>
+                </p>
             </Panel>
             <Panel title="Operational attention">
                 <AttentionList items={data.attention_items} />
