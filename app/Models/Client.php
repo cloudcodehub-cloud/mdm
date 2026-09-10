@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use App\Enums\ClientStatus;
+use App\Support\PrefixedNumber;
 use Database\Factories\ClientFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -39,9 +42,12 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $deleted_at
  * @property-read string $full_name
  * @property-read Employee|null $supervisor
- * @property-read \Illuminate\Database\Eloquent\Collection<int, ClientAuthorization> $authorizations
- * @property-read \Illuminate\Database\Eloquent\Collection<int, CarePlan> $carePlans
- * @property-read \Illuminate\Database\Eloquent\Collection<int, ScheduledVisit> $scheduledVisits
+ * @property-read Collection<int, ClientAuthorization> $authorizations
+ * @property-read Collection<int, CarePlan> $carePlans
+ * @property-read Collection<int, ScheduledVisit> $scheduledVisits
+ *
+ * @method static Builder<static> visibleTo(User $user)
+ * @method static Builder<static> search(?string $term)
  */
 #[Fillable([
     'client_number',
@@ -139,5 +145,51 @@ class Client extends Model
             $this->middle_name,
             $this->last_name,
         ])->filter()->implode(' '));
+    }
+
+    public static function nextClientNumber(): string
+    {
+        return PrefixedNumber::next(self::withTrashed(), 'client_number', 'CLT-');
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        if ($user->isAdmin()) {
+            return $query;
+        }
+
+        if ($user->isSupervisor() && $user->employee) {
+            return $query->where('supervisor_id', $user->employee->id);
+        }
+
+        if ($user->isDsp() && $user->employee) {
+            return $query->whereIn('id', $user->employee->clientAssignments()->active()->select('client_id'));
+        }
+
+        return $query->whereRaw('1 = 0');
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeSearch(Builder $query, ?string $term): Builder
+    {
+        $term = trim((string) $term);
+
+        if ($term === '') {
+            return $query;
+        }
+
+        return $query->where(function (Builder $builder) use ($term): void {
+            $builder->where('client_number', 'like', '%'.$term.'%')
+                ->orWhere('first_name', 'like', '%'.$term.'%')
+                ->orWhere('last_name', 'like', '%'.$term.'%')
+                ->orWhere('email', 'like', '%'.$term.'%');
+        });
     }
 }

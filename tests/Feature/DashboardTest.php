@@ -125,11 +125,27 @@ class DashboardTest extends TestCase
         $admin = User::query()->where('email', 'admin@mdm.test')->firstOrFail();
 
         $this->actingAs($admin)
-            ->get(route('employees.index'))
+            ->get(route('attendance.index'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('modules/coming-soon')
-                ->where('title', 'Employees')
+                ->where('title', 'Attendance')
             );
+    }
+
+    public function test_admin_can_open_employee_and_client_directories(): void
+    {
+        $this->seed(DemoSeeder::class);
+        $admin = User::query()->where('email', 'admin@mdm.test')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->get(route('employees.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('employees/index'));
+
+        $this->actingAs($admin)
+            ->get(route('clients.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('clients/index'));
     }
 }

@@ -13,16 +13,6 @@ class ComingSoonController extends Controller
      * @var array<string, array{title: string, description: string, roles: list<Role>}>
      */
     private const MODULES = [
-        'employees.index' => [
-            'title' => 'Employees',
-            'description' => 'Employee records and DSP profiles will be available in a later phase.',
-            'roles' => [Role::Admin, Role::Supervisor],
-        ],
-        'clients.index' => [
-            'title' => 'Clients',
-            'description' => 'Client records and caseload management will be available in a later phase.',
-            'roles' => [Role::Admin, Role::Supervisor],
-        ],
         'supervisors.index' => [
             'title' => 'Supervisors',
             'description' => 'Supervisor administration will be available in a later phase.',

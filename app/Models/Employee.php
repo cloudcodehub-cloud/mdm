@@ -4,9 +4,12 @@ namespace App\Models;
 
 use App\Enums\EmploymentStatus;
 use App\Enums\JobType;
+use App\Support\PrefixedNumber;
 use Database\Factories\EmployeeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -46,10 +49,13 @@ use Illuminate\Support\Carbon;
  * @property-read string $full_name
  * @property-read User|null $user
  * @property-read Employee|null $supervisor
- * @property-read \Illuminate\Database\Eloquent\Collection<int, EmployeeCredential> $credentials
- * @property-read \Illuminate\Database\Eloquent\Collection<int, EmployeeTraining> $trainings
- * @property-read \Illuminate\Database\Eloquent\Collection<int, ScheduledVisit> $scheduledVisits
- * @property-read \Illuminate\Database\Eloquent\Collection<int, ScheduledVisit> $supervisedVisits
+ * @property-read Collection<int, EmployeeCredential> $credentials
+ * @property-read Collection<int, EmployeeTraining> $trainings
+ * @property-read Collection<int, ScheduledVisit> $scheduledVisits
+ * @property-read Collection<int, ScheduledVisit> $supervisedVisits
+ *
+ * @method static Builder<static> visibleTo(User $user)
+ * @method static Builder<static> search(?string $term)
  */
 #[Fillable([
     'employee_number',
@@ -191,5 +197,55 @@ class Employee extends Model
             $this->middle_name,
             $this->last_name,
         ])->filter()->implode(' '));
+    }
+
+    public static function nextEmployeeNumber(): string
+    {
+        return PrefixedNumber::next(self::withTrashed(), 'employee_number', 'EMP-');
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        if ($user->isAdmin()) {
+            return $query;
+        }
+
+        if ($user->isSupervisor() && $user->employee) {
+            return $query->where(function (Builder $builder) use ($user): void {
+                $builder->where('supervisor_id', $user->employee->id)
+                    ->orWhere('id', $user->employee->id);
+            });
+        }
+
+        if ($user->isDsp() && $user->employee) {
+            return $query->where('id', $user->employee->id);
+        }
+
+        return $query->whereRaw('1 = 0');
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeSearch(Builder $query, ?string $term): Builder
+    {
+        $term = trim((string) $term);
+
+        if ($term === '') {
+            return $query;
+        }
+
+        return $query->where(function (Builder $builder) use ($term): void {
+            $builder->where('employee_number', 'like', '%'.$term.'%')
+                ->orWhere('first_name', 'like', '%'.$term.'%')
+                ->orWhere('last_name', 'like', '%'.$term.'%')
+                ->orWhere('email', 'like', '%'.$term.'%')
+                ->orWhere('job_title', 'like', '%'.$term.'%');
+        });
     }
 }

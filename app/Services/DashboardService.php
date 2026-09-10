@@ -33,7 +33,7 @@ class DashboardService
 
         return [
             'role' => $user->role->value,
-            'greeting_name' => $employee?->first_name ?? $user->name,
+            'greeting_name' => $employee !== null ? $employee->first_name : $user->name,
             'today' => $today->toDateString(),
             'metrics' => $this->metrics($user, $employee, $today),
             'today_visits' => $this->serializeVisits($this->todayVisits($user, $employee, $today)),
@@ -161,7 +161,7 @@ class DashboardService
             return [];
         }
 
-        return $this->dspReportsQuery($employee)
+        return $this->values($this->dspReportsQuery($employee)
             ->orderBy('last_name')
             ->orderBy('first_name')
             ->get()
@@ -170,8 +170,7 @@ class DashboardService
                 'name' => $dsp->full_name,
                 'employee_number' => $dsp->employee_number,
                 'job_title' => $dsp->job_title,
-            ])
-            ->all();
+            ]));
     }
 
     /**
@@ -184,24 +183,22 @@ class DashboardService
                 return [];
             }
 
-            return $employee->clientAssignments()
+            return $this->values($employee->clientAssignments()
                 ->active()
                 ->with('client')
                 ->get()
-                ->map(fn (ClientDspAssignment $assignment): array => $this->clientSummary($assignment->client))
-                ->all();
+                ->map(fn (ClientDspAssignment $assignment): array => $this->clientSummary($assignment->client)));
         }
 
         if (! $user->isSupervisor()) {
             return [];
         }
 
-        return $this->supervisedClientsQuery($employee)
+        return $this->values($this->supervisedClientsQuery($employee)
             ->orderBy('last_name')
             ->orderBy('first_name')
             ->get()
-            ->map(fn (Client $client): array => $this->clientSummary($client))
-            ->all();
+            ->map(fn (Client $client): array => $this->clientSummary($client)));
     }
 
     /**
@@ -262,7 +259,7 @@ class DashboardService
      */
     private function activity(User $user, ?Employee $employee): array
     {
-        return $this->visitsQuery($user, $employee)
+        return $this->values($this->visitsQuery($user, $employee)
             ->with(['client', 'employee'])
             ->orderByDesc('updated_at')
             ->limit(8)
@@ -272,8 +269,7 @@ class DashboardService
                 'title' => $visit->service_type,
                 'detail' => $visit->client->full_name.' with '.$visit->employee->full_name,
                 'occurred_on' => $visit->service_date->toDateString(),
-            ])
-            ->all();
+            ]));
     }
 
     /**
@@ -282,7 +278,7 @@ class DashboardService
      */
     private function serializeVisits(Collection $visits): array
     {
-        return $visits->map(fn (ScheduledVisit $visit): array => [
+        return $this->values($visits->map(fn (ScheduledVisit $visit): array => [
             'id' => $visit->id,
             'service_date' => $visit->service_date->toDateString(),
             'service_type' => $visit->service_type,
@@ -294,7 +290,7 @@ class DashboardService
                 'id' => $visit->employee->id,
                 'name' => $visit->employee->full_name,
             ],
-        ])->all();
+        ]));
     }
 
     private function visitTimeLabel(ScheduledVisit $visit): string
@@ -364,7 +360,7 @@ class DashboardService
                     $ids = $this->dspReportsQuery($employee)->pluck('id');
                     $builder->whereIn('id', $ids);
                 } elseif ($user->isDsp()) {
-                    $builder->where('id', $employee?->id ?? 0);
+                    $builder->where('id', $employee === null ? 0 : $employee->id);
                 }
             })
             ->where(function (Builder $builder): void {
@@ -396,7 +392,7 @@ class DashboardService
                     $ids = $this->dspReportsQuery($employee)->pluck('id');
                     $builder->whereIn('id', $ids);
                 } elseif ($user->isDsp()) {
-                    $builder->where('id', $employee?->id ?? 0);
+                    $builder->where('id', $employee === null ? 0 : $employee->id);
                 }
             })
             ->where(function (Builder $builder): void {
@@ -431,5 +427,22 @@ class DashboardService
                 AuthorizationStatus::Expired,
                 AuthorizationStatus::Exhausted,
             ]);
+    }
+
+    /**
+     * @template T
+     *
+     * @param  iterable<T>  $items
+     * @return list<T>
+     */
+    private function values(iterable $items): array
+    {
+        $list = [];
+
+        foreach ($items as $item) {
+            $list[] = $item;
+        }
+
+        return $list;
     }
 }
