@@ -7,7 +7,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import { register } from '@/routes';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
 import PasskeyVerify from '@/components/passkey-verify';
@@ -94,9 +93,14 @@ export default function Login({ status, canResetPassword }: Props) {
 
                         <div className="text-muted-foreground text-center text-sm">
                             Don't have an account?{' '}
-                            <TextLink href={register()} tabIndex={5}>
+                            <span
+                                role="link"
+                                aria-disabled="true"
+                                title="Accounts are created by an administrator."
+                                className="text-foreground cursor-not-allowed underline decoration-neutral-300 underline-offset-4 opacity-50 dark:decoration-neutral-500"
+                            >
                                 Sign up
-                            </TextLink>
+                            </span>
                         </div>
                     </>
                 )}
