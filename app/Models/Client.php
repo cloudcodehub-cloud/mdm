@@ -40,6 +40,8 @@ use Illuminate\Support\Carbon;
  * @property-read string $full_name
  * @property-read Employee|null $supervisor
  * @property-read \Illuminate\Database\Eloquent\Collection<int, ClientAuthorization> $authorizations
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, CarePlan> $carePlans
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, ScheduledVisit> $scheduledVisits
  */
 #[Fillable([
     'client_number',
@@ -109,6 +111,22 @@ class Client extends Model
     public function authorizations(): HasMany
     {
         return $this->hasMany(ClientAuthorization::class);
+    }
+
+    /**
+     * @return HasMany<CarePlan, $this>
+     */
+    public function carePlans(): HasMany
+    {
+        return $this->hasMany(CarePlan::class);
+    }
+
+    /**
+     * @return HasMany<ScheduledVisit, $this>
+     */
+    public function scheduledVisits(): HasMany
+    {
+        return $this->hasMany(ScheduledVisit::class);
     }
 
     /**

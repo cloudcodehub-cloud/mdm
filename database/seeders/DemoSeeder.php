@@ -5,19 +5,26 @@ namespace Database\Seeders;
 use App\Enums\AssignmentStatus;
 use App\Enums\AuthorizationStatus;
 use App\Enums\AuthorizationUnit;
+use App\Enums\CarePlanStatus;
 use App\Enums\ClientStatus;
 use App\Enums\CredentialStatus;
 use App\Enums\CredentialType;
 use App\Enums\EmploymentStatus;
 use App\Enums\JobType;
+use App\Enums\ScheduledVisitStatus;
+use App\Enums\TaskRecurrence;
 use App\Enums\TrainingStatus;
+use App\Models\CarePlan;
+use App\Models\CarePlanTaskTemplate;
 use App\Models\Client;
 use App\Models\ClientAuthorization;
 use App\Models\ClientDspAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeCredential;
 use App\Models\EmployeeTraining;
+use App\Models\ScheduledVisit;
 use App\Models\ShiftTemplate;
+use App\Models\SkipReason;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -263,9 +270,12 @@ class DemoSeeder extends Seeder
         ]);
 
         $this->seedShiftTemplates();
+        $this->seedSkipReasons();
         $this->seedCredentials($jordan, $priya, $maya, $luis, $nina, $owen, $sara);
         $this->seedTrainings($maya, $luis, $nina, $owen, $sara);
         $this->seedAuthorizations($elena, $theo, $harper, $malik, $ruby, $ian);
+        $this->seedCarePlans($elena, $theo, $harper, $malik, $ruby, $ian);
+        $this->seedScheduledVisits($jordan, $priya, $maya, $luis, $nina, $elena, $theo, $harper, $malik, $ruby);
 
         if ($admin->employee()->exists()) {
             throw new \RuntimeException('Demo admin accounts must not have an employee profile.');
@@ -498,6 +508,210 @@ class DemoSeeder extends Seeder
             'unit' => AuthorizationUnit::Hour,
             'status' => AuthorizationStatus::Expired,
             'notes' => 'Closed with inactive client record.',
+        ]);
+    }
+
+    private function seedSkipReasons(): void
+    {
+        $reasons = [
+            ['name' => 'Client refused', 'code' => 'client_refused', 'requires_comment' => false, 'sort_order' => 1],
+            ['name' => 'Not applicable', 'code' => 'not_applicable', 'requires_comment' => false, 'sort_order' => 2],
+            ['name' => 'Already completed', 'code' => 'already_completed', 'requires_comment' => false, 'sort_order' => 3],
+            ['name' => 'Safety concern', 'code' => 'safety_concern', 'requires_comment' => false, 'sort_order' => 4],
+            ['name' => 'Client unavailable', 'code' => 'client_unavailable', 'requires_comment' => false, 'sort_order' => 5],
+            ['name' => 'Equipment or supply unavailable', 'code' => 'equipment_unavailable', 'requires_comment' => false, 'sort_order' => 6],
+            ['name' => 'Other', 'code' => 'other', 'requires_comment' => true, 'sort_order' => 7],
+        ];
+
+        foreach ($reasons as $reason) {
+            SkipReason::query()->create([
+                ...$reason,
+                'is_active' => true,
+            ]);
+        }
+    }
+
+    private function seedCarePlans(
+        Client $elena,
+        Client $theo,
+        Client $harper,
+        Client $malik,
+        Client $ruby,
+        Client $ian,
+    ): void {
+        $elenaPlan = $this->createCarePlan($elena, 'Elena Vasquez ISP 2026', '2026-01-01', '2026-12-31', CarePlanStatus::Active);
+        $this->createTask($elenaPlan, 'Assist with morning ADLs', TaskRecurrence::Daily, 1, 'Support hygiene, dressing, and breakfast.');
+        $this->createTask($elenaPlan, 'Community outing', TaskRecurrence::Weekly, 2, 'Support a community activity of Elena’s choosing.');
+        $this->createTask($elenaPlan, 'Medication administration check', TaskRecurrence::Monthly, 3, 'Review medication count with the nurse.');
+        $this->createTask($elenaPlan, 'Annual ISP goal review', TaskRecurrence::Annual, 4, 'Document progress toward independence goals.');
+
+        $theoPlan = $this->createCarePlan($theo, 'Theo Anders Personal Care Plan', '2026-03-01', '2026-12-31', CarePlanStatus::Active);
+        $this->createTask($theoPlan, 'Personal care support', TaskRecurrence::Daily, 1);
+        $this->createTask($theoPlan, 'Grocery shopping support', TaskRecurrence::Biweekly, 2, 'Assist with a shopping list and store visit.');
+        $this->createTask($theoPlan, 'Weekday breakfast setup', TaskRecurrence::Custom, 3, 'Set out breakfast items before 9 a.m.', 'Every weekday morning');
+
+        $harperPrior = $this->createCarePlan($harper, 'Harper Cole ISP 2025', '2025-01-01', '2025-12-31', CarePlanStatus::Inactive, 'Superseded by the 2026 plan.');
+        $this->createTask($harperPrior, 'Daily living skills', TaskRecurrence::Daily, 1);
+        $this->createTask($harperPrior, 'Community integration outing', TaskRecurrence::Weekly, 2);
+
+        $harperPlan = $this->createCarePlan($harper, 'Harper Cole ISP 2026', '2026-01-01', '2026-12-31', CarePlanStatus::Active);
+        $this->createTask($harperPlan, 'Daily living skills', TaskRecurrence::Daily, 1);
+        $this->createTask($harperPlan, 'Community integration outing', TaskRecurrence::Weekly, 2);
+        $this->createTask($harperPlan, 'Home safety drill', TaskRecurrence::Monthly, 3, 'Practice fire and weather safety steps.');
+
+        $malikPlan = $this->createCarePlan($malik, 'Malik Hassan Residential Plan', '2026-02-01', '2027-01-31', CarePlanStatus::Active);
+        $this->createTask($malikPlan, 'Residential habilitation support', TaskRecurrence::Daily, 1);
+        $this->createTask($malikPlan, 'Community recreation', TaskRecurrence::Weekly, 2);
+        $this->createTask($malikPlan, 'Annual skills assessment', TaskRecurrence::Annual, 3);
+
+        $rubyPlan = $this->createCarePlan($ruby, 'Ruby Foster Personal Care Plan', '2026-01-15', '2026-12-15', CarePlanStatus::Active);
+        $this->createTask($rubyPlan, 'Personal care support', TaskRecurrence::Daily, 1);
+        $this->createTask($rubyPlan, 'Weekend family visit support', TaskRecurrence::Custom, 2, null, 'Saturdays when family is available');
+
+        $ianPlan = $this->createCarePlan($ian, 'Ian Brooks Closed Care Plan', '2024-01-01', '2025-06-30', CarePlanStatus::Inactive, 'Historical plan retained with inactive client.');
+        $this->createTask($ianPlan, 'Personal care support', TaskRecurrence::Daily, 1);
+        $this->createTask($ianPlan, 'Weekly wellness walk', TaskRecurrence::Weekly, 2);
+    }
+
+    private function seedScheduledVisits(
+        Employee $jordan,
+        Employee $priya,
+        Employee $maya,
+        Employee $luis,
+        Employee $nina,
+        Client $elena,
+        Client $theo,
+        Client $harper,
+        Client $malik,
+        Client $ruby,
+    ): void {
+        $day = ShiftTemplate::query()->where('code', 'day_7_3')->firstOrFail();
+        $evening = ShiftTemplate::query()->where('code', 'evening_3_11')->firstOrFail();
+        $overnight = ShiftTemplate::query()->where('code', 'overnight_11_7')->firstOrFail();
+
+        ScheduledVisit::query()->create([
+            'client_id' => $elena->id,
+            'employee_id' => $maya->id,
+            'supervisor_id' => $jordan->id,
+            'shift_template_id' => $day->id,
+            'service_date' => '2026-09-11',
+            'service_type' => 'Residential Habilitation',
+            'status' => ScheduledVisitStatus::Scheduled,
+        ]);
+
+        ScheduledVisit::query()->create([
+            'client_id' => $theo->id,
+            'employee_id' => $maya->id,
+            'supervisor_id' => $jordan->id,
+            'shift_template_id' => $evening->id,
+            'service_date' => '2026-09-12',
+            'service_type' => 'Personal Care',
+            'status' => ScheduledVisitStatus::Scheduled,
+        ]);
+
+        ScheduledVisit::query()->create([
+            'client_id' => $elena->id,
+            'employee_id' => $luis->id,
+            'supervisor_id' => $jordan->id,
+            'shift_template_id' => $overnight->id,
+            'service_date' => '2026-09-10',
+            'service_type' => 'Residential Habilitation',
+            'status' => ScheduledVisitStatus::Scheduled,
+            'notes' => 'Overnight coverage using the 11–7 template.',
+        ]);
+
+        ScheduledVisit::query()->create([
+            'client_id' => $harper->id,
+            'employee_id' => $luis->id,
+            'supervisor_id' => $jordan->id,
+            'shift_template_id' => null,
+            'service_date' => '2026-09-13',
+            'starts_at' => '09:00:00',
+            'ends_at' => '13:00:00',
+            'service_type' => 'Community Integration',
+            'status' => ScheduledVisitStatus::Scheduled,
+            'notes' => 'Partial-day outing with explicit start and end times.',
+        ]);
+
+        ScheduledVisit::query()->create([
+            'client_id' => $malik->id,
+            'employee_id' => $nina->id,
+            'supervisor_id' => $priya->id,
+            'shift_template_id' => $day->id,
+            'service_date' => '2026-09-11',
+            'service_type' => 'Residential Habilitation',
+            'status' => ScheduledVisitStatus::Scheduled,
+        ]);
+
+        ScheduledVisit::query()->create([
+            'client_id' => $ruby->id,
+            'employee_id' => $nina->id,
+            'supervisor_id' => $priya->id,
+            'shift_template_id' => $evening->id,
+            'service_date' => '2026-09-14',
+            'service_type' => 'Personal Care',
+            'status' => ScheduledVisitStatus::Scheduled,
+        ]);
+
+        ScheduledVisit::query()->create([
+            'client_id' => $elena->id,
+            'employee_id' => $maya->id,
+            'supervisor_id' => $jordan->id,
+            'shift_template_id' => $day->id,
+            'service_date' => '2026-09-08',
+            'service_type' => 'Residential Habilitation',
+            'status' => ScheduledVisitStatus::Cancelled,
+            'notes' => 'Cancelled after the client became unavailable.',
+        ]);
+
+        ScheduledVisit::query()->create([
+            'client_id' => $harper->id,
+            'employee_id' => $luis->id,
+            'supervisor_id' => $jordan->id,
+            'shift_template_id' => null,
+            'service_date' => '2026-09-15',
+            'starts_at' => '22:00:00',
+            'ends_at' => '06:00:00',
+            'service_type' => 'Community Integration',
+            'status' => ScheduledVisitStatus::Scheduled,
+            'notes' => 'Explicit overnight window without a shift template.',
+        ]);
+    }
+
+    private function createCarePlan(
+        Client $client,
+        string $title,
+        string $startsOn,
+        ?string $endsOn,
+        CarePlanStatus $status,
+        ?string $notes = null,
+    ): CarePlan {
+        return CarePlan::query()->create([
+            'client_id' => $client->id,
+            'title' => $title,
+            'starts_on' => $startsOn,
+            'ends_on' => $endsOn,
+            'status' => $status,
+            'notes' => $notes,
+        ]);
+    }
+
+    private function createTask(
+        CarePlan $carePlan,
+        string $title,
+        TaskRecurrence $recurrence,
+        int $sortOrder,
+        ?string $instructions = null,
+        ?string $recurrenceDetail = null,
+    ): CarePlanTaskTemplate {
+        return CarePlanTaskTemplate::query()->create([
+            'care_plan_id' => $carePlan->id,
+            'title' => $title,
+            'instructions' => $instructions,
+            'recurrence' => $recurrence,
+            'recurrence_detail' => $recurrenceDetail,
+            'is_required' => true,
+            'sort_order' => $sortOrder,
         ]);
     }
 

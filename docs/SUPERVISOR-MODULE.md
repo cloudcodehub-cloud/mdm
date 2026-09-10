@@ -7,7 +7,7 @@ Support SUPERVISOR users who manage and monitor assigned DSPs and clients.
 ## Planned concerns (placeholder)
 
 - Assigned DSPs and clients
-- Scheduled visits overview
+- Scheduled visits overview (domain: `scheduled_visits`; supervisor UI later)
 - Attendance monitoring
 - Exceptions and operational issues
 - Visit/task progress

@@ -8,6 +8,8 @@ Phase 1A adds PHPUnit feature tests under `tests/Feature/Domain` for roles, User
 
 Phase 1B-1 adds PHPUnit feature tests for employee credentials, training, client authorizations, shift templates (including overnight 11–7 windows), related policies, and demo seed coverage.
 
+Phase 1B-2 adds PHPUnit feature tests for care plans (active/historical), care-plan task recurrence (including custom), scheduled visits (shift template or explicit times, including overnight), skip reasons, related policies/form requests, and demo seed coverage.
+
 Pest was not added: `laravel/pao` in this starter conflicts with `pestphp/pest`. Tests use the existing PHPUnit + `php artisan test` setup.
 
 ## Expectations going forward

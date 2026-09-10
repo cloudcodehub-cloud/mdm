@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -20,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property bool $is_active
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, ScheduledVisit> $scheduledVisits
  *
  * @method static Builder<static> active()
  */
@@ -84,6 +86,14 @@ class ShiftTemplate extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * @return HasMany<ScheduledVisit, $this>
+     */
+    public function scheduledVisits(): HasMany
+    {
+        return $this->hasMany(ScheduledVisit::class);
     }
 
     private function clockOn(CarbonInterface $serviceDate, string $time): CarbonInterface

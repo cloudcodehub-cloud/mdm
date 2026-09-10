@@ -48,6 +48,8 @@ use Illuminate\Support\Carbon;
  * @property-read Employee|null $supervisor
  * @property-read \Illuminate\Database\Eloquent\Collection<int, EmployeeCredential> $credentials
  * @property-read \Illuminate\Database\Eloquent\Collection<int, EmployeeTraining> $trainings
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, ScheduledVisit> $scheduledVisits
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, ScheduledVisit> $supervisedVisits
  */
 #[Fillable([
     'employee_number',
@@ -157,6 +159,26 @@ class Employee extends Model
     public function trainings(): HasMany
     {
         return $this->hasMany(EmployeeTraining::class);
+    }
+
+    /**
+     * Visits assigned to this employee as the DSP.
+     *
+     * @return HasMany<ScheduledVisit, $this>
+     */
+    public function scheduledVisits(): HasMany
+    {
+        return $this->hasMany(ScheduledVisit::class);
+    }
+
+    /**
+     * Visits listing this employee as the optional supervisor of record.
+     *
+     * @return HasMany<ScheduledVisit, $this>
+     */
+    public function supervisedVisits(): HasMany
+    {
+        return $this->hasMany(ScheduledVisit::class, 'supervisor_id');
     }
 
     /**

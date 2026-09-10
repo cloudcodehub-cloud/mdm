@@ -15,4 +15,14 @@ Support DSP (Direct Support Professional) day-to-day service delivery.
 7. Complete visit summary / handover
 8. Clock out
 
-Detailed requirements will be added when DSP operations are implemented.
+## Phase 1B-2 foundation
+
+Domain records now exist for the upcoming workflow (no DSP UI or clock-in yet):
+
+- Care plans and task templates on the assigned client
+- `scheduled_visits` for the DSP (`employee_id`) with a service date and either a shift template or explicit times
+- Seeded skip reasons, including **Other** which will later require a comment
+
+DSPs may view care plans for currently assigned clients, their own scheduled visits, and skip reasons. They cannot create or update those records in this phase.
+
+Detailed operational screens will be added when DSP operations are implemented.

@@ -1,10 +1,10 @@
 # Database
 
-## Current (Phase 1A + Phase 1B-1)
+## Current (Phase 1A + Phase 1B-1 + Phase 1B-2)
 
 - Driver: **SQLite** (`database/database.sqlite`)
 - Auth-related tables from the Laravel starter (users, cache, jobs, passkeys, two-factor columns)
-- Domain tables: `employees`, `clients`, `client_dsp_assignments`, `employee_credentials`, `employee_trainings`, `client_authorizations`, `shift_templates`
+- Domain tables: `employees`, `clients`, `client_dsp_assignments`, `employee_credentials`, `employee_trainings`, `client_authorizations`, `shift_templates`, `care_plans`, `care_plan_task_templates`, `scheduled_visits`, `skip_reasons`
 - `users.role` stores `ADMIN`, `SUPERVISOR`, or `DSP`
 
 ## Conventions
@@ -13,7 +13,7 @@
 - Use Eloquent relationships between domain models.
 - Do not hard-delete employees or clients; retain records with status and soft deletes.
 - DSP ↔ client coverage uses `client_dsp_assignments` rows (never comma-separated IDs).
-- Overnight shifts are modeled by start/end times on `shift_templates`. When `ends_at` is earlier than or equal to `starts_at`, the shift ends on the next calendar day (for example 11 p.m.–7 a.m.).
+- Overnight shifts are modeled by start/end times on `shift_templates` (and on scheduled visits that store explicit times). When `ends_at` is earlier than or equal to `starts_at`, the window ends on the next calendar day (for example 11 p.m.–7 a.m.).
 
 ## Core tables
 
@@ -49,9 +49,25 @@ Payer authorizations for a client. Unique `authorization_number`. Includes payer
 
 Reusable shift definitions used later for scheduling. Seeded templates: **7–3** (`07:00`–`15:00`), **3–11** (`15:00`–`23:00`), and **11–7** (`23:00`–`07:00`, overnight). Duration is derived from start/end times, not stored.
 
+### care_plans
+
+Client care/service plans with active and historical periods. `starts_on` / optional `ends_on`, status (`active`, `inactive`). A client may have one currently active plan and retained historical plans.
+
+### care_plan_task_templates
+
+Tasks that belong to a care plan. Recurrence is `daily`, `weekly`, `biweekly`, `monthly`, `annual`, or `custom`. `recurrence_detail` is required when recurrence is `custom` (reserved for future/custom schedules).
+
+### skip_reasons
+
+Lookup list used later when a DSP skips a care-plan task. Seeded reasons: Client refused, Not applicable, Already completed, Safety concern, Client unavailable, Equipment or supply unavailable, Other. `Other` has `requires_comment = true` (comment enforcement comes with visit-task capture).
+
+### scheduled_visits
+
+A planned visit for a client with an assigned DSP (`employee_id`), optional supervisor of record, service date, service type, status (`scheduled`, `cancelled`, `completed`), and notes. Timing is either a `shift_template_id` or explicit `starts_at` / `ends_at`. Clock-in/out and attendance are not stored here yet.
+
 ## Demo seed
 
-`DemoSeeder` (called from `DatabaseSeeder`) loads fictional demo data, including credentials, training, authorizations, and the three shift templates.
+`DemoSeeder` (called from `DatabaseSeeder`) loads fictional demo data, including credentials, training, authorizations, shift templates, skip reasons, care plans, task templates, and scheduled visits.
 
 Shared demo password: **`password`**
 

@@ -3,13 +3,17 @@
 namespace Tests\Feature\Domain;
 
 use App\Enums\Role;
+use App\Models\CarePlan;
+use App\Models\CarePlanTaskTemplate;
 use App\Models\Client;
 use App\Models\ClientAuthorization;
 use App\Models\ClientDspAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeCredential;
 use App\Models\EmployeeTraining;
+use App\Models\ScheduledVisit;
 use App\Models\ShiftTemplate;
+use App\Models\SkipReason;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\DemoSeeder;
@@ -49,6 +53,13 @@ class DemoSeederTest extends TestCase
         $this->assertSame(7, EmployeeTraining::query()->count());
         $this->assertSame(7, ClientAuthorization::query()->count());
         $this->assertSame(3, ShiftTemplate::query()->count());
+        $this->assertSame(7, CarePlan::query()->count());
+        $this->assertSame(5, CarePlan::query()->currentlyActive()->count());
+        $this->assertSame(19, CarePlanTaskTemplate::query()->count());
+        $this->assertSame(7, SkipReason::query()->count());
+        $this->assertTrue(SkipReason::query()->where('code', 'other')->firstOrFail()->requires_comment);
+        $this->assertSame(8, ScheduledVisit::query()->count());
+        $this->assertSame(7, ScheduledVisit::query()->scheduled()->count());
 
         $overnight = ShiftTemplate::query()->where('code', 'overnight_11_7')->firstOrFail();
         $this->assertTrue($overnight->spansOvernight());

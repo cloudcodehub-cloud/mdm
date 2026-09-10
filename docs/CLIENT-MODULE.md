@@ -30,8 +30,15 @@ Do not store DSP or client lists as comma-separated IDs.
 
 Admins create and update authorizations. Supervisors may view authorizations for assigned clients. DSPs may view authorizations for currently assigned clients. Authorization history is retained (no hard delete).
 
+## Phase 1B-2 care plans
+
+`care_plans` belong to a client and support active vs historical periods (`starts_on` / `ends_on`, status `active` / `inactive`).
+
+`care_plan_task_templates` belong to a care plan. Recurrence values: daily, weekly, biweekly, monthly, annual, and custom (`recurrence_detail` holds the custom/future extension text).
+
+Admins create and update care plans and task templates. Supervisors may view plans for assigned clients. DSPs may view plans for currently assigned clients. History is retained (no hard delete). Clock-in, visit-task completion, and skip capture are later work.
+
 ## Planned later
 
-- Care plans
-- Care-plan task templates
 - Client management UI
+- Visit-task execution against care-plan templates

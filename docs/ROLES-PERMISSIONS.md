@@ -8,7 +8,7 @@ Roles live on `users.role` as a PHP backed enum (`App\Enums\Role`):
 - **SUPERVISOR** — assigned DSPs/clients, visits, attendance, exceptions, progress, handovers, operational issues
 - **DSP** — own schedule, assigned client selection, clock-in/out, care-plan tasks, notes/measurements, mandatory skip reasons, visit summary/handover
 
-This is the simplest Laravel approach for three application roles. Authorization is enforced with Policies (`EmployeePolicy`, `ClientPolicy`, `ClientDspAssignmentPolicy`, `EmployeeCredentialPolicy`, `EmployeeTrainingPolicy`, `ClientAuthorizationPolicy`, `ShiftTemplatePolicy`) and `User` helpers (`isAdmin()`, `isSupervisor()`, `isDsp()`). Never rely on UI hiding alone.
+This is the simplest Laravel approach for three application roles. Authorization is enforced with Policies (`EmployeePolicy`, `ClientPolicy`, `ClientDspAssignmentPolicy`, `EmployeeCredentialPolicy`, `EmployeeTrainingPolicy`, `ClientAuthorizationPolicy`, `ShiftTemplatePolicy`, `CarePlanPolicy`, `CarePlanTaskTemplatePolicy`, `ScheduledVisitPolicy`, `SkipReasonPolicy`) and `User` helpers (`isAdmin()`, `isSupervisor()`, `isDsp()`). Never rely on UI hiding alone.
 
 ## Phase 1A policy scope
 
@@ -22,7 +22,13 @@ This is the simplest Laravel approach for three application roles. Authorization
 - Supervisor: view credentials/training for assigned DSP reports; view authorizations for assigned clients; view shift templates. Cannot create or update them.
 - DSP: view own credentials/training, authorizations for currently assigned clients, and shift templates.
 
-Module-specific permissions for visits, EVV, payroll, and messaging will be added with those features.
+## Phase 1B-2 policy scope
+
+- Admin: create/update care plans, task templates, scheduled visits, and skip reasons. Cannot hard-delete these records.
+- Supervisor: view care plans/tasks for assigned clients; view scheduled visits for assigned clients or assigned DSP reports; view skip reasons. Cannot create or update them.
+- DSP: view care plans/tasks for currently assigned clients, own scheduled visits, and skip reasons.
+
+Module-specific permissions for clock-in, EVV visit records, payroll, and messaging will be added with those features.
 
 ## Account provisioning note
 
