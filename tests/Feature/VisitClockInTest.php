@@ -16,6 +16,7 @@ use App\Models\ScheduledVisit;
 use App\Models\User;
 use App\Models\Visit;
 use App\Models\VisitTask;
+use App\Services\SettingsService;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -101,7 +102,7 @@ class VisitClockInTest extends TestCase
         $dsp = Employee::factory()->dsp()->create();
         $other = Employee::factory()->dsp()->create();
         $scheduled = ScheduledVisit::factory()->forDsp($other)->create([
-            'service_date' => now()->toDateString(),
+            'service_date' => app(SettingsService::class)->today(),
         ]);
 
         $this->actingAs($dsp->user()->firstOrFail())
@@ -116,10 +117,10 @@ class VisitClockInTest extends TestCase
         $inactive = Employee::factory()->dsp()->inactive()->create();
         $terminated = Employee::factory()->dsp()->terminated()->create();
         $inactiveVisit = ScheduledVisit::factory()->forDsp($inactive)->create([
-            'service_date' => now()->toDateString(),
+            'service_date' => app(SettingsService::class)->today(),
         ]);
         $terminatedVisit = ScheduledVisit::factory()->forDsp($terminated)->create([
-            'service_date' => now()->toDateString(),
+            'service_date' => app(SettingsService::class)->today(),
         ]);
 
         $this->assertTrue(Gate::forUser($inactive->user()->firstOrFail())->denies('clockIn', $inactiveVisit));
@@ -142,12 +143,12 @@ class VisitClockInTest extends TestCase
     {
         $dsp = Employee::factory()->dsp()->create();
         $first = ScheduledVisit::factory()->forDsp($dsp)->create([
-            'service_date' => now()->toDateString(),
+            'service_date' => app(SettingsService::class)->today(),
             'starts_at' => '07:00:00',
             'ends_at' => '11:00:00',
         ]);
         $second = ScheduledVisit::factory()->forDsp($dsp)->create([
-            'service_date' => now()->toDateString(),
+            'service_date' => app(SettingsService::class)->today(),
             'starts_at' => '12:00:00',
             'ends_at' => '16:00:00',
         ]);
@@ -174,7 +175,7 @@ class VisitClockInTest extends TestCase
             'recurrence' => TaskRecurrence::Daily,
         ]);
         $scheduled = ScheduledVisit::factory()->forClient($client)->forDsp($dsp)->create([
-            'service_date' => now()->toDateString(),
+            'service_date' => app(SettingsService::class)->today(),
         ]);
         $user = $dsp->user()->firstOrFail();
 
@@ -199,7 +200,7 @@ class VisitClockInTest extends TestCase
     {
         $dsp = Employee::factory()->dsp()->create();
         $scheduled = ScheduledVisit::factory()->forDsp($dsp)->create([
-            'service_date' => now()->toDateString(),
+            'service_date' => app(SettingsService::class)->today(),
         ]);
 
         $this->actingAs($dsp->user()->firstOrFail())
@@ -218,7 +219,7 @@ class VisitClockInTest extends TestCase
     {
         $dsp = Employee::factory()->dsp()->create();
         $scheduled = ScheduledVisit::factory()->forDsp($dsp)->create([
-            'service_date' => now()->toDateString(),
+            'service_date' => app(SettingsService::class)->today(),
         ]);
 
         $this->actingAs($dsp->user()->firstOrFail())

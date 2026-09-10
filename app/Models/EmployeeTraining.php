@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\TrainingStatus;
+use App\Services\SettingsService;
 use Database\Factories\EmployeeTrainingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -69,7 +70,7 @@ class EmployeeTraining extends Model
             return $this->status === TrainingStatus::Expired;
         }
 
-        return $this->expires_on->lt(($on ?? now())->startOfDay());
+        return $this->expires_on->toDateString() < ($on?->toDateString() ?? app(SettingsService::class)->today());
     }
 
     public function isCurrentlyValid(?Carbon $on = null): bool
@@ -90,7 +91,7 @@ class EmployeeTraining extends Model
         return $query->where('status', TrainingStatus::Completed)
             ->where(function (Builder $query): void {
                 $query->whereNull('expires_on')
-                    ->orWhereDate('expires_on', '>=', now()->toDateString());
+                    ->orWhereDate('expires_on', '>=', app(SettingsService::class)->today());
             });
     }
 }

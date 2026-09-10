@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import type { PropsWithChildren } from 'react';
 import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
@@ -10,32 +10,43 @@ import { edit } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security';
 import type { NavItem } from '@/types';
 
-const sidebarNavItems: NavItem[] = [
-    {
-        title: 'Profile',
-        href: edit(),
-        icon: null,
-    },
-    {
-        title: 'Security',
-        href: editSecurity(),
-        icon: null,
-    },
-    {
-        title: 'Appearance',
-        href: editAppearance(),
-        icon: null,
-    },
-];
-
 export default function SettingsLayout({ children }: PropsWithChildren) {
+    const { auth } = usePage().props;
     const { isCurrentOrParentUrl } = useCurrentUrl();
+    const isAdmin = auth.user?.role === 'ADMIN';
+
+    const sidebarNavItems: NavItem[] = [
+        ...(isAdmin
+            ? [
+                  {
+                      title: 'General',
+                      href: '/settings/general',
+                      icon: null,
+                  } satisfies NavItem,
+              ]
+            : []),
+        {
+            title: 'Appearance',
+            href: editAppearance(),
+            icon: null,
+        },
+        {
+            title: 'Profile',
+            href: edit(),
+            icon: null,
+        },
+        {
+            title: 'Security',
+            href: editSecurity(),
+            icon: null,
+        },
+    ];
 
     return (
         <div className="px-4 py-6">
             <Heading
                 title="Settings"
-                description="Manage your profile and account settings"
+                description="Organization, appearance, profile, and security"
             />
 
             <div className="flex flex-col lg:flex-row lg:space-x-12">

@@ -21,6 +21,7 @@ use App\Models\SkipReason;
 use App\Models\User;
 use App\Models\Visit;
 use App\Models\VisitTask;
+use App\Services\SettingsService;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -357,9 +358,11 @@ final class DirectoryPresenter
             'status_label' => Str::headline($visit->status->value),
             'service_type' => $visit->service_type,
             'clocked_in_at' => $visit->clocked_in_at->toIso8601String(),
-            'clocked_in_at_label' => $visit->clocked_in_at->format('g:i A'),
+            'clocked_in_at_label' => app(SettingsService::class)->formatTime($visit->clocked_in_at),
             'clocked_out_at' => $visit->clocked_out_at?->toIso8601String(),
-            'clocked_out_at_label' => $visit->clocked_out_at?->format('g:i A'),
+            'clocked_out_at_label' => $visit->clocked_out_at === null
+                ? null
+                : app(SettingsService::class)->formatTime($visit->clocked_out_at),
             'location_method' => $visit->clock_in_location_method->value,
             'location_status' => $visit->clock_in_location_status->value,
             'location_status_label' => self::gpsStatusLabel($visit->clock_in_location_status->value),
@@ -460,7 +463,9 @@ final class DirectoryPresenter
             'status' => $task->status->value,
             'status_label' => Str::headline($task->status->value),
             'completed_at' => $task->completed_at?->toIso8601String(),
-            'completed_at_label' => $task->completed_at?->format('g:i A'),
+            'completed_at_label' => $task->completed_at === null
+                ? null
+                : app(SettingsService::class)->formatTime($task->completed_at),
             'skipped_at' => $task->skipped_at?->toIso8601String(),
             'skip_reason_id' => $task->skip_reason_id,
             'skip_reason_name' => $task->skipReason?->name,
@@ -509,7 +514,8 @@ final class DirectoryPresenter
             return 'Time not set';
         }
 
-        $label = $visit->startsAtOn()->format('g:i A').' – '.$visit->endsAtOn()->format('g:i A');
+        $settings = app(SettingsService::class);
+        $label = $settings->formatTime($visit->startsAtOn()).' – '.$settings->formatTime($visit->endsAtOn());
 
         if ($visit->spansOvernight()) {
             return $label.' next day';

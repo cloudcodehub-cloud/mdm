@@ -13,8 +13,8 @@ export default function Appearance() {
             <div className="space-y-6">
                 <Heading
                     variant="small"
-                    title="Appearance settings"
-                    description="Update the appearance settings for your account"
+                    title="Appearance"
+                    description="Choose System, Light, or Dark for your account. This does not change the organization theme for other users."
                 />
                 <AppearanceTabs />
             </div>

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\CredentialStatus;
 use App\Enums\CredentialType;
+use App\Services\SettingsService;
 use Database\Factories\EmployeeCredentialFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -72,7 +73,7 @@ class EmployeeCredential extends Model
             return $this->status === CredentialStatus::Expired;
         }
 
-        return $this->expires_on->lt(($on ?? now())->startOfDay());
+        return $this->expires_on->toDateString() < ($on?->toDateString() ?? app(SettingsService::class)->today());
     }
 
     public function isCurrentlyValid(?Carbon $on = null): bool
@@ -93,7 +94,7 @@ class EmployeeCredential extends Model
         return $query->where('status', CredentialStatus::Active)
             ->where(function (Builder $query): void {
                 $query->whereNull('expires_on')
-                    ->orWhereDate('expires_on', '>=', now()->toDateString());
+                    ->orWhereDate('expires_on', '>=', app(SettingsService::class)->today());
             });
     }
 }

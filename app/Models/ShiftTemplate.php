@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\SettingsService;
 use Carbon\CarbonInterface;
 use Database\Factories\ShiftTemplateFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -99,24 +100,7 @@ class ShiftTemplate extends Model
 
     private function clockOn(CarbonInterface $serviceDate, string $time): CarbonInterface
     {
-        [$hour, $minute, $second] = $this->timeParts($time);
-
-        return $serviceDate->toImmutable()->setTime($hour, $minute, $second);
-    }
-
-    /**
-     * @return array{0: int, 1: int, 2: int}
-     */
-    private function timeParts(string $time): array
-    {
-        $normalized = $this->normalizedTime($time);
-        $parts = explode(':', $normalized);
-
-        return [
-            (int) $parts[0],
-            (int) ($parts[1] ?? 0),
-            (int) ($parts[2] ?? 0),
-        ];
+        return app(SettingsService::class)->at($serviceDate->toDateString(), $time);
     }
 
     private function normalizedTime(string $time): string

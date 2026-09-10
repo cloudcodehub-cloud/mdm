@@ -5,6 +5,7 @@ export type User = {
     name: string;
     email: string;
     role: AppRole;
+    appearance?: 'system' | 'light' | 'dark';
     avatar?: string;
     email_verified_at: string | null;
     two_factor_enabled?: boolean;
@@ -15,6 +16,15 @@ export type User = {
 
 export type Auth = {
     user: User;
+};
+
+export type OrganizationSettings = {
+    organization_name: string;
+    timezone: string;
+    timezone_label: string;
+    date_format: string;
+    time_format: string;
+    first_day_of_week: number;
 };
 
 export type DemoWeather = {

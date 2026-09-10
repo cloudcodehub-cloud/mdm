@@ -1,21 +1,41 @@
+import { router, usePage } from '@inertiajs/react';
 import type { LucideIcon } from 'lucide-react';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import type { HTMLAttributes } from 'react';
 import type { Appearance } from '@/hooks/use-appearance';
 import { useAppearance } from '@/hooks/use-appearance';
 import { cn } from '@/lib/utils';
+import AppearanceController from '@/actions/App/Http/Controllers/Settings/AppearanceController';
 
 export default function AppearanceToggleTab({
     className = '',
     ...props
 }: HTMLAttributes<HTMLDivElement>) {
     const { appearance, updateAppearance } = useAppearance();
+    const { auth } = usePage().props;
 
     const tabs: { value: Appearance; icon: LucideIcon; label: string }[] = [
+        { value: 'system', icon: Monitor, label: 'System' },
         { value: 'light', icon: Sun, label: 'Light' },
         { value: 'dark', icon: Moon, label: 'Dark' },
-        { value: 'system', icon: Monitor, label: 'System' },
     ];
+
+    const persist = (value: Appearance) => {
+        updateAppearance(value);
+
+        if (!auth.user) {
+            return;
+        }
+
+        router.patch(
+            AppearanceController.update.url(),
+            { appearance: value },
+            {
+                preserveScroll: true,
+                preserveState: true,
+            },
+        );
+    };
 
     return (
         <div
@@ -28,7 +48,8 @@ export default function AppearanceToggleTab({
             {tabs.map(({ value, icon: Icon, label }) => (
                 <button
                     key={value}
-                    onClick={() => updateAppearance(value)}
+                    type="button"
+                    onClick={() => persist(value)}
                     className={cn(
                         'flex items-center rounded-md px-3.5 py-1.5 transition-colors',
                         appearance === value

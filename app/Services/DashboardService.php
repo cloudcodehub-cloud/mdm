@@ -18,26 +18,29 @@ use App\Models\EmployeeTraining;
 use App\Models\ScheduledVisit;
 use App\Models\User;
 use App\Support\DirectoryPresenter;
-use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class DashboardService
 {
-    public function __construct(private VisitClockInService $clockIn) {}
+    public function __construct(
+        private VisitClockInService $clockIn,
+        private SettingsService $settings,
+    ) {}
 
     /**
      * @return array<string, mixed>
      */
     public function forUser(User $user): array
     {
-        $today = now()->startOfDay();
+        $today = $this->settings->today();
         $employee = $user->employee;
 
         return [
             'role' => $user->role->value,
             'greeting_name' => $employee !== null ? $employee->first_name : $user->name,
-            'today' => $today->toDateString(),
+            'today' => $today,
             'metrics' => $this->metrics($user, $employee, $today),
             'today_visits' => $this->serializeVisits($this->todayVisits($user, $today)),
             'upcoming_visits' => $this->serializeVisits($this->upcomingVisits($user, $today)),
@@ -53,7 +56,7 @@ class DashboardService
     /**
      * @return list<array{key: string, label: string, value: int, hint: string}>
      */
-    private function metrics(User $user, ?Employee $employee, CarbonInterface $today): array
+    private function metrics(User $user, ?Employee $employee, string $today): array
     {
         if ($user->isAdmin()) {
             return [
@@ -112,7 +115,7 @@ class DashboardService
     /**
      * @return Collection<int, ScheduledVisit>
      */
-    private function todayVisits(User $user, CarbonInterface $today): Collection
+    private function todayVisits(User $user, string $today): Collection
     {
         return $this->visitQuery($user)
             ->with(['client', 'employee', 'shiftTemplate'])
@@ -125,7 +128,7 @@ class DashboardService
     /**
      * @return Collection<int, ScheduledVisit>
      */
-    private function upcomingVisits(User $user, CarbonInterface $today): Collection
+    private function upcomingVisits(User $user, string $today): Collection
     {
         return $this->visitsQuery($user)
             ->scheduled()
@@ -388,7 +391,7 @@ class DashboardService
                 ])->orWhere(function (Builder $inner): void {
                     $inner->where('status', CredentialStatus::Active)
                         ->whereNotNull('expires_on')
-                        ->whereDate('expires_on', '<=', now()->addDays(30)->toDateString());
+                        ->whereDate('expires_on', '<=', Carbon::parse($this->settings->today())->addDays($this->settings->credentialExpiringSoonDays())->toDateString());
                 });
             })
             ->orderBy('expires_on');
@@ -419,7 +422,7 @@ class DashboardService
                 ])->orWhere(function (Builder $inner): void {
                     $inner->where('status', TrainingStatus::Completed)
                         ->whereNotNull('expires_on')
-                        ->whereDate('expires_on', '<', now()->toDateString());
+                        ->whereDate('expires_on', '<', $this->settings->today());
                 });
             });
     }

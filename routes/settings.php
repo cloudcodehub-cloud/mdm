@@ -1,12 +1,24 @@
 <?php
 
+use App\Http\Controllers\Settings\AppearanceController;
+use App\Http\Controllers\Settings\GeneralSettingsController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use Illuminate\Auth\Middleware\RequirePassword;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->group(function () {
-    Route::redirect('settings', '/settings/profile');
+    Route::get('settings', function (Request $request) {
+        if ($request->user()?->isAdmin()) {
+            return redirect()->route('settings.general.edit');
+        }
+
+        return redirect()->route('profile.edit');
+    })->name('settings.index');
+
+    Route::get('settings/general', [GeneralSettingsController::class, 'edit'])->name('settings.general.edit');
+    Route::patch('settings/general', [GeneralSettingsController::class, 'update'])->name('settings.general.update');
 
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -23,7 +35,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('throttle:6,1')
         ->name('user-password.update');
 
-    Route::inertia('settings/appearance', 'settings/appearance')->name('appearance.edit');
+    Route::get('settings/appearance', [AppearanceController::class, 'edit'])->name('appearance.edit');
+    Route::patch('settings/appearance', [AppearanceController::class, 'update'])->name('appearance.update');
 });
 
 Route::get('.well-known/passkey-endpoints', function () {

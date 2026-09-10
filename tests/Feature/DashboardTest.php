@@ -38,7 +38,7 @@ class DashboardTest extends TestCase
     public function test_admin_dashboard_uses_seeded_operational_counts(): void
     {
         $this->seed(DemoSeeder::class);
-        Carbon::setTestNow('2026-09-11');
+        Carbon::setTestNow('2026-09-11 14:00:00');
 
         $admin = User::query()->where('email', 'admin@mdm.test')->firstOrFail();
 
@@ -66,7 +66,7 @@ class DashboardTest extends TestCase
     public function test_supervisor_dashboard_is_scoped_to_assigned_caseload(): void
     {
         $this->seed(DemoSeeder::class);
-        Carbon::setTestNow('2026-09-11');
+        Carbon::setTestNow('2026-09-11 14:00:00');
 
         $supervisor = User::query()->where('email', 'jordan.hale@mdm.test')->firstOrFail();
 
@@ -91,7 +91,7 @@ class DashboardTest extends TestCase
     public function test_dsp_dashboard_shows_own_schedule(): void
     {
         $this->seed(DemoSeeder::class);
-        Carbon::setTestNow('2026-09-11');
+        Carbon::setTestNow('2026-09-11 14:00:00');
 
         $dsp = User::query()->where('email', 'maya.chen@mdm.test')->firstOrFail();
 

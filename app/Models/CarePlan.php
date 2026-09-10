@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\CarePlanStatus;
+use App\Services\SettingsService;
 use Database\Factories\CarePlanFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -75,13 +76,14 @@ class CarePlan extends Model
             return false;
         }
 
-        $on = ($on ?? now())->startOfDay();
+        $on = $on?->toDateString() ?? app(SettingsService::class)->today();
+        $onDate = Carbon::parse($on)->startOfDay();
 
-        if ($this->starts_on->gt($on)) {
+        if ($this->starts_on->gt($onDate)) {
             return false;
         }
 
-        if ($this->ends_on !== null && $this->ends_on->lt($on)) {
+        if ($this->ends_on !== null && $this->ends_on->lt($onDate)) {
             return false;
         }
 
@@ -94,7 +96,7 @@ class CarePlan extends Model
      */
     public function scopeCurrentlyActive(Builder $query): Builder
     {
-        $today = now()->toDateString();
+        $today = app(SettingsService::class)->today();
 
         return $query->where('status', CarePlanStatus::Active)
             ->whereDate('starts_on', '<=', $today)
