@@ -4,7 +4,7 @@
 
 - Driver: **SQLite** (`database/database.sqlite`)
 - Auth-related tables from the Laravel starter (users, cache, jobs, passkeys, two-factor columns)
-- Domain tables: `employees`, `clients`, `client_dsp_assignments`, `employee_credentials`, `employee_trainings`, `client_authorizations`, `shift_templates`, `care_plans`, `care_plan_task_templates`, `scheduled_visits`, `skip_reasons`, `visits`, `visit_tasks`
+- Domain tables: `employees`, `clients`, `client_dsp_assignments`, `employee_credentials`, `employee_trainings`, `client_authorizations`, `shift_templates`, `care_plans`, `care_plan_task_templates`, `scheduled_visits`, `skip_reasons`, `visits`, `visit_tasks`, `visit_exceptions`, `visit_exceptions`
 - `users.role` stores `ADMIN`, `SUPERVISOR`, or `DSP`
 
 ## Conventions
@@ -59,19 +59,23 @@ Tasks that belong to a care plan. Recurrence is `daily`, `weekly`, `biweekly`, `
 
 ### skip_reasons
 
-Lookup list used later when a DSP skips a care-plan task. Seeded reasons: Client refused, Not applicable, Already completed, Safety concern, Client unavailable, Equipment or supply unavailable, Other. `Other` has `requires_comment = true` (comment enforcement comes with visit-task capture).
+Lookup list used when a DSP skips a care-plan task. Seeded reasons: Client refused, Not applicable, Already completed, Safety concern, Client unavailable, Equipment or supply unavailable, Other. `Other` has `requires_comment = true`. Client refused also requires an explanation at skip time.
 
 ### scheduled_visits
 
-A planned visit for a client with an assigned DSP (`employee_id`), optional supervisor of record, service date, service type, status (`scheduled`, `in_progress`, `cancelled`, `completed`), and notes. Timing is either a `shift_template_id` or explicit `starts_at` / `ends_at`. Clock-in creates a related `visits` row and moves status to `in_progress`.
+A planned visit for a client with an assigned DSP (`employee_id`), optional supervisor of record, service date, service type, status (`scheduled`, `in_progress`, `cancelled`, `completed`), and notes. Timing is either a `shift_template_id` or explicit `starts_at` / `ends_at`. Clock-in creates a related `visits` row and moves status to `in_progress`. Clock-out moves it to `completed`.
 
 ### visits
 
-EVV-lite execution record for a started visit. Unique `scheduled_visit_id`. Stores DSP, client, service, `clocked_in_at`, optional clock-in GPS, location method/status, and GPS-unavailable reason. Status `in_progress` (clock-out later). Unique partial index: one in-progress visit per DSP.
+EVV-lite execution record for a started visit. Unique `scheduled_visit_id`. Stores DSP, client, service, `clocked_in_at`, optional clock-in GPS, location method/status, GPS-unavailable reason, visit notes, handover note, and clock-out GPS/attestation. Status `in_progress` until clock-out, then `completed`. Unique partial index: one in-progress visit per DSP.
 
 ### visit_tasks
 
-Task instances for a visit, generated from active `care_plan_task_templates`. Unique (`visit_id`, `care_plan_task_template_id`). Status is `pending` until later complete/skip work.
+Task instances for a visit, generated from active `care_plan_task_templates`. Unique (`visit_id`, `care_plan_task_template_id`). Status is `pending`, `completed`, or `skipped`. Completion and skip are recorded on the visit task only; templates are not mutated.
+
+### visit_exceptions
+
+Structured visit issues for later supervisor review. Types: `gps_unavailable`, `client_refusal`, `critical_task_skipped`, `other_visit_exception`. Status starts as `open`. Optional `visit_task_id` links task-level exceptions.
 
 ## Demo seed
 

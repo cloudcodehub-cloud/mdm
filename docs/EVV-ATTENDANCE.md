@@ -26,30 +26,31 @@ Admins and in-scope supervisors manage scheduled visits from the Scheduled Visit
 
 ## Phase 3B-2A clock-in and visit execution records
 
-`visits` is the EVV-lite execution record created when a DSP clocks in. It stores DSP, client, scheduled visit, service, `clocked_in_at` (server time), optional GPS fields, location method (`browser_gps` or `gps_unavailable`), location status (`captured`, `denied`, `unavailable`, `unsupported`), and an attestation reason when GPS is not captured. Status is `in_progress` until a later clock-out phase. A scheduled visit may have one visit row; a DSP may have one `in_progress` visit at a time.
+`visits` is the EVV-lite execution record created when a DSP clocks in. It stores DSP, client, scheduled visit, service, `clocked_in_at` (server time), optional GPS fields, location method (`browser_gps` or `gps_unavailable`), location status (`captured`, `denied`, `unavailable`, `unsupported`), and an attestation reason when GPS is not captured. Clock-out stores `clocked_out_at` (server time), optional end GPS, and visit/handover notes. Status becomes `completed` on clock-out. A scheduled visit may have one visit row; a DSP may have one `in_progress` visit at a time.
 
-`visit_tasks` are per-visit instances copied from currently active care-plan task templates that apply on the service date. Recurrence is applied simply (daily/custom always; weekly/biweekly/monthly/annual against the care plan start date). Generation is idempotent. Tasks remain `pending` until later complete/skip work.
+`visit_tasks` are per-visit instances copied from currently active care-plan task templates that apply on the service date. Recurrence is applied simply (daily/custom always; weekly/biweekly/monthly/annual against the care plan start date). Generation is idempotent. Tasks move from `pending` to `completed` or `skipped` (with skip reason and comment when required). Completing a visit task never updates the care-plan template.
 
-Clock-out, attendance exceptions, skip capture, and handover are still later work.
+`visit_exceptions` is the structured exception foundation for this workflow (`gps_unavailable`, `client_refusal`, `critical_task_skipped`, `other_visit_exception`). Records are stored for supervisor review later; there is no supervisor exception UI in this phase.
 
-`skip_reasons` is the lookup used later when a DSP skips a care-plan task:
+Clock-out, skip-reason capture, handover notes, and exception creation are implemented for the DSP active-visit workflow. Attendance, payroll, and supervisor exception management remain later work.
+
+`skip_reasons` is the lookup used when a DSP skips a care-plan task:
 
 | Name | Code | Requires comment |
 |------|------|------------------|
-| Client refused | `client_refused` | No |
+| Client refused | `client_refused` | No (explanation still required at skip capture) |
 | Not applicable | `not_applicable` | No |
 | Already completed | `already_completed` | No |
 | Safety concern | `safety_concern` | No |
 | Client unavailable | `client_unavailable` | No |
 | Equipment or supply unavailable | `equipment_unavailable` | No |
-| Other | `other` | Yes (enforced later with visit tasks) |
+| Other | `other` | Yes (enforced with visit tasks) |
 
 ## Planned later
 
-- DSP clock-out
 - Attendance
-- Skip-reason capture on visit tasks
-- Exceptions
-- Handover notes
+- Supervisor exception management
+- Payroll-hour exports
+- Messaging
 
 This application is standalone EVV-lite, not a Sandata connector.

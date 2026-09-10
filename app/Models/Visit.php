@@ -30,12 +30,23 @@ use Illuminate\Support\Carbon;
  * @property ClockInLocationMethod $clock_in_location_method
  * @property ClockInLocationStatus $clock_in_location_status
  * @property string|null $clock_in_unavailable_reason
+ * @property string|null $visit_notes
+ * @property string|null $handover_note
+ * @property string|null $clock_out_latitude
+ * @property string|null $clock_out_longitude
+ * @property string|null $clock_out_accuracy
+ * @property ClockInLocationMethod|null $clock_out_location_method
+ * @property ClockInLocationStatus|null $clock_out_location_status
+ * @property string|null $clock_out_unavailable_reason
+ * @property bool $unfinished_required_acknowledged
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read ScheduledVisit $scheduledVisit
  * @property-read Employee $employee
  * @property-read Client $client
  * @property-read Collection<int, VisitTask> $tasks
+ * @property-read Collection<int, VisitTask> $visitTasks
+ * @property-read Collection<int, VisitException> $exceptions
  *
  * @method static Builder<static> inProgress()
  * @method static Builder<static> visibleTo(User $user)
@@ -54,6 +65,15 @@ use Illuminate\Support\Carbon;
     'clock_in_location_method',
     'clock_in_location_status',
     'clock_in_unavailable_reason',
+    'visit_notes',
+    'handover_note',
+    'clock_out_latitude',
+    'clock_out_longitude',
+    'clock_out_accuracy',
+    'clock_out_location_method',
+    'clock_out_location_status',
+    'clock_out_unavailable_reason',
+    'unfinished_required_acknowledged',
 ])]
 class Visit extends Model
 {
@@ -71,6 +91,9 @@ class Visit extends Model
             'clocked_out_at' => 'datetime',
             'clock_in_location_method' => ClockInLocationMethod::class,
             'clock_in_location_status' => ClockInLocationStatus::class,
+            'clock_out_location_method' => ClockInLocationMethod::class,
+            'clock_out_location_status' => ClockInLocationStatus::class,
+            'unfinished_required_acknowledged' => 'boolean',
         ];
     }
 
@@ -101,9 +124,30 @@ class Visit extends Model
     /**
      * @return HasMany<VisitTask, $this>
      */
+    public function visitTasks(): HasMany
+    {
+        return $this->hasMany(VisitTask::class);
+    }
+
+    /**
+     * @return HasMany<VisitTask, $this>
+     */
     public function tasks(): HasMany
     {
-        return $this->hasMany(VisitTask::class)->orderBy('sort_order')->orderBy('id');
+        return $this->visitTasks()->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * @return HasMany<VisitException, $this>
+     */
+    public function exceptions(): HasMany
+    {
+        return $this->hasMany(VisitException::class)->orderBy('id');
+    }
+
+    public function isInProgress(): bool
+    {
+        return $this->status === VisitStatus::InProgress;
     }
 
     /**

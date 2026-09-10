@@ -7,7 +7,9 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\ScheduledVisitController;
 use App\Http\Controllers\VisitClockInController;
+use App\Http\Controllers\VisitClockOutController;
 use App\Http\Controllers\VisitController;
+use App\Http\Controllers\VisitTaskController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
@@ -27,6 +29,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('scheduled-visits/{scheduled_visit}/clock-in', [VisitClockInController::class, 'store'])
         ->name('scheduled-visits.clock-in');
     Route::get('visits/{visit}', [VisitController::class, 'show'])->name('visits.show');
+    Route::patch('visits/{visit}/notes', [VisitClockOutController::class, 'updateNotes'])->name('visits.notes');
+    Route::post('visits/{visit}/clock-out', [VisitClockOutController::class, 'store'])->name('visits.clock-out');
+    Route::post('visits/{visit}/tasks/{visit_task}/complete', [VisitTaskController::class, 'complete'])
+        ->scopeBindings()
+        ->name('visits.tasks.complete');
+    Route::post('visits/{visit}/tasks/{visit_task}/skip', [VisitTaskController::class, 'skip'])
+        ->scopeBindings()
+        ->name('visits.tasks.skip');
 
     Route::get('supervisors', ComingSoonController::class)->name('supervisors.index');
     Route::get('attendance', ComingSoonController::class)->name('attendance.index');

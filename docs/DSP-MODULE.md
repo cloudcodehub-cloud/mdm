@@ -35,4 +35,10 @@ DSPs can start their own eligible scheduled visits (today, or a window that curr
 
 Clock-in stores the DSP, client, scheduled visit, service, server timestamp, optional browser GPS (latitude, longitude, accuracy), location method, and location status. If GPS is denied or unavailable, coordinates are left null and a reason is required. Starting a visit sets the scheduled visit status to `in_progress` and opens the Active Visit screen with pending care-plan task instances.
 
-Task completion, skip, handover, and clock-out are not in this phase.
+## Phase 3B-2B active visit completion
+
+DSPs complete or skip visit-task instances on the Active Visit screen. Completing a task records status, server time, and an optional note on the `visit_tasks` row only — never on the care-plan template. Skip requires a seeded skip reason. `Other` (`requires_comment`) and **Client refused** require an explanation. Required-task skips create a `critical_task_skipped` exception; client refusal also creates a `client_refusal` exception.
+
+Visit notes and handover notes persist on the visit. Clock-out uses a review step, a new GPS request (or GPS-unavailable attestation), and a server timestamp. Unfinished required tasks must be acknowledged; they stay pending and create an `other_visit_exception`. Successful clock-out marks the visit and scheduled visit `completed`, stores end coordinates when captured, and clears the DSP’s active-visit state. Consecutive scheduled visits stay separate records.
+
+Defer is not part of this workflow.

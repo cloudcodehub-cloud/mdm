@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\VisitStatus;
 use App\Models\User;
 use App\Models\Visit;
 
@@ -27,6 +28,21 @@ class VisitPolicy
         return $user->can('view', $visit->scheduledVisit);
     }
 
+    public function recordTask(User $user, Visit $visit): bool
+    {
+        return $this->operate($user, $visit);
+    }
+
+    public function updateNotes(User $user, Visit $visit): bool
+    {
+        return $this->operate($user, $visit);
+    }
+
+    public function clockOut(User $user, Visit $visit): bool
+    {
+        return $this->operate($user, $visit);
+    }
+
     public function create(User $user): bool
     {
         return false;
@@ -50,5 +66,15 @@ class VisitPolicy
     public function forceDelete(User $user, Visit $visit): bool
     {
         return false;
+    }
+
+    private function operate(User $user, Visit $visit): bool
+    {
+        if (! $user->isDsp() || $user->employee === null || ! $user->employee->isActiveDsp()) {
+            return false;
+        }
+
+        return $visit->employee_id === $user->employee->id
+            && $visit->status === VisitStatus::InProgress;
     }
 }

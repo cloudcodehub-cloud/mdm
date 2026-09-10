@@ -30,6 +30,8 @@ use Illuminate\Support\Carbon;
 ])]
 class SkipReason extends Model
 {
+    public const CLIENT_REFUSED = 'client_refused';
+
     /** @use HasFactory<SkipReasonFactory> */
     use HasFactory;
 
@@ -52,5 +54,10 @@ class SkipReason extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    public function requiresExplanation(): bool
+    {
+        return $this->requires_comment || $this->code === self::CLIENT_REFUSED;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\VisitStatus;
 use App\Models\Visit;
 use App\Services\VisitTaskGenerator;
 use App\Support\DirectoryPresenter;
@@ -15,21 +16,28 @@ class VisitController extends Controller
     {
         $this->authorize('view', $visit);
 
-        $tasks->generate($visit);
+        if ($visit->status === VisitStatus::InProgress) {
+            $tasks->generate($visit);
+        }
 
         $visit->load([
             'client',
             'employee',
             'scheduledVisit.shiftTemplate',
-            'tasks',
+            'tasks.skipReason',
         ]);
 
         $user = $request->user();
+        $canRecord = $user?->can('recordTask', $visit) ?? false;
 
         return Inertia::render('visits/show', [
             'visit' => DirectoryPresenter::visitDetail($visit),
+            'skip_reasons' => $canRecord ? DirectoryPresenter::skipReasons() : [],
             'can' => [
                 'clock_in' => $user?->can('clockIn', $visit->scheduledVisit) ?? false,
+                'record_tasks' => $canRecord,
+                'update_notes' => $user?->can('updateNotes', $visit) ?? false,
+                'clock_out' => $user?->can('clockOut', $visit) ?? false,
             ],
         ]);
     }

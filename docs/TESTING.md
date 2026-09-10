@@ -12,6 +12,8 @@ Phase 1B-2 adds PHPUnit feature tests for care plans (active/historical), care-p
 
 Phase 3B-2A adds PHPUnit feature tests for DSP clock-in, GPS capture vs GPS-unavailable attestation, one-active-visit enforcement, idempotent visit/task creation, care-plan task instance generation, and ADMIN / SUPERVISOR / DSP visibility of active visits.
 
+Phase 3B-2B adds PHPUnit feature tests for DSP task complete/skip, comment-required and client-refusal skips, exception creation, handover persistence, clock-out GPS captured and GPS-unavailable paths, duplicate clock-out blocking, cross-DSP denial, scheduled-visit completion, and clearing the DSP active visit.
+
 Pest was not added: `laravel/pao` in this starter conflicts with `pestphp/pest`. Tests use the existing PHPUnit + `php artisan test` setup.
 
 ## Expectations going forward

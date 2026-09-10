@@ -13,6 +13,7 @@ Login uses the same MDM product treatment. Public Sign up remains disabled.
 - Aim for restrained healthcare/business polish: system typography, tight spacing, glass surfaces, and information-dense cards.
 - DSP flows should prioritize schedule → client → clock-in → tasks → notes/skips → handover → clock-out.
 - Clock-in is available on the DSP dashboard and scheduled visit detail. GPS is used when the browser provides it; otherwise the DSP attests that GPS is unavailable.
+- Active visit supports complete/skip, notes, handover, a clock-out review step, and a post-clock-out visit summary. Clock-out requests GPS again or records GPS-unavailable attestation.
 
 ## Fonts
 

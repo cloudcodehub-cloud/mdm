@@ -6,6 +6,7 @@ use App\Enums\ClientStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\JobType;
 use App\Enums\Role;
+use App\Enums\VisitTaskStatus;
 use App\Models\CarePlan;
 use App\Models\CarePlanTaskTemplate;
 use App\Models\Client;
@@ -16,6 +17,7 @@ use App\Models\EmployeeCredential;
 use App\Models\EmployeeTraining;
 use App\Models\ScheduledVisit;
 use App\Models\ShiftTemplate;
+use App\Models\SkipReason;
 use App\Models\User;
 use App\Models\Visit;
 use App\Models\VisitTask;
@@ -340,6 +342,14 @@ final class DirectoryPresenter
     public static function visitDetail(Visit $visit): array
     {
         $scheduled = $visit->scheduledVisit;
+        $tasks = $visit->tasks;
+        $completed = $tasks->where('status', VisitTaskStatus::Completed)->count();
+        $skipped = $tasks->where('status', VisitTaskStatus::Skipped)->count();
+        $pending = $tasks->where('status', VisitTaskStatus::Pending)->count();
+        $pendingRequired = $tasks
+            ->where('status', VisitTaskStatus::Pending)
+            ->where('is_required', true)
+            ->count();
 
         return [
             'id' => $visit->id,
@@ -348,13 +358,31 @@ final class DirectoryPresenter
             'service_type' => $visit->service_type,
             'clocked_in_at' => $visit->clocked_in_at->toIso8601String(),
             'clocked_in_at_label' => $visit->clocked_in_at->format('g:i A'),
+            'clocked_out_at' => $visit->clocked_out_at?->toIso8601String(),
+            'clocked_out_at_label' => $visit->clocked_out_at?->format('g:i A'),
             'location_method' => $visit->clock_in_location_method->value,
             'location_status' => $visit->clock_in_location_status->value,
-            'location_status_label' => self::locationStatusLabel($visit),
+            'location_status_label' => self::gpsStatusLabel($visit->clock_in_location_status->value),
             'unavailable_reason' => $visit->clock_in_unavailable_reason,
             'latitude' => $visit->clock_in_latitude,
             'longitude' => $visit->clock_in_longitude,
             'accuracy' => $visit->clock_in_accuracy,
+            'clock_out_location_method' => $visit->clock_out_location_method?->value,
+            'clock_out_location_status' => $visit->clock_out_location_status?->value,
+            'clock_out_location_status_label' => $visit->clock_out_location_status === null
+                ? null
+                : self::gpsStatusLabel($visit->clock_out_location_status->value),
+            'clock_out_unavailable_reason' => $visit->clock_out_unavailable_reason,
+            'visit_notes' => $visit->visit_notes,
+            'handover_note' => $visit->handover_note,
+            'unfinished_required_acknowledged' => $visit->unfinished_required_acknowledged,
+            'task_summary' => [
+                'total' => $tasks->count(),
+                'completed' => $completed,
+                'skipped' => $skipped,
+                'pending' => $pending,
+                'pending_required' => $pendingRequired,
+            ],
             'client' => [
                 'id' => $visit->client->id,
                 'name' => $visit->client->full_name,
@@ -372,7 +400,7 @@ final class DirectoryPresenter
                 'shift_name' => $scheduled->shiftTemplate?->name,
                 'status' => $scheduled->status->value,
             ],
-            'tasks' => self::visitTasks($visit->tasks),
+            'tasks' => self::visitTasks($tasks),
         ];
     }
 
@@ -431,12 +459,43 @@ final class DirectoryPresenter
             'is_required' => $task->is_required,
             'status' => $task->status->value,
             'status_label' => Str::headline($task->status->value),
+            'completed_at' => $task->completed_at?->toIso8601String(),
+            'completed_at_label' => $task->completed_at?->format('g:i A'),
+            'skipped_at' => $task->skipped_at?->toIso8601String(),
+            'skip_reason_id' => $task->skip_reason_id,
+            'skip_reason_name' => $task->skipReason?->name,
+            'skip_comment' => $task->skip_comment,
+            'completion_note' => $task->completion_note,
         ]));
+    }
+
+    /**
+     * @return list<array{id: int, name: string, code: string, requires_comment: bool, requires_explanation: bool}>
+     */
+    public static function skipReasons(): array
+    {
+        return self::values(SkipReason::query()
+            ->active()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (SkipReason $reason): array => [
+                'id' => $reason->id,
+                'name' => $reason->name,
+                'code' => $reason->code,
+                'requires_comment' => $reason->requires_comment,
+                'requires_explanation' => $reason->requiresExplanation(),
+            ]));
     }
 
     public static function locationStatusLabel(Visit $visit): string
     {
-        return match ($visit->clock_in_location_status->value) {
+        return self::gpsStatusLabel($visit->clock_in_location_status->value);
+    }
+
+    public static function gpsStatusLabel(string $status): string
+    {
+        return match ($status) {
             'captured' => 'GPS captured',
             'denied' => 'GPS denied',
             'unsupported' => 'GPS unsupported',
