@@ -37,6 +37,19 @@ class ScheduledVisitPolicy
         return false;
     }
 
+    public function clockIn(User $user, ScheduledVisit $scheduledVisit): bool
+    {
+        if (! $user->isDsp() || $user->employee === null) {
+            return false;
+        }
+
+        if (! $user->employee->isActiveDsp()) {
+            return false;
+        }
+
+        return $scheduledVisit->employee_id === $user->employee->id;
+    }
+
     public function create(User $user): bool
     {
         if ($user->isAdmin()) {

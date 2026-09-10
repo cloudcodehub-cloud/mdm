@@ -52,6 +52,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, EmployeeCredential> $credentials
  * @property-read Collection<int, EmployeeTraining> $trainings
  * @property-read Collection<int, ScheduledVisit> $scheduledVisits
+ * @property-read Collection<int, Visit> $visits
  * @property-read Collection<int, ScheduledVisit> $supervisedVisits
  *
  * @method static Builder<static> visibleTo(User $user)
@@ -175,6 +176,14 @@ class Employee extends Model
     public function scheduledVisits(): HasMany
     {
         return $this->hasMany(ScheduledVisit::class);
+    }
+
+    /**
+     * @return HasMany<Visit, $this>
+     */
+    public function visits(): HasMany
+    {
+        return $this->hasMany(Visit::class);
     }
 
     /**

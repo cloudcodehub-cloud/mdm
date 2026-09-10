@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use RuntimeException;
 
@@ -33,8 +34,10 @@ use RuntimeException;
  * @property-read Employee $dsp
  * @property-read Employee|null $supervisor
  * @property-read ShiftTemplate|null $shiftTemplate
+ * @property-read Visit|null $visit
  *
  * @method static Builder<static> scheduled()
+ * @method static Builder<static> open()
  * @method static Builder<static> visibleTo(User $user)
  */
 #[Fillable([
@@ -109,6 +112,14 @@ class ScheduledVisit extends Model
         return $this->belongsTo(ShiftTemplate::class);
     }
 
+    /**
+     * @return HasOne<Visit, $this>
+     */
+    public function visit(): HasOne
+    {
+        return $this->hasOne(Visit::class);
+    }
+
     public function usesShiftTemplate(): bool
     {
         return $this->shift_template_id !== null;
@@ -159,6 +170,29 @@ class ScheduledVisit extends Model
         throw new RuntimeException('Scheduled visit is missing both explicit end time and a shift template.');
     }
 
+    public function isEligibleToStart(?CarbonInterface $now = null): bool
+    {
+        if ($this->status !== ScheduledVisitStatus::Scheduled) {
+            return false;
+        }
+
+        $now = $now ?? now();
+
+        if ($this->service_date->toDateString() === $now->toDateString()) {
+            return true;
+        }
+
+        if ($this->shift_template_id !== null) {
+            $this->loadMissing('shiftTemplate');
+        }
+
+        try {
+            return $now->gte($this->startsAtOn()) && $now->lte($this->endsAtOn());
+        } catch (RuntimeException) {
+            return false;
+        }
+    }
+
     /**
      * @param  Builder<static>  $query
      * @return Builder<static>
@@ -166,6 +200,18 @@ class ScheduledVisit extends Model
     public function scopeScheduled(Builder $query): Builder
     {
         return $query->where('status', ScheduledVisitStatus::Scheduled);
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeOpen(Builder $query): Builder
+    {
+        return $query->whereIn('status', [
+            ScheduledVisitStatus::Scheduled,
+            ScheduledVisitStatus::InProgress,
+        ]);
     }
 
     /**

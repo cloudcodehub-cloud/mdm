@@ -16,7 +16,7 @@ export function StatusBadge({
     label: string;
 }) {
     const tone =
-        status === 'active' || status === 'completed'
+        status === 'active' || status === 'completed' || status === 'in_progress'
             ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
             : status === 'terminated' ||
                 status === 'discharged' ||

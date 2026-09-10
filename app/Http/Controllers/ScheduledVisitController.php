@@ -7,6 +7,7 @@ use App\Http\Requests\ScheduledVisitRequest;
 use App\Models\ScheduledVisit;
 use App\Models\User;
 use App\Services\ScheduledVisitService;
+use App\Services\VisitClockInService;
 use App\Support\DirectoryPresenter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -98,17 +99,37 @@ class ScheduledVisitController extends Controller
         return redirect()->route('scheduled-visits.show', $visit);
     }
 
-    public function show(Request $request, ScheduledVisit $scheduledVisit): Response
+    public function show(Request $request, ScheduledVisit $scheduledVisit, VisitClockInService $clockIn): Response
     {
         $this->authorize('view', $scheduledVisit);
 
-        $scheduledVisit->load(['client', 'employee', 'supervisor', 'shiftTemplate']);
+        $scheduledVisit->load(['client', 'employee', 'supervisor', 'shiftTemplate', 'visit']);
+
+        $user = $request->user();
+        $canUpdate = ($user?->can('update', $scheduledVisit) ?? false)
+            && $scheduledVisit->status !== ScheduledVisitStatus::InProgress;
+
+        $activeVisit = null;
+        $clockInVisit = null;
+
+        if ($user?->isDsp() && $user->employee !== null) {
+            $active = $clockIn->activeVisitFor($user->employee);
+            $activeVisit = $active === null ? null : DirectoryPresenter::activeVisitSummary($active);
+
+            if ($activeVisit === null && $scheduledVisit->isEligibleToStart()) {
+                $clockInVisit = DirectoryPresenter::clockInVisitSummary($scheduledVisit);
+            }
+        }
 
         return Inertia::render('scheduled-visits/show', [
             'visit' => DirectoryPresenter::scheduledVisitDetail($scheduledVisit),
             'can' => [
-                'update' => $request->user()?->can('update', $scheduledVisit) ?? false,
+                'update' => $canUpdate,
+                'clock_in' => ($user?->can('clockIn', $scheduledVisit) ?? false)
+                    && $scheduledVisit->isEligibleToStart(),
             ],
+            'activeVisit' => $activeVisit,
+            'clockInVisit' => $clockInVisit,
         ]);
     }
 

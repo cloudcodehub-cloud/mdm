@@ -27,4 +27,12 @@ DSPs may view care plans for currently assigned clients, their own scheduled vis
 
 ## Phase 3B-1 scheduled visits
 
-Admins (and supervisors within caseload scope) can create and edit scheduled visits. DSPs can open the Scheduled Visits list and visit detail for their own assignments, including from Today's work on the dashboard. Clock-in/out is still not implemented.
+Admins (and supervisors within caseload scope) can create and edit scheduled visits. DSPs can open the Scheduled Visits list and visit detail for their own assignments, including from Today's work on the dashboard.
+
+## Phase 3B-2A clock-in and active visits
+
+DSPs can start their own eligible scheduled visits (today, or a window that currently includes now, including overnight). Clock-in is authorized server-side: only an active workforce DSP assigned to that scheduled visit may start it, and a DSP may have only one active visit at a time. Repeat submissions reuse the existing visit and do not duplicate visit-task rows.
+
+Clock-in stores the DSP, client, scheduled visit, service, server timestamp, optional browser GPS (latitude, longitude, accuracy), location method, and location status. If GPS is denied or unavailable, coordinates are left null and a reason is required. Starting a visit sets the scheduled visit status to `in_progress` and opens the Active Visit screen with pending care-plan task instances.
+
+Task completion, skip, handover, and clock-out are not in this phase.

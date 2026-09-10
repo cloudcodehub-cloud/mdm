@@ -29,6 +29,10 @@ class ScheduledVisitService
      */
     public function update(ScheduledVisit $visit, array $data): ScheduledVisit
     {
+        if ($visit->status === ScheduledVisitStatus::InProgress) {
+            $data['status'] = ScheduledVisitStatus::InProgress->value;
+        }
+
         $visit->update($this->persistable($data));
 
         return $visit->fresh() ?? $visit;
@@ -135,7 +139,7 @@ class ScheduledVisitService
         $serviceDate = Carbon::parse((string) $data['service_date'])->startOfDay();
 
         $others = ScheduledVisit::query()
-            ->scheduled()
+            ->open()
             ->with('shiftTemplate')
             ->where('employee_id', (int) $data['employee_id'])
             ->when($existing !== null, fn ($query) => $query->where('id', '!=', $existing->id))

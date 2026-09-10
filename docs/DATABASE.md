@@ -4,7 +4,7 @@
 
 - Driver: **SQLite** (`database/database.sqlite`)
 - Auth-related tables from the Laravel starter (users, cache, jobs, passkeys, two-factor columns)
-- Domain tables: `employees`, `clients`, `client_dsp_assignments`, `employee_credentials`, `employee_trainings`, `client_authorizations`, `shift_templates`, `care_plans`, `care_plan_task_templates`, `scheduled_visits`, `skip_reasons`
+- Domain tables: `employees`, `clients`, `client_dsp_assignments`, `employee_credentials`, `employee_trainings`, `client_authorizations`, `shift_templates`, `care_plans`, `care_plan_task_templates`, `scheduled_visits`, `skip_reasons`, `visits`, `visit_tasks`
 - `users.role` stores `ADMIN`, `SUPERVISOR`, or `DSP`
 
 ## Conventions
@@ -63,7 +63,15 @@ Lookup list used later when a DSP skips a care-plan task. Seeded reasons: Client
 
 ### scheduled_visits
 
-A planned visit for a client with an assigned DSP (`employee_id`), optional supervisor of record, service date, service type, status (`scheduled`, `cancelled`, `completed`), and notes. Timing is either a `shift_template_id` or explicit `starts_at` / `ends_at`. Clock-in/out and attendance are not stored here yet.
+A planned visit for a client with an assigned DSP (`employee_id`), optional supervisor of record, service date, service type, status (`scheduled`, `in_progress`, `cancelled`, `completed`), and notes. Timing is either a `shift_template_id` or explicit `starts_at` / `ends_at`. Clock-in creates a related `visits` row and moves status to `in_progress`.
+
+### visits
+
+EVV-lite execution record for a started visit. Unique `scheduled_visit_id`. Stores DSP, client, service, `clocked_in_at`, optional clock-in GPS, location method/status, and GPS-unavailable reason. Status `in_progress` (clock-out later). Unique partial index: one in-progress visit per DSP.
+
+### visit_tasks
+
+Task instances for a visit, generated from active `care_plan_task_templates`. Unique (`visit_id`, `care_plan_task_template_id`). Status is `pending` until later complete/skip work.
 
 ## Demo seed
 

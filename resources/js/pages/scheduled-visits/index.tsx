@@ -96,6 +96,7 @@ export default function ScheduledVisitsIndex({
                         >
                             <option value="">All statuses</option>
                             <option value="scheduled">Scheduled</option>
+                            <option value="in_progress">In progress</option>
                             <option value="cancelled">Cancelled</option>
                             <option value="completed">Completed</option>
                         </select>

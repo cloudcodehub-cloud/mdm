@@ -55,6 +55,8 @@ class DashboardTest extends TestCase
                 ->where('dashboard.metrics.2.key', 'visits_today')
                 ->where('dashboard.metrics.2.value', 2)
                 ->has('dashboard.today_visits', 2)
+                ->where('dashboard.active_visit', null)
+                ->where('dashboard.clock_in_visit', null)
                 ->has('dashboard.upcoming_visits')
                 ->has('dashboard.attention_items')
                 ->has('dashboard.activity')
@@ -105,6 +107,8 @@ class DashboardTest extends TestCase
                 ->where('dashboard.today_visits.0.client.name', 'Elena Marie Vasquez')
                 ->where('dashboard.today_visits.0.service_type', 'Residential Habilitation')
                 ->has('dashboard.upcoming_visits')
+                ->where('dashboard.active_visit', null)
+                ->where('dashboard.clock_in_visit.client.name', 'Elena Marie Vasquez')
                 ->has('dashboard.assigned_clients', 2)
             );
     }

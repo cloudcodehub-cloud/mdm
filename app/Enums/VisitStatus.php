@@ -2,10 +2,8 @@
 
 namespace App\Enums;
 
-enum ScheduledVisitStatus: string
+enum VisitStatus: string
 {
-    case Scheduled = 'scheduled';
     case InProgress = 'in_progress';
-    case Cancelled = 'cancelled';
     case Completed = 'completed';
 }

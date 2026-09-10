@@ -34,7 +34,12 @@ This is the simplest Laravel approach for three application roles. Authorization
 - Supervisor: create/update scheduled visits only when the client is on their caseload (`clients.supervisor_id`) and the DSP is their report or is actively assigned to that client. They may view visits for assigned clients, assigned DSP reports, or visits listing them as supervisor of record.
 - DSP: view own scheduled visits only. Cannot create or update schedules.
 
-Module-specific permissions for clock-in, EVV visit records, payroll, and messaging will be added with those features.
+## Phase 3B-2A clock-in policy scope
+
+- DSP: clock in only on their own scheduled visit, and only while their employee record is an active DSP. One active visit at a time.
+- Admin / Supervisor: may view in-scope active visit records (admin: all; supervisor: same scheduled-visit caseload rules). Cannot clock in.
+
+Module-specific permissions for clock-out, payroll, and messaging will be added with those features.
 
 ## Account provisioning note
 

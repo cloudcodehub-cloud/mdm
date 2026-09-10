@@ -45,6 +45,24 @@ export type DashboardActivityItem = {
     occurred_on: string;
 };
 
+export type DashboardActiveVisit = {
+    id: number;
+    scheduled_visit_id: number;
+    service_type: string;
+    clocked_in_at: string;
+    location_status: string;
+    location_status_label: string;
+    client: DashboardClient;
+};
+
+export type ClockInVisitSummary = {
+    id: number;
+    service_date: string | null;
+    service_type: string;
+    time_label: string;
+    client: DashboardClient;
+};
+
 export type DashboardPayload = {
     role: AppRole;
     greeting_name: string;
@@ -56,4 +74,6 @@ export type DashboardPayload = {
     assigned_clients: DashboardClient[];
     attention_items: DashboardAttentionItem[];
     activity: DashboardActivityItem[];
+    active_visit: DashboardActiveVisit | null;
+    clock_in_visit: ClockInVisitSummary | null;
 };

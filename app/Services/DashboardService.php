@@ -17,12 +17,15 @@ use App\Models\EmployeeCredential;
 use App\Models\EmployeeTraining;
 use App\Models\ScheduledVisit;
 use App\Models\User;
+use App\Support\DirectoryPresenter;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class DashboardService
 {
+    public function __construct(private VisitClockInService $clockIn) {}
+
     /**
      * @return array<string, mixed>
      */
@@ -42,6 +45,8 @@ class DashboardService
             'assigned_clients' => $this->assignedClients($user, $employee),
             'attention_items' => $this->attentionItems($user, $employee),
             'activity' => $this->activity($user),
+            'active_visit' => $this->activeVisit($user, $employee),
+            'clock_in_visit' => $this->clockInVisit($user, $employee),
         ];
     }
 
@@ -93,7 +98,7 @@ class DashboardService
      */
     private function visitQuery(User $user): Builder
     {
-        return $this->visitsQuery($user)->scheduled();
+        return $this->visitsQuery($user)->open();
     }
 
     /**
@@ -122,13 +127,46 @@ class DashboardService
      */
     private function upcomingVisits(User $user, CarbonInterface $today): Collection
     {
-        return $this->visitQuery($user)
+        return $this->visitsQuery($user)
+            ->scheduled()
             ->with(['client', 'employee', 'shiftTemplate'])
             ->whereDate('service_date', '>', $today)
             ->orderBy('service_date')
             ->orderBy('id')
             ->limit(8)
             ->get();
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function activeVisit(User $user, ?Employee $employee): ?array
+    {
+        if (! $user->isDsp() || $employee === null) {
+            return null;
+        }
+
+        $visit = $this->clockIn->activeVisitFor($employee);
+
+        return $visit === null ? null : DirectoryPresenter::activeVisitSummary($visit);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function clockInVisit(User $user, ?Employee $employee): ?array
+    {
+        if (! $user->isDsp() || $employee === null) {
+            return null;
+        }
+
+        if ($this->clockIn->activeVisitFor($employee) !== null) {
+            return null;
+        }
+
+        $visit = $this->clockIn->eligibleScheduledVisitFor($employee);
+
+        return $visit === null ? null : DirectoryPresenter::clockInVisitSummary($visit);
     }
 
     /**

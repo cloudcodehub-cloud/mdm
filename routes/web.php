@@ -6,6 +6,8 @@ use App\Http\Controllers\ComingSoonController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\ScheduledVisitController;
+use App\Http\Controllers\VisitClockInController;
+use App\Http\Controllers\VisitController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
@@ -22,6 +24,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('assignments/{assignment}/deactivate', [ClientDspAssignmentController::class, 'deactivate'])->name('assignments.deactivate');
 
     Route::resource('scheduled-visits', ScheduledVisitController::class)->except(['destroy']);
+    Route::post('scheduled-visits/{scheduled_visit}/clock-in', [VisitClockInController::class, 'store'])
+        ->name('scheduled-visits.clock-in');
+    Route::get('visits/{visit}', [VisitController::class, 'show'])->name('visits.show');
 
     Route::get('supervisors', ComingSoonController::class)->name('supervisors.index');
     Route::get('attendance', ComingSoonController::class)->name('attendance.index');

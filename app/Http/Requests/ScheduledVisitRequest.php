@@ -67,7 +67,11 @@ class ScheduledVisitRequest extends FormRequest
             'starts_at' => ['nullable', 'date_format:H:i:s', 'required_without:shift_template_id'],
             'ends_at' => ['nullable', 'date_format:H:i:s', 'required_without:shift_template_id'],
             'service_type' => ['required', 'string', 'max:255'],
-            'status' => ['required', Rule::enum(ScheduledVisitStatus::class)],
+            'status' => ['required', Rule::enum(ScheduledVisitStatus::class)->only([
+                ScheduledVisitStatus::Scheduled,
+                ScheduledVisitStatus::Cancelled,
+                ScheduledVisitStatus::Completed,
+            ])],
             'notes' => ['nullable', 'string'],
         ];
     }

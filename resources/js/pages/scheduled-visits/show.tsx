@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Head, Link, usePage } from '@inertiajs/react';
+import { ClockInAction } from '@/components/mdm/clock-in-action';
 import { StatusBadge } from '@/components/mdm/directory';
 import { Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
@@ -11,14 +12,20 @@ import {
     index as visitsIndex,
     show,
 } from '@/routes/scheduled-visits';
+import { show as showVisit } from '@/routes/visits';
+import type { ClockInVisitSummary, DashboardActiveVisit } from '@/types/dashboard';
 import type { VisitRecord } from '@/types/directory';
 
 export default function ScheduledVisitsShow({
     visit,
     can,
+    activeVisit,
+    clockInVisit,
 }: {
     visit: VisitRecord;
-    can: { update: boolean };
+    can: { update: boolean; clock_in: boolean };
+    activeVisit: DashboardActiveVisit | null;
+    clockInVisit: ClockInVisitSummary | null;
 }) {
     const role = usePage().props.auth.user.role;
     const canOpenDirectories = role === 'ADMIN' || role === 'SUPERVISOR';
@@ -55,7 +62,23 @@ export default function ScheduledVisitsShow({
                             <Link href={edit(visit.id)}>Edit</Link>
                         </Button>
                     )}
+                    {visit.active_visit_id && role !== 'DSP' && (
+                        <Button asChild>
+                            <Link href={showVisit(visit.active_visit_id)}>
+                                View active visit
+                            </Link>
+                        </Button>
+                    )}
                 </div>
+
+                {role === 'DSP' && (
+                    <ClockInAction
+                        activeVisit={activeVisit}
+                        clockInVisit={clockInVisit}
+                        scheduledVisitId={visit.id}
+                        canClockIn={can.clock_in}
+                    />
+                )}
 
                 <div className="grid gap-4 lg:grid-cols-2">
                     <Panel title="Visit details">

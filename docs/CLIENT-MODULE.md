@@ -36,9 +36,13 @@ Admins create and update authorizations. Supervisors may view authorizations for
 
 `care_plan_task_templates` belong to a care plan. Recurrence values: daily, weekly, biweekly, monthly, annual, and custom (`recurrence_detail` holds the custom/future extension text).
 
-Admins create and update care plans and task templates. Supervisors may view plans for assigned clients. DSPs may view plans for currently assigned clients. History is retained (no hard delete). Clock-in, visit-task completion, and skip capture are later work.
+Admins create and update care plans and task templates. Supervisors may view plans for assigned clients. DSPs may view plans for currently assigned clients. History is retained (no hard delete).
+
+## Phase 3B-2A visit-task instances
+
+When a DSP clocks in, `visit_tasks` are created from the client’s currently active care-plan task templates. These execution rows are separate from templates. Complete / Skip / Defer is later work.
 
 ## Planned later
 
 - Client management UI
-- Visit-task execution against care-plan templates
+- Visit-task complete / skip against care-plan templates

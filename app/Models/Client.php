@@ -45,6 +45,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, ClientAuthorization> $authorizations
  * @property-read Collection<int, CarePlan> $carePlans
  * @property-read Collection<int, ScheduledVisit> $scheduledVisits
+ * @property-read Collection<int, Visit> $visits
  *
  * @method static Builder<static> visibleTo(User $user)
  * @method static Builder<static> search(?string $term)
@@ -133,6 +134,14 @@ class Client extends Model
     public function scheduledVisits(): HasMany
     {
         return $this->hasMany(ScheduledVisit::class);
+    }
+
+    /**
+     * @return HasMany<Visit, $this>
+     */
+    public function visits(): HasMany
+    {
+        return $this->hasMany(Visit::class);
     }
 
     /**

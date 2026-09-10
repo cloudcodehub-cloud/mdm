@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { AttentionList } from '@/components/mdm/attention-list';
-import { ClockInPlaceholder } from '@/components/mdm/clock-in-placeholder';
+import { ClockInAction } from '@/components/mdm/clock-in-action';
 import { ActivityList, PersonList } from '@/components/mdm/person-list';
 import { Panel, StatCard } from '@/components/mdm/stat-card';
 import { VisitList } from '@/components/mdm/visit-list';
@@ -151,7 +151,10 @@ function DspDashboard({ data }: { data: DashboardPayload }) {
     return (
         <div className="grid gap-4 lg:grid-cols-3">
             <div className="space-y-4 lg:col-span-2">
-                <ClockInPlaceholder />
+                <ClockInAction
+                    activeVisit={data.active_visit}
+                    clockInVisit={data.clock_in_visit}
+                />
                 <Panel
                     title="Today's scheduled visits"
                     description="Client, time, and service for today."

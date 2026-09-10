@@ -198,6 +198,7 @@ export type VisitRecord = {
         id: number;
         name: string;
     } | null;
+    active_visit_id?: number | null;
 };
 
 export type DspScheduleOption = OptionItem & {

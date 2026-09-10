@@ -17,6 +17,8 @@ use App\Models\EmployeeTraining;
 use App\Models\ScheduledVisit;
 use App\Models\ShiftTemplate;
 use App\Models\User;
+use App\Models\Visit;
+use App\Models\VisitTask;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -328,7 +330,118 @@ final class DirectoryPresenter
                 'id' => $visit->shiftTemplate->id,
                 'name' => $visit->shiftTemplate->name,
             ],
+            'active_visit_id' => $visit->visit?->id,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function visitDetail(Visit $visit): array
+    {
+        $scheduled = $visit->scheduledVisit;
+
+        return [
+            'id' => $visit->id,
+            'status' => $visit->status->value,
+            'status_label' => Str::headline($visit->status->value),
+            'service_type' => $visit->service_type,
+            'clocked_in_at' => $visit->clocked_in_at->toIso8601String(),
+            'clocked_in_at_label' => $visit->clocked_in_at->format('g:i A'),
+            'location_method' => $visit->clock_in_location_method->value,
+            'location_status' => $visit->clock_in_location_status->value,
+            'location_status_label' => self::locationStatusLabel($visit),
+            'unavailable_reason' => $visit->clock_in_unavailable_reason,
+            'latitude' => $visit->clock_in_latitude,
+            'longitude' => $visit->clock_in_longitude,
+            'accuracy' => $visit->clock_in_accuracy,
+            'client' => [
+                'id' => $visit->client->id,
+                'name' => $visit->client->full_name,
+                'client_number' => $visit->client->client_number,
+            ],
+            'employee' => [
+                'id' => $visit->employee->id,
+                'name' => $visit->employee->full_name,
+                'employee_number' => $visit->employee->employee_number,
+            ],
+            'scheduled_visit' => [
+                'id' => $scheduled->id,
+                'service_date' => self::date($scheduled->service_date),
+                'time_label' => self::visitTimeLabel($scheduled),
+                'shift_name' => $scheduled->shiftTemplate?->name,
+                'status' => $scheduled->status->value,
+            ],
+            'tasks' => self::visitTasks($visit->tasks),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function activeVisitSummary(Visit $visit): array
+    {
+        return [
+            'id' => $visit->id,
+            'scheduled_visit_id' => $visit->scheduled_visit_id,
+            'service_type' => $visit->service_type,
+            'clocked_in_at' => $visit->clocked_in_at->toIso8601String(),
+            'location_status' => $visit->clock_in_location_status->value,
+            'location_status_label' => self::locationStatusLabel($visit),
+            'client' => [
+                'id' => $visit->client->id,
+                'name' => $visit->client->full_name,
+                'client_number' => $visit->client->client_number,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function clockInVisitSummary(ScheduledVisit $visit): array
+    {
+        return [
+            'id' => $visit->id,
+            'service_date' => self::date($visit->service_date),
+            'service_type' => $visit->service_type,
+            'time_label' => self::visitTimeLabel($visit),
+            'client' => [
+                'id' => $visit->client->id,
+                'name' => $visit->client->full_name,
+                'client_number' => $visit->client->client_number,
+            ],
+        ];
+    }
+
+    /**
+     * @param  Collection<int, VisitTask>  $tasks
+     * @return list<array<string, mixed>>
+     */
+    public static function visitTasks(Collection $tasks): array
+    {
+        return self::values($tasks->map(fn (VisitTask $task): array => [
+            'id' => $task->id,
+            'title' => $task->title,
+            'instructions' => $task->instructions,
+            'recurrence' => $task->recurrence->value,
+            'recurrence_label' => $task->recurrence_detail
+                ? Str::headline($task->recurrence->value).' · '.$task->recurrence_detail
+                : Str::headline($task->recurrence->value),
+            'is_required' => $task->is_required,
+            'status' => $task->status->value,
+            'status_label' => Str::headline($task->status->value),
+        ]));
+    }
+
+    public static function locationStatusLabel(Visit $visit): string
+    {
+        return match ($visit->clock_in_location_status->value) {
+            'captured' => 'GPS captured',
+            'denied' => 'GPS denied',
+            'unsupported' => 'GPS unsupported',
+            default => 'GPS unavailable',
+        };
     }
 
     public static function visitTimeLabel(ScheduledVisit $visit): string
