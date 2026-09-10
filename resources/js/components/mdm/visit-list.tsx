@@ -1,5 +1,7 @@
+import { Link } from '@inertiajs/react';
 import { EmptyState } from '@/components/mdm/stat-card';
 import { Badge } from '@/components/ui/badge';
+import { show } from '@/routes/scheduled-visits';
 import type { DashboardVisit } from '@/types/dashboard';
 
 function formatDate(value: string): string {
@@ -32,7 +34,12 @@ export function VisitList({
                 >
                     <div className="min-w-0">
                         <p className="truncate font-medium">
-                            {visit.client.name}
+                            <Link
+                                href={show(visit.id)}
+                                className="hover:text-foreground"
+                            >
+                                {visit.client.name}
+                            </Link>
                         </p>
                         <p className="text-muted-foreground text-xs">
                             {visit.service_type}

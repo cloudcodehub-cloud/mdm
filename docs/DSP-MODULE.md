@@ -25,4 +25,6 @@ Domain records now exist for the upcoming workflow (no DSP UI or clock-in yet):
 
 DSPs may view care plans for currently assigned clients, their own scheduled visits, and skip reasons. They cannot create or update those records in this phase.
 
-Detailed operational screens will be added when DSP operations are implemented.
+## Phase 3B-1 scheduled visits
+
+Admins (and supervisors within caseload scope) can create and edit scheduled visits. DSPs can open the Scheduled Visits list and visit detail for their own assignments, including from Today's work on the dashboard. Clock-in/out is still not implemented.

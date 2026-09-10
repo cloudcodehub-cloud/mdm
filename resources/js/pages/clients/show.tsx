@@ -18,6 +18,7 @@ import {
     status,
 } from '@/routes/clients';
 import { store as storeAssignment } from '@/routes/clients/assignments';
+import { show as showVisit } from '@/routes/scheduled-visits';
 import type {
     AssignmentRecord,
     AuthorizationRecord,
@@ -277,7 +278,12 @@ export default function ClientsShow({
                                     <li key={visit.id} className="flex justify-between gap-3">
                                         <div>
                                             <p className="text-sm font-medium">
-                                                {visit.service_type}
+                                                <Link
+                                                    href={showVisit(visit.id)}
+                                                    className="hover:text-foreground"
+                                                >
+                                                    {visit.service_type}
+                                                </Link>
                                             </p>
                                             <p className="text-muted-foreground text-xs">
                                                 {visit.service_date} · {visit.time_label} · {visit.dsp_name}

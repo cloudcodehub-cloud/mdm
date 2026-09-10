@@ -74,7 +74,9 @@ class DomainAuthorizationPhase1B2Test extends TestCase
         $this->assertTrue(Gate::forUser($user)->denies('view', $otherVisit));
         $this->assertTrue(Gate::forUser($user)->allows('view', $reason));
         $this->assertTrue(Gate::forUser($user)->denies('create', CarePlan::class));
-        $this->assertTrue(Gate::forUser($user)->denies('create', ScheduledVisit::class));
+        $this->assertTrue(Gate::forUser($user)->allows('create', ScheduledVisit::class));
+        $this->assertTrue(Gate::forUser($user)->allows('update', $visit));
+        $this->assertTrue(Gate::forUser($user)->denies('update', $otherVisit));
         $this->assertTrue(Gate::forUser($user)->denies('create', SkipReason::class));
     }
 

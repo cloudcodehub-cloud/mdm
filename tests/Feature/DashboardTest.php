@@ -131,6 +131,11 @@ class DashboardTest extends TestCase
                 ->component('modules/coming-soon')
                 ->where('title', 'Attendance')
             );
+
+        $this->actingAs($admin)
+            ->get(route('scheduled-visits.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('scheduled-visits/index'));
     }
 
     public function test_admin_can_open_employee_and_client_directories(): void

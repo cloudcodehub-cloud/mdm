@@ -39,12 +39,20 @@ class ScheduledVisitPolicy
 
     public function create(User $user): bool
     {
-        return $user->isAdmin();
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        return $user->isSupervisor() && $user->employee !== null;
     }
 
     public function update(User $user, ScheduledVisit $scheduledVisit): bool
     {
-        return $user->isAdmin();
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        return $user->isSupervisor() && $this->view($user, $scheduledVisit);
     }
 
     public function delete(User $user, ScheduledVisit $scheduledVisit): bool

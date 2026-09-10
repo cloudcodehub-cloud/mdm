@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use App\Enums\ClientStatus;
+use App\Enums\EmploymentStatus;
 use App\Enums\JobType;
 use App\Enums\Role;
 use App\Models\CarePlan;
@@ -13,6 +15,7 @@ use App\Models\Employee;
 use App\Models\EmployeeCredential;
 use App\Models\EmployeeTraining;
 use App\Models\ScheduledVisit;
+use App\Models\ShiftTemplate;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -270,25 +273,77 @@ final class DirectoryPresenter
      */
     public static function scheduledVisits(Collection $visits): array
     {
-        return self::values($visits->map(function (ScheduledVisit $visit): array {
-            $start = $visit->starts_at !== null || $visit->shiftTemplate !== null
-                ? $visit->startsAtOn()->format('g:i A')
-                : null;
-            $end = $visit->ends_at !== null || $visit->shiftTemplate !== null
-                ? $visit->endsAtOn()->format('g:i A')
-                : null;
+        return self::values($visits->map(fn (ScheduledVisit $visit): array => self::scheduledVisitSummary($visit)));
+    }
 
-            return [
-                'id' => $visit->id,
-                'service_date' => self::date($visit->service_date),
-                'service_type' => $visit->service_type,
-                'status' => $visit->status->value,
-                'status_label' => Str::headline($visit->status->value),
-                'time_label' => $start && $end ? $start.' – '.$end : 'Time not set',
-                'dsp_name' => $visit->employee->full_name,
-                'shift_name' => $visit->shiftTemplate?->name,
-            ];
-        }));
+    /**
+     * @return array<string, mixed>
+     */
+    public static function scheduledVisitSummary(ScheduledVisit $visit): array
+    {
+        return [
+            'id' => $visit->id,
+            'service_date' => self::date($visit->service_date),
+            'service_type' => $visit->service_type,
+            'status' => $visit->status->value,
+            'status_label' => Str::headline($visit->status->value),
+            'time_label' => self::visitTimeLabel($visit),
+            'spans_overnight' => $visit->spansOvernight(),
+            'dsp_name' => $visit->employee->full_name,
+            'client_name' => $visit->client->full_name,
+            'client_id' => $visit->client_id,
+            'employee_id' => $visit->employee_id,
+            'shift_name' => $visit->shiftTemplate?->name,
+            'supervisor_name' => $visit->supervisor?->full_name,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function scheduledVisitDetail(ScheduledVisit $visit): array
+    {
+        return [
+            ...self::scheduledVisitSummary($visit),
+            'notes' => $visit->notes,
+            'starts_at' => self::inputTime($visit->starts_at),
+            'ends_at' => self::inputTime($visit->ends_at),
+            'shift_template_id' => $visit->shift_template_id,
+            'supervisor_id' => $visit->supervisor_id,
+            'client' => [
+                'id' => $visit->client->id,
+                'name' => $visit->client->full_name,
+                'client_number' => $visit->client->client_number,
+            ],
+            'employee' => [
+                'id' => $visit->employee->id,
+                'name' => $visit->employee->full_name,
+                'employee_number' => $visit->employee->employee_number,
+            ],
+            'supervisor' => $visit->supervisor === null ? null : [
+                'id' => $visit->supervisor->id,
+                'name' => $visit->supervisor->full_name,
+            ],
+            'shift_template' => $visit->shiftTemplate === null ? null : [
+                'id' => $visit->shiftTemplate->id,
+                'name' => $visit->shiftTemplate->name,
+            ],
+        ];
+    }
+
+    public static function visitTimeLabel(ScheduledVisit $visit): string
+    {
+        if ($visit->starts_at === null && $visit->shiftTemplate === null) {
+            return 'Time not set';
+        }
+
+        $label = $visit->startsAtOn()->format('g:i A').' – '.$visit->endsAtOn()->format('g:i A');
+
+        if ($visit->spansOvernight()) {
+            return $label.' next day';
+        }
+
+        return $label;
     }
 
     /**
@@ -312,8 +367,31 @@ final class DirectoryPresenter
      */
     public static function dspOptions(): array
     {
+        return self::dspFilterOptions(null);
+    }
+
+    /**
+     * @return list<array{id: int, name: string, employee_number: string}>
+     */
+    public static function dspFilterOptions(?User $user): array
+    {
         return self::values(Employee::query()
             ->where('job_type', JobType::Dsp)
+            ->when($user !== null && ! $user->isAdmin(), function ($query) use ($user): void {
+                if ($user->isDsp() && $user->employee) {
+                    $query->where('id', $user->employee->id);
+
+                    return;
+                }
+
+                $query->where(function ($builder) use ($user): void {
+                    $builder->visibleTo($user)
+                        ->orWhereIn('id', ClientDspAssignment::query()
+                            ->active()
+                            ->whereIn('client_id', Client::query()->visibleTo($user)->select('id'))
+                            ->select('employee_id'));
+                });
+            })
             ->orderBy('last_name')
             ->orderBy('first_name')
             ->get()
@@ -322,6 +400,110 @@ final class DirectoryPresenter
                 'name' => $employee->full_name,
                 'employee_number' => $employee->employee_number,
             ]));
+    }
+
+    /**
+     * @return list<array{id: int, name: string, client_number: string}>
+     */
+    public static function clientFilterOptions(User $user): array
+    {
+        return self::values(Client::query()
+            ->visibleTo($user)
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get()
+            ->map(fn (Client $client): array => [
+                'id' => $client->id,
+                'name' => $client->full_name,
+                'client_number' => $client->client_number,
+            ]));
+    }
+
+    /**
+     * @return list<array{id: int, name: string, client_number: string, supervisor_id: int|null}>
+     */
+    public static function schedulingClientOptions(User $user): array
+    {
+        return self::values(Client::query()
+            ->visibleTo($user)
+            ->where('status', ClientStatus::Active)
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get()
+            ->map(fn (Client $client): array => [
+                'id' => $client->id,
+                'name' => $client->full_name,
+                'client_number' => $client->client_number,
+                'supervisor_id' => $client->supervisor_id,
+            ]));
+    }
+
+    /**
+     * @return list<array{id: int, name: string, employee_number: string, assigned_client_ids: list<int>}>
+     */
+    public static function schedulingDspOptions(User $user, ?Employee $current = null): array
+    {
+        $dsps = Employee::query()
+            ->with(['clientAssignments' => fn ($query) => $query->active()])
+            ->where('job_type', JobType::Dsp)
+            ->where('employment_status', EmploymentStatus::Active)
+            ->when(! $user->isAdmin(), function ($query) use ($user): void {
+                $query->where(function ($builder) use ($user): void {
+                    $builder->visibleTo($user)
+                        ->orWhereIn('id', ClientDspAssignment::query()
+                            ->active()
+                            ->whereIn('client_id', Client::query()->visibleTo($user)->select('id'))
+                            ->select('employee_id'));
+                });
+            })
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get();
+
+        if ($current !== null && $dsps->doesntContain(fn (Employee $employee): bool => $employee->id === $current->id)) {
+            $current->loadMissing(['clientAssignments' => fn ($query) => $query->active()]);
+            $dsps->prepend($current);
+        }
+
+        return self::values($dsps->map(function (Employee $employee): array {
+            $assignedClientIds = [];
+
+            foreach ($employee->clientAssignments as $assignment) {
+                if ($assignment->isActive()) {
+                    $assignedClientIds[] = $assignment->client_id;
+                }
+            }
+
+            return [
+                'id' => $employee->id,
+                'name' => $employee->full_name,
+                'employee_number' => $employee->employee_number,
+                'assigned_client_ids' => $assignedClientIds,
+            ];
+        }));
+    }
+
+    /**
+     * @return list<array{id: int, name: string, starts_at: string, ends_at: string, spans_overnight: bool}>
+     */
+    public static function shiftTemplateOptions(?ShiftTemplate $current = null): array
+    {
+        $templates = ShiftTemplate::query()
+            ->active()
+            ->orderBy('starts_at')
+            ->get();
+
+        if ($current !== null && $templates->doesntContain(fn (ShiftTemplate $template): bool => $template->id === $current->id)) {
+            $templates->prepend($current);
+        }
+
+        return self::values($templates->map(fn (ShiftTemplate $template): array => [
+            'id' => $template->id,
+            'name' => $template->name,
+            'starts_at' => self::inputTime($template->starts_at) ?? $template->starts_at,
+            'ends_at' => self::inputTime($template->ends_at) ?? $template->ends_at,
+            'spans_overnight' => $template->spansOvernight(),
+        ]));
     }
 
     /**
@@ -366,5 +548,14 @@ final class DirectoryPresenter
         }
 
         return null;
+    }
+
+    private static function inputTime(mixed $value): ?string
+    {
+        if (! is_string($value) || $value === '') {
+            return null;
+        }
+
+        return substr($value, 0, 5);
     }
 }

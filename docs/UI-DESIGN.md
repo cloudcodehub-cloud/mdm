@@ -2,7 +2,7 @@
 
 ## Current state (Phase 2A)
 
-Authenticated screens use a collapsible operations sidebar, a top bar with local date/time, demo weather, alerts, and the user menu, and role-aware dashboards (ADMIN, SUPERVISOR, DSP).
+Authenticated screens use a collapsible operations sidebar, a top bar with local date/time, demo weather, alerts, and the user menu, and role-aware dashboards (ADMIN, SUPERVISOR, DSP). Scheduled Visits is a live directory (list/create/edit/detail) for authorized roles.
 
 Login uses the same MDM product treatment. Public Sign up remains disabled.
 

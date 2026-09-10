@@ -104,6 +104,7 @@ class ClientController extends Controller
             'carePlans.taskTemplates',
             'dspAssignments.employee',
             'scheduledVisits.employee',
+            'scheduledVisits.supervisor',
             'scheduledVisits.shiftTemplate',
         ]);
 

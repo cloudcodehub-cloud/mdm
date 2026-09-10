@@ -168,6 +168,51 @@ export type VisitRecord = {
     status: string;
     status_label: string;
     time_label: string;
+    spans_overnight?: boolean;
     dsp_name: string;
+    client_name?: string;
+    client_id?: number;
+    employee_id?: number;
     shift_name: string | null;
+    supervisor_name?: string | null;
+    notes?: string | null;
+    starts_at?: string | null;
+    ends_at?: string | null;
+    shift_template_id?: number | null;
+    supervisor_id?: number | null;
+    client?: {
+        id: number;
+        name: string;
+        client_number: string;
+    };
+    employee?: {
+        id: number;
+        name: string;
+        employee_number: string;
+    };
+    supervisor?: {
+        id: number;
+        name: string;
+    } | null;
+    shift_template?: {
+        id: number;
+        name: string;
+    } | null;
+};
+
+export type DspScheduleOption = OptionItem & {
+    assigned_client_ids: number[];
+};
+
+export type ClientScheduleOption = OptionItem & {
+    client_number: string;
+    supervisor_id?: number | null;
+};
+
+export type ShiftTemplateOption = {
+    id: number;
+    name: string;
+    starts_at: string;
+    ends_at: string;
+    spans_overnight: boolean;
 };

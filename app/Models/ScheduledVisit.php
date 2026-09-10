@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\JobType;
 use App\Enums\ScheduledVisitStatus;
 use Carbon\CarbonInterface;
 use Database\Factories\ScheduledVisitFactory;
@@ -34,6 +35,7 @@ use RuntimeException;
  * @property-read ShiftTemplate|null $shiftTemplate
  *
  * @method static Builder<static> scheduled()
+ * @method static Builder<static> visibleTo(User $user)
  */
 #[Fillable([
     'client_id',
@@ -164,6 +166,45 @@ class ScheduledVisit extends Model
     public function scopeScheduled(Builder $query): Builder
     {
         return $query->where('status', ScheduledVisitStatus::Scheduled);
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        if ($user->isAdmin()) {
+            return $query;
+        }
+
+        $employee = $user->employee;
+
+        if ($employee === null) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($user->isSupervisor()) {
+            $dspIds = Employee::query()
+                ->where('supervisor_id', $employee->id)
+                ->where('job_type', JobType::Dsp)
+                ->pluck('id');
+            $clientIds = Client::query()
+                ->where('supervisor_id', $employee->id)
+                ->pluck('id');
+
+            return $query->where(function (Builder $builder) use ($employee, $dspIds, $clientIds): void {
+                $builder->where('supervisor_id', $employee->id)
+                    ->orWhereIn('employee_id', $dspIds)
+                    ->orWhereIn('client_id', $clientIds);
+            });
+        }
+
+        if ($user->isDsp()) {
+            return $query->where('employee_id', $employee->id);
+        }
+
+        return $query->whereRaw('1 = 0');
     }
 
     private function clockOn(CarbonInterface $serviceDate, string $time): CarbonInterface

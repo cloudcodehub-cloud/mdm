@@ -36,12 +36,12 @@ class DashboardService
             'greeting_name' => $employee !== null ? $employee->first_name : $user->name,
             'today' => $today->toDateString(),
             'metrics' => $this->metrics($user, $employee, $today),
-            'today_visits' => $this->serializeVisits($this->todayVisits($user, $employee, $today)),
-            'upcoming_visits' => $this->serializeVisits($this->upcomingVisits($user, $employee, $today)),
+            'today_visits' => $this->serializeVisits($this->todayVisits($user, $today)),
+            'upcoming_visits' => $this->serializeVisits($this->upcomingVisits($user, $today)),
             'assigned_dsps' => $this->assignedDsps($user, $employee),
             'assigned_clients' => $this->assignedClients($user, $employee),
             'attention_items' => $this->attentionItems($user, $employee),
-            'activity' => $this->activity($user, $employee),
+            'activity' => $this->activity($user),
         ];
     }
 
@@ -54,7 +54,7 @@ class DashboardService
             return [
                 $this->metric('active_employees', 'Active employees', Employee::query()->where('employment_status', EmploymentStatus::Active)->count(), 'Currently employed workforce'),
                 $this->metric('active_clients', 'Active clients', Client::query()->where('status', ClientStatus::Active)->count(), 'Clients currently receiving services'),
-                $this->metric('visits_today', 'Scheduled visits today', $this->visitQuery($user, $employee)->whereDate('service_date', $today)->count(), 'Open scheduled visits for today'),
+                $this->metric('visits_today', 'Scheduled visits today', $this->visitQuery($user)->whereDate('service_date', $today)->count(), 'Open scheduled visits for today'),
                 $this->metric('compliance_attention', 'Credential attention', $this->credentialAttentionQuery($user, $employee)->count() + $this->trainingAttentionQuery($user, $employee)->count(), 'Expired, pending, or in-progress items'),
             ];
         }
@@ -63,14 +63,14 @@ class DashboardService
             return [
                 $this->metric('assigned_dsps', 'Assigned DSPs', $this->dspReportsQuery($employee)->count(), 'Active DSP reports'),
                 $this->metric('assigned_clients', 'Assigned clients', $this->supervisedClientsQuery($employee)->count(), 'Active clients on this caseload'),
-                $this->metric('visits_today', "Today's scheduled visits", $this->visitQuery($user, $employee)->whereDate('service_date', $today)->count(), 'Visits for assigned DSPs or clients'),
+                $this->metric('visits_today', "Today's scheduled visits", $this->visitQuery($user)->whereDate('service_date', $today)->count(), 'Visits for assigned DSPs or clients'),
                 $this->metric('operational_attention', 'Attention items', count($this->attentionItems($user, $employee)), 'Compliance and schedule exceptions'),
             ];
         }
 
         return [
-            $this->metric('visits_today', "Today's visits", $this->visitQuery($user, $employee)->whereDate('service_date', $today)->count(), 'Your scheduled visits for today'),
-            $this->metric('upcoming_visits', 'Upcoming visits', $this->visitQuery($user, $employee)->whereDate('service_date', '>', $today)->count(), 'Later scheduled visits'),
+            $this->metric('visits_today', "Today's visits", $this->visitQuery($user)->whereDate('service_date', $today)->count(), 'Your scheduled visits for today'),
+            $this->metric('upcoming_visits', 'Upcoming visits', $this->visitQuery($user)->whereDate('service_date', '>', $today)->count(), 'Later scheduled visits'),
             $this->metric('assigned_clients', 'Assigned clients', $employee === null ? 0 : $employee->clientAssignments()->active()->count(), 'Active client assignments'),
         ];
     }
@@ -91,46 +91,25 @@ class DashboardService
     /**
      * @return Builder<ScheduledVisit>
      */
-    private function visitQuery(User $user, ?Employee $employee): Builder
+    private function visitQuery(User $user): Builder
     {
-        return $this->visitsQuery($user, $employee)->scheduled();
+        return $this->visitsQuery($user)->scheduled();
     }
 
     /**
      * @return Builder<ScheduledVisit>
      */
-    private function visitsQuery(User $user, ?Employee $employee): Builder
+    private function visitsQuery(User $user): Builder
     {
-        $query = ScheduledVisit::query();
-
-        if ($user->isAdmin()) {
-            return $query;
-        }
-
-        if ($employee === null) {
-            return $query->whereRaw('1 = 0');
-        }
-
-        if ($user->isSupervisor()) {
-            $dspIds = $this->dspReportsQuery($employee)->pluck('id');
-            $clientIds = $this->supervisedClientsQuery($employee)->pluck('id');
-
-            return $query->where(function (Builder $builder) use ($employee, $dspIds, $clientIds): void {
-                $builder->where('supervisor_id', $employee->id)
-                    ->orWhereIn('employee_id', $dspIds)
-                    ->orWhereIn('client_id', $clientIds);
-            });
-        }
-
-        return $query->where('employee_id', $employee->id);
+        return ScheduledVisit::query()->visibleTo($user);
     }
 
     /**
      * @return Collection<int, ScheduledVisit>
      */
-    private function todayVisits(User $user, ?Employee $employee, CarbonInterface $today): Collection
+    private function todayVisits(User $user, CarbonInterface $today): Collection
     {
-        return $this->visitQuery($user, $employee)
+        return $this->visitQuery($user)
             ->with(['client', 'employee', 'shiftTemplate'])
             ->whereDate('service_date', $today)
             ->orderBy('service_date')
@@ -141,9 +120,9 @@ class DashboardService
     /**
      * @return Collection<int, ScheduledVisit>
      */
-    private function upcomingVisits(User $user, ?Employee $employee, CarbonInterface $today): Collection
+    private function upcomingVisits(User $user, CarbonInterface $today): Collection
     {
-        return $this->visitQuery($user, $employee)
+        return $this->visitQuery($user)
             ->with(['client', 'employee', 'shiftTemplate'])
             ->whereDate('service_date', '>', $today)
             ->orderBy('service_date')
@@ -235,7 +214,7 @@ class DashboardService
             ];
         }
 
-        $cancelled = $this->visitsQuery($user, $employee)
+        $cancelled = $this->visitsQuery($user)
             ->where('status', ScheduledVisitStatus::Cancelled)
             ->with(['client', 'employee'])
             ->orderByDesc('service_date')
@@ -257,9 +236,9 @@ class DashboardService
     /**
      * @return list<array{id: string, title: string, detail: string, occurred_on: string}>
      */
-    private function activity(User $user, ?Employee $employee): array
+    private function activity(User $user): array
     {
-        return $this->values($this->visitsQuery($user, $employee)
+        return $this->values($this->visitsQuery($user)
             ->with(['client', 'employee'])
             ->orderByDesc('updated_at')
             ->limit(8)

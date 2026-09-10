@@ -204,6 +204,18 @@ class Employee extends Model
         return PrefixedNumber::next(self::withTrashed(), 'employee_number', 'EMP-');
     }
 
+    public function isActiveDsp(): bool
+    {
+        return $this->job_type === JobType::Dsp
+            && $this->employment_status === EmploymentStatus::Active;
+    }
+
+    public function isActiveSupervisor(): bool
+    {
+        return $this->job_type === JobType::Supervisor
+            && $this->employment_status === EmploymentStatus::Active;
+    }
+
     /**
      * @param  Builder<static>  $query
      * @return Builder<static>

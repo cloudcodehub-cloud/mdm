@@ -10,6 +10,8 @@ Phase 1B-1 adds PHPUnit feature tests for employee credentials, training, client
 
 Phase 1B-2 adds PHPUnit feature tests for care plans (active/historical), care-plan task recurrence (including custom), scheduled visits (shift template or explicit times, including overnight), skip reasons, related policies/form requests, and demo seed coverage.
 
+Phase 3B-1 adds PHPUnit feature tests for functional scheduled-visit CRUD, filters, overnight windows, overlap rejection, and ADMIN / SUPERVISOR / DSP authorization on the scheduling screens.
+
 Pest was not added: `laravel/pao` in this starter conflicts with `pestphp/pest`. Tests use the existing PHPUnit + `php artisan test` setup.
 
 ## Expectations going forward

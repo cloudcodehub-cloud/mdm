@@ -25,8 +25,14 @@ This is the simplest Laravel approach for three application roles. Authorization
 ## Phase 1B-2 policy scope
 
 - Admin: create/update care plans, task templates, scheduled visits, and skip reasons. Cannot hard-delete these records.
-- Supervisor: view care plans/tasks for assigned clients; view scheduled visits for assigned clients or assigned DSP reports; view skip reasons. Cannot create or update them.
+- Supervisor: view care plans/tasks for assigned clients; view scheduled visits for assigned clients or assigned DSP reports; view skip reasons. Cannot create or update care plans, task templates, or skip reasons.
 - DSP: view care plans/tasks for currently assigned clients, own scheduled visits, and skip reasons.
+
+## Phase 3B-1 policy scope
+
+- Admin: create/update scheduled visits for any client and DSP.
+- Supervisor: create/update scheduled visits only when the client is on their caseload (`clients.supervisor_id`) and the DSP is their report or is actively assigned to that client. They may view visits for assigned clients, assigned DSP reports, or visits listing them as supervisor of record.
+- DSP: view own scheduled visits only. Cannot create or update schedules.
 
 Module-specific permissions for clock-in, EVV visit records, payroll, and messaging will be added with those features.
 

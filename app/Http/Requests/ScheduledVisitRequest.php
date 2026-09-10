@@ -4,9 +4,12 @@ namespace App\Http\Requests;
 
 use App\Enums\ScheduledVisitStatus;
 use App\Models\ScheduledVisit;
+use App\Services\ScheduledVisitService;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ScheduledVisitRequest extends FormRequest
 {
@@ -19,6 +22,35 @@ class ScheduledVisitRequest extends FormRequest
         }
 
         return $this->user()?->can('create', ScheduledVisit::class) ?? false;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $shiftTemplateId = $this->blankToNull($this->input('shift_template_id'));
+        $startsAt = $this->blankToNull($this->input('starts_at'));
+        $endsAt = $this->blankToNull($this->input('ends_at'));
+
+        if ($this->input('timing_mode') === 'template') {
+            $startsAt = null;
+            $endsAt = null;
+        }
+
+        if ($this->input('timing_mode') === 'custom') {
+            $shiftTemplateId = null;
+        }
+
+        if ($shiftTemplateId !== null) {
+            $startsAt = null;
+            $endsAt = null;
+        }
+
+        $this->merge([
+            'supervisor_id' => $this->blankToNull($this->input('supervisor_id')),
+            'shift_template_id' => $shiftTemplateId,
+            'starts_at' => $this->normalizeTime($startsAt),
+            'ends_at' => $this->normalizeTime($endsAt),
+            'notes' => $this->blankToNull($this->input('notes')),
+        ]);
     }
 
     /**
@@ -38,5 +70,68 @@ class ScheduledVisitRequest extends FormRequest
             'status' => ['required', Rule::enum(ScheduledVisitStatus::class)],
             'notes' => ['nullable', 'string'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $user = $this->user();
+
+            if ($user === null) {
+                return;
+            }
+
+            $visit = $this->route('scheduled_visit') ?? $this->route('scheduledVisit');
+            $existing = $visit instanceof ScheduledVisit ? $visit : null;
+
+            try {
+                app(ScheduledVisitService::class)->assertSchedulable($user, $this->only([
+                    'client_id',
+                    'employee_id',
+                    'supervisor_id',
+                    'shift_template_id',
+                    'service_date',
+                    'starts_at',
+                    'ends_at',
+                    'service_type',
+                    'status',
+                    'notes',
+                ]), $existing);
+            } catch (ValidationException $exception) {
+                foreach ($exception->errors() as $key => $messages) {
+                    foreach ($messages as $message) {
+                        $validator->errors()->add($key, $message);
+                    }
+                }
+            }
+        });
+    }
+
+    private function blankToNull(mixed $value): mixed
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return $value;
+    }
+
+    private function normalizeTime(mixed $value): ?string
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        $value = trim($value);
+
+        if (preg_match('/^\d{2}:\d{2}$/', $value) === 1) {
+            return $value.':00';
+        }
+
+        return $value;
     }
 }

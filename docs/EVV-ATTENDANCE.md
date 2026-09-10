@@ -20,6 +20,10 @@ Overnight support: when end time is earlier than or equal to start time, `ShiftT
 
 `scheduled_visits` stores a planned visit: client, DSP employee, optional supervisor, service date, service type, status (`scheduled`, `cancelled`, `completed`), and notes. Timing is either a linked shift template or explicit `starts_at` / `ends_at` (explicit overnight windows use the same next-day rule). Clock-in/out is not implemented yet.
 
+## Phase 3B-1 functional scheduling
+
+Admins and in-scope supervisors manage scheduled visits from the Scheduled Visits screens (list, add, edit, detail). Filters: service date, client, DSP, and status. Only active DSP employees can be given a `scheduled` status. Overnight template and custom windows remain valid when end time is earlier than start time. Overlapping scheduled windows for the same DSP are rejected. Clock-in/out is not implemented yet.
+
 `skip_reasons` is the lookup used later when a DSP skips a care-plan task:
 
 | Name | Code | Requires comment |
