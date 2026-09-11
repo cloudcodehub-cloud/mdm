@@ -1,5 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
+import { OnboardingStepper } from '@/components/mdm/onboarding-stepper';
 import { TaskCatalogBuilder } from '@/components/mdm/task-catalog-builder';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -76,6 +77,16 @@ export default function ClientSetup({
             ),
         [selectedServices],
     );
+    const relevantItemIds = useMemo(() => {
+        const fromItems = selectedServices.flatMap(
+            (service) => service.recommended_item_ids,
+        );
+        const fromBundles = task_catalog.bundles
+            .filter((bundle) => suggestedBundleIds.includes(bundle.id))
+            .flatMap((bundle) => bundle.item_ids);
+
+        return Array.from(new Set([...fromItems, ...fromBundles]));
+    }, [selectedServices, suggestedBundleIds, task_catalog.bundles]);
 
     const toggleService = (id: number) => {
         setServiceIds((current) =>
@@ -121,31 +132,7 @@ export default function ClientSetup({
                     </p>
                 </div>
 
-                <ol className="flex flex-wrap gap-2 text-xs font-medium">
-                    <li className="rounded-full bg-muted px-3 py-1">
-                        1. Profile
-                    </li>
-                    <li
-                        className={cn(
-                            'rounded-full px-3 py-1',
-                            step === 2
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-muted',
-                        )}
-                    >
-                        2. Services & Care Plan
-                    </li>
-                    <li
-                        className={cn(
-                            'rounded-full px-3 py-1',
-                            step === 3
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-muted',
-                        )}
-                    >
-                        3. Review
-                    </li>
-                </ol>
+                <OnboardingStepper currentStep={step} />
 
                 {step === 2 && (
                     <div className="space-y-4">
@@ -207,6 +194,9 @@ export default function ClientSetup({
                                 selected={tasks}
                                 onChange={setTasks}
                                 suggestedBundleIds={suggestedBundleIds}
+                                relevantItemIds={relevantItemIds}
+                                filterByServices
+                                servicesSelected={serviceIds.length > 0}
                             />
                         </section>
                         <div className="sticky-form-actions flex flex-wrap gap-2">

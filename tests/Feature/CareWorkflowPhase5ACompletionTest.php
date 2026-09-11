@@ -98,6 +98,40 @@ class CareWorkflowPhase5ACompletionTest extends TestCase
         $this->assertSame(1, $client->carePlans()->firstOrFail()->taskTemplates()->active()->count());
     }
 
+    public function test_care_setup_page_exposes_existing_service_task_recommendations(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $client = Client::factory()->create();
+        $personal = CareService::query()
+            ->where('slug', 'personal-care')
+            ->with(['recommendedBundles.items', 'recommendedItems'])
+            ->firstOrFail();
+
+        $this->actingAs($admin)
+            ->get(route('clients.setup.edit', $client))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('clients/setup')
+                ->where('client.id', $client->id)
+                ->has('services')
+                ->has('task_catalog.items')
+                ->has('task_catalog.bundles')
+                ->where('services.0.slug', 'personal-care')
+                ->where(
+                    'services.0.recommended_bundle_ids',
+                    $personal->recommendedBundles->pluck('id')->values()->all(),
+                )
+                ->where(
+                    'services.0.recommended_item_ids',
+                    $personal->recommendedItems->pluck('id')->values()->all(),
+                ));
+
+        $this->assertNotEmpty($personal->recommendedBundles);
+        $this->assertNotEmpty(
+            $personal->recommendedBundles->flatMap->items->pluck('id')->merge($personal->recommendedItems->pluck('id'))->unique(),
+        );
+    }
+
     public function test_supervisor_can_assign_services_to_scoped_client_only(): void
     {
         $supervisor = Employee::factory()->supervisor()->create();

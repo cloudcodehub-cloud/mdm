@@ -4,6 +4,7 @@
 
 - Service is a care/program umbrella. Task is the actual DSP work. Services do not own recurrence or visit schedules.
 - A service may recommend task bundles. Selecting a service does not force those tasks onto the client.
+- Client service selections filter/recommend care-plan tasks by default, while Show All allows intentional cross-service task selection; filtering never removes already-selected client tasks.
 - Catalog defaults remain suggestions. The client care plan owns recurrence, timing, instructions, and required/skip/note/critical flags.
 - Scheduled Visit can preview which care-plan tasks are due for the selected client and date. That preview does not create `visit_tasks`.
 - One-off tasks belong only to that scheduled visit and never change the permanent care plan.

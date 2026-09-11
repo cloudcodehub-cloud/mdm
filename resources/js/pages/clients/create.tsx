@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { ClientForm } from '@/components/mdm/client-form';
+import { OnboardingStepper } from '@/components/mdm/onboarding-stepper';
 import { dashboard } from '@/routes';
 import { create, index as clientsIndex, store } from '@/routes/clients';
 import type { OptionItem } from '@/types/directory';
@@ -23,6 +24,7 @@ export default function ClientsCreate({
                         Add Client
                     </h1>
                 </div>
+                <OnboardingStepper currentStep={1} />
                 <ClientForm
                     action={store.url()}
                     method="post"

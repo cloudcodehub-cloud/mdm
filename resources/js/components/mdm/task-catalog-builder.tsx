@@ -41,16 +41,23 @@ export function TaskCatalogBuilder({
     selected,
     onChange,
     suggestedBundleIds = [],
+    relevantItemIds,
+    filterByServices = false,
+    servicesSelected = true,
 }: {
     catalog: TaskCatalogPayload;
     selected: CarePlanTaskDraft[];
     onChange: (tasks: CarePlanTaskDraft[]) => void;
     suggestedBundleIds?: number[];
+    relevantItemIds?: number[];
+    filterByServices?: boolean;
+    servicesSelected?: boolean;
 }) {
     const [query, setQuery] = useState('');
     const [category, setCategory] = useState<string>('all');
     const [editingKey, setEditingKey] = useState<string | null>(null);
     const [customTitle, setCustomTitle] = useState('');
+    const [showAllTasks, setShowAllTasks] = useState(false);
 
     const selectedIds = useMemo(
         () =>
@@ -62,7 +69,26 @@ export function TaskCatalogBuilder({
         [selected],
     );
 
-    const filtered = catalog.items.filter((item) => {
+    const relevantIdSet = useMemo(
+        () => new Set(relevantItemIds ?? []),
+        [relevantItemIds],
+    );
+    const restrictCatalog =
+        filterByServices && !showAllTasks && servicesSelected;
+    const showHelper =
+        filterByServices && !showAllTasks && !servicesSelected;
+
+    const visibleItems = restrictCatalog
+        ? catalog.items.filter((item) => relevantIdSet.has(item.id))
+        : catalog.items;
+
+    const visibleBundles = restrictCatalog
+        ? catalog.bundles.filter((bundle) =>
+              suggestedBundleIds.includes(bundle.id),
+          )
+        : catalog.bundles;
+
+    const filtered = visibleItems.filter((item) => {
         const matchesCategory =
             category === 'all' || item.category === category;
         const haystack = `${item.title} ${item.category_label}`.toLowerCase();
@@ -115,8 +141,42 @@ export function TaskCatalogBuilder({
     return (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">
             <div className="space-y-4">
+                {filterByServices && (
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-muted-foreground text-xs">
+                            {showAllTasks
+                                ? 'Showing the full task catalog.'
+                                : servicesSelected
+                                  ? 'Showing tasks recommended for the selected services.'
+                                  : 'Service recommendations guide the catalog below.'}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => setShowAllTasks((value) => !value)}
+                            className="text-primary text-xs font-medium hover:underline"
+                        >
+                            {showAllTasks
+                                ? 'Show recommended tasks'
+                                : 'Show all tasks'}
+                        </button>
+                    </div>
+                )}
+                {showHelper ? (
+                    <div className="border-border/70 bg-muted/30 rounded-xl border border-dashed px-4 py-6 text-center">
+                        <p className="text-sm font-medium">
+                            Select one or more services to see recommended care
+                            tasks.
+                        </p>
+                        <p className="text-muted-foreground mt-1 text-xs">
+                            Use Show all tasks if you need a task outside those
+                            recommendations.
+                        </p>
+                    </div>
+                ) : (
+                    <>
+                {visibleBundles.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                    {catalog.bundles.map((bundle) => (
+                    {visibleBundles.map((bundle) => (
                         <button
                             key={bundle.id}
                             type="button"
@@ -133,6 +193,7 @@ export function TaskCatalogBuilder({
                         </button>
                     ))}
                 </div>
+                )}
                 <Input
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
@@ -145,7 +206,13 @@ export function TaskCatalogBuilder({
                         onClick={() => setCategory('all')}
                         label="All"
                     />
-                    {catalog.categories.map((item) => (
+                    {catalog.categories
+                        .filter((item) =>
+                            visibleItems.some(
+                                (task) => task.category === item.value,
+                            ),
+                        )
+                        .map((item) => (
                         <CategoryChip
                             key={item.value}
                             active={category === item.value}
@@ -155,6 +222,11 @@ export function TaskCatalogBuilder({
                     ))}
                 </div>
                 <ul className="grid gap-2 sm:grid-cols-2">
+                    {filtered.length === 0 && (
+                        <li className="text-muted-foreground col-span-full text-sm">
+                            No matching tasks in this set.
+                        </li>
+                    )}
                     {filtered.map((item) => {
                         const added = selectedIds.has(item.id);
                         return (
@@ -190,6 +262,8 @@ export function TaskCatalogBuilder({
                         );
                     })}
                 </ul>
+                    </>
+                )}
                 <div className="flex flex-col gap-2 sm:flex-row">
                     <Input
                         value={customTitle}
