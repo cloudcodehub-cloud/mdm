@@ -11,6 +11,11 @@ function Toaster({ ...props }: ToasterProps) {
         <Sonner
             theme={appearance}
             className="toaster group"
+            toastOptions={{
+                classNames: {
+                    toast: 'surface-frosted',
+                },
+            }}
             position="bottom-right"
             style={
                 {

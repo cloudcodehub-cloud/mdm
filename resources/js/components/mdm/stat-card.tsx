@@ -28,7 +28,7 @@ export function StatCard({
         return (
             <Link
                 href={href}
-                className="surface-panel hover:bg-muted/30 block p-4 transition-colors duration-200"
+                className="surface-panel interactive-surface block p-4"
             >
                 {body}
             </Link>
@@ -36,7 +36,7 @@ export function StatCard({
     }
 
     return (
-        <div className="surface-panel p-4 transition-colors duration-200">
+        <div className="surface-panel p-4">
             {body}
         </div>
     );
@@ -72,6 +72,8 @@ export function Panel({
 
 export function EmptyState({ message }: { message: string }) {
     return (
-        <p className="text-muted-foreground text-sm">{message}</p>
+        <p className="text-muted-foreground rounded-lg border border-dashed border-border/80 bg-muted/20 px-4 py-6 text-center text-sm">
+            {message}
+        </p>
     );
 }

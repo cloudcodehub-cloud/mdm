@@ -25,7 +25,6 @@ export function NavMain({ items }: { items: NavItem[] }) {
                             asChild
                             isActive={isCurrentUrl(item.href)}
                             tooltip={{ children: item.title }}
-                            className="transition-colors duration-200"
                         >
                             <Link href={item.href} prefetch>
                                 {item.icon && <item.icon />}

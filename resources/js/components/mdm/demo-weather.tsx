@@ -4,7 +4,7 @@ import type { DemoWeather } from '@/types/auth';
 export function DemoWeather({ weather }: { weather: DemoWeather }) {
     return (
         <div
-            className="hidden items-center gap-2 rounded-xl border border-border/60 bg-white/50 px-3 py-1.5 md:flex dark:bg-white/5"
+            className="hidden items-center gap-2 rounded-xl border border-border/60 bg-background/50 px-3 py-1.5 backdrop-blur-sm md:flex"
             title="Local demo weather. Not connected to a live weather service."
         >
             <CloudSun className="text-muted-foreground size-4" />

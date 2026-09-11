@@ -25,7 +25,7 @@ export function AppSidebar() {
                         <SidebarMenuButton
                             size="lg"
                             asChild
-                            className="transition-colors duration-200"
+                            tooltip={{ children: 'Dashboard' }}
                         >
                             <Link href={dashboard()} prefetch>
                                 <AppLogo />

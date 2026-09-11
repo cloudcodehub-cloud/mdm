@@ -23,7 +23,7 @@ export function AlertsMenu() {
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="relative rounded-full transition-colors duration-200"
+                    className="relative rounded-full"
                     aria-label={
                         unread > 0
                             ? `Alerts, ${unread} unread`

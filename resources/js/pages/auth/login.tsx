@@ -23,6 +23,12 @@ export default function Login({ status, canResetPassword }: Props) {
 
             <PasskeyVerify />
 
+            {status && (
+                <div className="mb-4 text-center text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                    {status}
+                </div>
+            )}
+
             <Form
                 {...store.form()}
                 resetOnSuccess={['password']}
@@ -32,7 +38,15 @@ export default function Login({ status, canResetPassword }: Props) {
                     <>
                         <div className="grid gap-6">
                             <div className="grid gap-2">
-                                <Label htmlFor="email">Email address</Label>
+                                <Label htmlFor="email">
+                                    Email
+                                    <span
+                                        className="text-destructive ml-0.5"
+                                        aria-hidden="true"
+                                    >
+                                        *
+                                    </span>
+                                </Label>
                                 <Input
                                     id="email"
                                     type="email"
@@ -41,21 +55,29 @@ export default function Login({ status, canResetPassword }: Props) {
                                     autoFocus
                                     tabIndex={1}
                                     autoComplete="email"
-                                    placeholder="email@example.com"
+                                    placeholder="name@organization.com"
                                 />
                                 <InputError message={errors.email} />
                             </div>
 
                             <div className="grid gap-2">
                                 <div className="flex items-center">
-                                    <Label htmlFor="password">Password</Label>
+                                    <Label htmlFor="password">
+                                        Password
+                                        <span
+                                            className="text-destructive ml-0.5"
+                                            aria-hidden="true"
+                                        >
+                                            *
+                                        </span>
+                                    </Label>
                                     {canResetPassword && (
                                         <TextLink
                                             href={request()}
                                             className="ml-auto text-sm"
                                             tabIndex={5}
                                         >
-                                            Forgot your password?
+                                            Forgot password
                                         </TextLink>
                                     )}
                                 </div>
@@ -65,7 +87,7 @@ export default function Login({ status, canResetPassword }: Props) {
                                     required
                                     tabIndex={2}
                                     autoComplete="current-password"
-                                    placeholder="Password"
+                                    placeholder="Enter password"
                                 />
                                 <InputError message={errors.password} />
                             </div>
@@ -81,36 +103,23 @@ export default function Login({ status, canResetPassword }: Props) {
 
                             <Button
                                 type="submit"
-                                className="mt-4 w-full"
+                                className="w-full"
                                 tabIndex={4}
                                 disabled={processing}
                                 data-test="login-button"
                             >
                                 {processing && <Spinner />}
-                                Log in
+                                Log In
                             </Button>
                         </div>
 
-                        <div className="text-muted-foreground text-center text-sm">
-                            Don't have an account?{' '}
-                            <span
-                                role="link"
-                                aria-disabled="true"
-                                title="Accounts are created by an administrator."
-                                className="text-foreground cursor-not-allowed underline decoration-neutral-300 underline-offset-4 opacity-50 dark:decoration-neutral-500"
-                            >
-                                Sign up
-                            </span>
-                        </div>
+                        <p className="text-muted-foreground text-center text-sm">
+                            Accounts are created by your organization
+                            administrator.
+                        </p>
                     </>
                 )}
             </Form>
-
-            {status && (
-                <div className="mb-4 text-center text-sm font-medium text-green-600">
-                    {status}
-                </div>
-            )}
         </>
     );
 }

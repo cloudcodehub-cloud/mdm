@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import { BrandMark } from '@/components/brand-mark';
 import { AlertsMenu } from '@/components/mdm/alerts-menu';
 import { DemoWeather } from '@/components/mdm/demo-weather';
 import { LiveClock } from '@/components/mdm/live-clock';
@@ -28,8 +29,13 @@ export function AppSidebarHeader({
             : (breadcrumbs.at(-1)?.title ?? 'Dashboard');
 
     return (
-        <header className="border-sidebar-border/50 flex h-16 shrink-0 items-center gap-3 border-b bg-background/70 px-4 backdrop-blur-md transition-[width,height] duration-200 ease-linear md:px-6">
+        <header className="border-sidebar-border/50 flex h-16 shrink-0 items-center gap-3 border-b bg-background/75 px-4 backdrop-blur-[12px] transition-[width,height] duration-200 ease-linear md:px-6">
             <div className="flex min-w-0 flex-1 items-center gap-3">
+                <BrandMark
+                    variant="icon"
+                    className="size-7 md:hidden"
+                    alt="MDM"
+                />
                 <SidebarTrigger className="-ml-1" />
                 <div className="min-w-0">
                     <p className="text-muted-foreground hidden text-[11px] tracking-wide uppercase sm:block">
@@ -55,14 +61,14 @@ export function AppSidebarHeader({
                         <DropdownMenuTrigger asChild>
                             <Button
                                 variant="ghost"
-                                className="h-10 rounded-full px-1.5 transition-colors duration-200"
+                                className="h-10 rounded-full px-1.5"
                             >
                                 <Avatar className="size-8 overflow-hidden rounded-full">
                                     <AvatarImage
                                         src={auth.user.avatar}
                                         alt={auth.user.name}
                                     />
-                                    <AvatarFallback className="rounded-full bg-teal-100 text-teal-900 dark:bg-teal-900 dark:text-teal-50">
+                                    <AvatarFallback className="rounded-full bg-primary/12 text-primary">
                                         {getInitials(auth.user.name)}
                                     </AvatarFallback>
                                 </Avatar>

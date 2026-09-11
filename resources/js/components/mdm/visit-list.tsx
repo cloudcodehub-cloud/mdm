@@ -36,7 +36,7 @@ export function VisitList({
                         <p className="truncate font-medium">
                             <Link
                                 href={show(visit.id)}
-                                className="hover:text-foreground"
+                                className="hover:text-primary underline-offset-4 hover:underline"
                             >
                                 {visit.client.name}
                             </Link>

@@ -19,9 +19,17 @@ use App\Http\Controllers\VisitClockOutController;
 use App\Http\Controllers\VisitController;
 use App\Http\Controllers\VisitExceptionController;
 use App\Http\Controllers\VisitTaskController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
-Route::inertia('/', 'welcome')->name('home');
+Route::get('/', function () {
+    if (Auth::check()) {
+        return redirect()->route('dashboard');
+    }
+
+    return Inertia::render('welcome');
+})->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
