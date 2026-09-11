@@ -19,12 +19,12 @@ class CarePlanPolicy
 
     public function create(User $user): bool
     {
-        return $user->isAdmin();
+        return $user->isAdmin() || $user->isSupervisor();
     }
 
     public function update(User $user, CarePlan $carePlan): bool
     {
-        return $user->isAdmin();
+        return $user->can('manageCarePlan', $carePlan->client);
     }
 
     public function delete(User $user, CarePlan $carePlan): bool

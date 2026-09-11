@@ -55,6 +55,7 @@ class AttendanceController extends Controller
             ),
             'can' => [
                 'review_corrections' => $user->isAdmin(),
+                'filter_employees' => ! $user->isDsp(),
             ],
         ]);
     }

@@ -26,7 +26,7 @@ export default function ScheduledVisitsIndex({
     };
     clients: OptionItem[];
     dsps: OptionItem[];
-    can: { create: boolean };
+    can: { create: boolean; filter_dsps?: boolean };
 }) {
     return (
         <>
@@ -75,6 +75,7 @@ export default function ScheduledVisitsIndex({
                                 </option>
                             ))}
                         </select>
+                        {can.filter_dsps !== false && (
                         <select
                             name="employee_id"
                             defaultValue={filters.employee_id}
@@ -88,6 +89,7 @@ export default function ScheduledVisitsIndex({
                                 </option>
                             ))}
                         </select>
+                        )}
                         <select
                             name="status"
                             defaultValue={filters.status}

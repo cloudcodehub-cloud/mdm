@@ -8,6 +8,7 @@ use App\Models\Announcement;
 use App\Models\Conversation;
 use App\Models\User;
 use App\Services\MessagingService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -86,11 +87,25 @@ class MessageController extends Controller
             $user,
             $request->recipient(),
             $request->validated('body'),
+            $request->careContext(),
         );
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Message sent.')]);
 
+        if ($request->boolean('stay')) {
+            return back();
+        }
+
         return redirect()->route('messages.show', $conversation);
+    }
+
+    public function preview(Request $request, User $user): JsonResponse
+    {
+        $actor = $request->user();
+        abort_unless($actor !== null, 401);
+        $this->authorize('create', Conversation::class);
+
+        return response()->json($this->messaging->previewFor($actor, $user));
     }
 
     public function storeMessage(StoreConversationMessageRequest $request, Conversation $conversation): RedirectResponse
@@ -98,7 +113,16 @@ class MessageController extends Controller
         $user = $request->user();
         abort_unless($user !== null, 401);
 
-        $this->messaging->sendMessage($user, $conversation, $request->validated('body'));
+        $this->messaging->sendMessage(
+            $user,
+            $conversation,
+            $request->validated('body'),
+            $request->careContext(),
+        );
+
+        if ($request->boolean('stay')) {
+            return back();
+        }
 
         return redirect()->route('messages.show', $conversation);
     }

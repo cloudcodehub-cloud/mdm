@@ -24,6 +24,10 @@ class CarePlanTaskTemplateFactory extends Factory
             'recurrence' => TaskRecurrence::Daily,
             'recurrence_detail' => null,
             'is_required' => true,
+            'note_required' => false,
+            'can_skip' => true,
+            'is_critical' => false,
+            'is_active' => true,
             'sort_order' => 1,
         ];
     }

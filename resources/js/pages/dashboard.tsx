@@ -371,33 +371,73 @@ function SupervisorDashboard({ data }: { data: DashboardPayload }) {
 }
 
 function DspDashboard({ data }: { data: DashboardPayload }) {
+    const workItems = data.work_items ?? [];
+    const hasAction =
+        Boolean(data.active_visit) || Boolean(data.clock_in_visit);
+
     return (
         <div className="grid gap-4 lg:grid-cols-3">
             <div className="space-y-4 lg:col-span-2">
-                <ClockInAction
-                    activeVisit={data.active_visit}
-                    clockInVisit={data.clock_in_visit}
-                />
-                <Panel
-                    title="Today's scheduled visits"
-                    description="Client, time, and service for today."
-                >
-                    <VisitList
-                        visits={data.today_visits}
-                        empty="You're clear for today. No visits are currently scheduled."
+                {hasAction && (
+                    <ClockInAction
+                        activeVisit={data.active_visit}
+                        clockInVisit={data.clock_in_visit}
+                        hideEmpty
                     />
+                )}
+                <Panel
+                    title="Your clients and visits"
+                    description="Work is organized by client and visit — never one shared checklist."
+                >
+                    {workItems.length === 0 ? (
+                        <p className="text-muted-foreground text-sm">
+                            No assigned clients or visits right now.
+                        </p>
+                    ) : (
+                        <ul className="space-y-3">
+                            {workItems.map((item) => (
+                                <li
+                                    key={item.key}
+                                    className="surface-panel flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+                                >
+                                    <div>
+                                        <p className="font-semibold">
+                                            {item.client.name}
+                                        </p>
+                                        <p className="text-muted-foreground text-sm">
+                                            {item.service_type}
+                                            {item.scheduled_time
+                                                ? ` · ${item.scheduled_time}`
+                                                : ''}
+                                        </p>
+                                        <p className="text-muted-foreground mt-1 text-xs">
+                                            {item.state_label}
+                                            {item.task_progress
+                                                ? ` · ${item.task_progress.completed}/${item.task_progress.total} tasks`
+                                                : ''}
+                                        </p>
+                                    </div>
+                                    <Button
+                                        className="min-h-11 w-full sm:w-auto"
+                                        asChild
+                                    >
+                                        <Link href={item.href}>
+                                            {item.action_label}
+                                        </Link>
+                                    </Button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
                 </Panel>
             </div>
             <div className="space-y-4">
-                <Panel title="Upcoming work">
-                    <VisitList visits={data.upcoming_visits} />
-                </Panel>
                 <Panel title="Assigned clients">
                     <PersonList
                         people={data.assigned_clients.map((client) => ({
                             id: client.id,
                             name: client.name,
-                            detail: client.client_number,
+                            detail: 'View client',
                             href: showClient.url(client.id),
                         }))}
                         empty="No active client assignments."

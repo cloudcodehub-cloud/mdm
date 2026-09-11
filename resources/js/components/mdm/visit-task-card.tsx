@@ -22,11 +22,17 @@ export function VisitTaskCard({
     task,
     skipReasons,
     canRecord,
+    historyNote,
+    onMessagePrevious,
+    onContactSupervisor,
 }: {
     visitId: number;
     task: ActiveVisitTask;
     skipReasons: SkipReasonOption[];
     canRecord: boolean;
+    historyNote?: string | null;
+    onMessagePrevious?: () => void;
+    onContactSupervisor?: () => void;
 }) {
     const [completeOpen, setCompleteOpen] = useState(false);
     const [skipOpen, setSkipOpen] = useState(false);
@@ -105,10 +111,41 @@ export function VisitTaskCard({
             </div>
             <p className="text-muted-foreground mt-1 text-xs">
                 {task.recurrence_label}
+                {task.preferred_timing_label
+                    ? ` · ${task.preferred_timing_label}`
+                    : ''}
                 {task.is_required ? ' · Required' : ''}
+                {task.is_critical ? ' · Critical' : ''}
+                {task.note_required ? ' · Note required' : ''}
             </p>
             {task.instructions && (
                 <p className="mt-2 text-sm">{task.instructions}</p>
+            )}
+            {historyNote && (
+                <div className="bg-muted/40 mt-2 rounded-lg p-2 text-xs">
+                    <p className="text-muted-foreground">Recent note</p>
+                    <p className="mt-0.5">{historyNote}</p>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                        {onMessagePrevious && (
+                            <button
+                                type="button"
+                                className="text-primary font-medium"
+                                onClick={onMessagePrevious}
+                            >
+                                Message Previous DSP
+                            </button>
+                        )}
+                        {onContactSupervisor && (
+                            <button
+                                type="button"
+                                className="text-primary font-medium"
+                                onClick={onContactSupervisor}
+                            >
+                                Contact Supervisor
+                            </button>
+                        )}
+                    </div>
+                </div>
             )}
             {task.completion_note && (
                 <p className="mt-2 text-sm">Note: {task.completion_note}</p>
@@ -137,6 +174,7 @@ export function VisitTaskCard({
                     >
                         Complete
                     </Button>
+                    {task.can_skip !== false && (
                     <Button
                         type="button"
                         size="lg"
@@ -146,6 +184,7 @@ export function VisitTaskCard({
                     >
                         Skip
                     </Button>
+                    )}
                 </div>
             )}
 
@@ -154,8 +193,10 @@ export function VisitTaskCard({
                     <DialogHeader>
                         <DialogTitle>Complete task</DialogTitle>
                         <DialogDescription>
-                            Record completion for {task.title}. A note is
-                            optional.
+                            Record completion for {task.title}.
+                            {task.note_required
+                                ? ' A note is required.'
+                                : ' A note is optional.'}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-2">
@@ -165,6 +206,7 @@ export function VisitTaskCard({
                         <textarea
                             id={`completion-note-${task.id}`}
                             rows={3}
+                            required={Boolean(task.note_required)}
                             value={note}
                             onChange={(event) => setNote(event.target.value)}
                             className="border-input flex min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"

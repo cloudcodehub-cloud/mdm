@@ -14,16 +14,27 @@ use Illuminate\Support\Carbon;
  * @property int $conversation_id
  * @property int $sender_id
  * @property string $body
+ * @property array<string, mixed>|null $care_context
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Conversation $conversation
  * @property-read User $sender
  */
-#[Fillable(['conversation_id', 'sender_id', 'body'])]
+#[Fillable(['conversation_id', 'sender_id', 'body', 'care_context'])]
 class ConversationMessage extends Model
 {
     /** @use HasFactory<ConversationMessageFactory> */
     use HasFactory;
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'care_context' => 'array',
+        ];
+    }
 
     /**
      * @return BelongsTo<Conversation, $this>

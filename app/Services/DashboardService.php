@@ -11,6 +11,7 @@ use App\Enums\JobType;
 use App\Enums\OperationalVisitStatus;
 use App\Enums\ScheduledVisitStatus;
 use App\Enums\TrainingStatus;
+use App\Enums\VisitStatus;
 use App\Models\Client;
 use App\Models\ClientAuthorization;
 use App\Models\ClientDspAssignment;
@@ -24,6 +25,7 @@ use App\Support\DirectoryPresenter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class DashboardService
 {
@@ -63,6 +65,7 @@ class DashboardService
             'compliance_health' => $user->isDsp() ? null : $this->complianceCatalog->healthForUser($user),
             'open_exceptions' => $this->openExceptionsCount($user),
             'visit_trend' => $this->visitTrend($user, $today),
+            'work_items' => $this->dspWorkItems($user, $employee, $today),
         ];
     }
 
@@ -94,6 +97,136 @@ class DashboardService
             $this->metric('upcoming_visits', 'Upcoming visits', $this->visitQuery($user)->whereDate('service_date', '>', $today)->count(), 'Later scheduled visits'),
             $this->metric('assigned_clients', 'Assigned clients', $employee === null ? 0 : $employee->clientAssignments()->active()->count(), 'Active client assignments'),
         ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function dspWorkItems(User $user, ?Employee $employee, string $today): array
+    {
+        if (! $user->isDsp() || $employee === null) {
+            return [];
+        }
+
+        $items = [];
+        $seenClients = [];
+        $active = $this->clockIn->activeVisitFor($employee);
+
+        if ($active !== null) {
+            $summary = DirectoryPresenter::activeVisitSummary($active);
+            $items[] = [
+                'key' => 'active-'.$active->id,
+                'priority' => 1,
+                'kind' => 'active_visit',
+                'client' => $summary['client'],
+                'service_type' => $summary['service_type'],
+                'scheduled_time' => null,
+                'state' => 'in_progress',
+                'state_label' => 'In progress',
+                'task_progress' => $summary['task_progress'],
+                'action_label' => 'Continue Visit',
+                'href' => route('visits.show', $active->id),
+            ];
+            $seenClients[$active->client_id] = true;
+        }
+
+        $todayVisits = $this->visitsQuery($user)
+            ->with(['client', 'employee', 'shiftTemplate', 'visit.tasks'])
+            ->whereDate('service_date', $today)
+            ->where('status', '!=', ScheduledVisitStatus::Cancelled)
+            ->orderBy('id')
+            ->get();
+
+        foreach ($todayVisits as $visit) {
+            if ($active !== null && $visit->visit?->id === $active->id) {
+                continue;
+            }
+
+            $recordedVisit = $visit->visit;
+            $eligible = $visit->isEligibleToStart() && ($user->can('clockIn', $visit));
+            $progress = $recordedVisit !== null
+                ? DirectoryPresenter::activeVisitSummary($recordedVisit)['task_progress']
+                : null;
+
+            $action = 'View Visit';
+            $href = route('scheduled-visits.show', $visit->id);
+            $kind = 'today_visit';
+            $priority = 3;
+
+            if ($recordedVisit !== null && $recordedVisit->status === VisitStatus::InProgress) {
+                $action = 'Continue Visit';
+                $href = route('visits.show', $recordedVisit->id);
+                $priority = 1;
+                $kind = 'active_visit';
+            } elseif ($eligible) {
+                $action = 'Start Visit';
+                $priority = 2;
+                $kind = 'eligible_visit';
+            } elseif ($visit->status === ScheduledVisitStatus::Completed && $recordedVisit !== null) {
+                $action = 'View Visit';
+                $href = route('visits.show', $recordedVisit->id);
+                $priority = 3;
+                $kind = 'completed_visit';
+            }
+
+            $items[] = [
+                'key' => 'scheduled-'.$visit->id,
+                'priority' => $priority,
+                'kind' => $kind,
+                'client' => $this->clientSummary($visit->client),
+                'service_type' => $visit->service_type,
+                'scheduled_time' => $this->visitTimeLabel($visit),
+                'state' => $visit->status->value,
+                'state_label' => Str::headline($visit->status->value),
+                'task_progress' => $progress,
+                'action_label' => $action,
+                'href' => $href,
+            ];
+            $seenClients[$visit->client_id] = true;
+        }
+
+        foreach ($this->upcomingVisits($user, $today) as $visit) {
+            $items[] = [
+                'key' => 'upcoming-'.$visit->id,
+                'priority' => 4,
+                'kind' => 'upcoming_visit',
+                'client' => $this->clientSummary($visit->client),
+                'service_type' => $visit->service_type,
+                'scheduled_time' => $visit->service_date->toDateString().' · '.$this->visitTimeLabel($visit),
+                'state' => $visit->status->value,
+                'state_label' => 'Upcoming',
+                'task_progress' => null,
+                'action_label' => 'View Visit',
+                'href' => route('scheduled-visits.show', $visit->id),
+            ];
+            $seenClients[$visit->client_id] = true;
+        }
+
+        foreach ($this->assignedClients($user, $employee) as $client) {
+            if (isset($seenClients[$client['id']])) {
+                continue;
+            }
+
+            $items[] = [
+                'key' => 'client-'.$client['id'],
+                'priority' => 5,
+                'kind' => 'assigned_client',
+                'client' => $client,
+                'service_type' => 'Assigned client',
+                'scheduled_time' => null,
+                'state' => 'assigned',
+                'state_label' => 'Assigned',
+                'task_progress' => null,
+                'action_label' => 'View Client',
+                'href' => route('clients.show', $client['id']),
+            ];
+        }
+
+        usort($items, function (array $left, array $right): int {
+            return $left['priority'] <=> $right['priority'];
+        });
+
+        return $items;
     }
 
     /**

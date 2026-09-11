@@ -4,7 +4,11 @@ export type ActiveVisitTask = {
     instructions: string | null;
     recurrence: string;
     recurrence_label: string;
+    preferred_timing_label?: string | null;
     is_required: boolean;
+    note_required?: boolean;
+    can_skip?: boolean;
+    is_critical?: boolean;
     status: string;
     status_label: string;
     completed_at: string | null;
@@ -33,6 +37,7 @@ export type ActiveVisitRecord = {
     clocked_in_at_label: string;
     clocked_out_at: string | null;
     clocked_out_at_label: string | null;
+    duration_label?: string | null;
     location_method: string;
     location_status: string;
     location_status_label: string;

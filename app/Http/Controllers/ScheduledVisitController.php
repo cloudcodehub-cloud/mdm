@@ -76,6 +76,7 @@ class ScheduledVisitController extends Controller
             'dsps' => DirectoryPresenter::dspFilterOptions($user),
             'can' => [
                 'create' => $user->can('create', ScheduledVisit::class),
+                'filter_dsps' => ! $user->isDsp(),
             ],
         ]);
     }

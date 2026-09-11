@@ -19,12 +19,12 @@ class CarePlanTaskTemplatePolicy
 
     public function create(User $user): bool
     {
-        return $user->isAdmin();
+        return $user->isAdmin() || $user->isSupervisor();
     }
 
     public function update(User $user, CarePlanTaskTemplate $carePlanTaskTemplate): bool
     {
-        return $user->isAdmin();
+        return $user->can('update', $carePlanTaskTemplate->carePlan);
     }
 
     public function delete(User $user, CarePlanTaskTemplate $carePlanTaskTemplate): bool

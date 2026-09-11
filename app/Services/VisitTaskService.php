@@ -39,6 +39,14 @@ class VisitTaskService
                 ]);
             }
 
+            $note = $payload['completion_note'] ?? null;
+
+            if ($task->note_required && (! is_string($note) || trim($note) === '')) {
+                throw ValidationException::withMessages([
+                    'completion_note' => 'A note is required for this task.',
+                ]);
+            }
+
             $task->update([
                 'status' => VisitTaskStatus::Completed,
                 'completed_at' => now(),
@@ -70,6 +78,12 @@ class VisitTaskService
             if ($task->status !== VisitTaskStatus::Pending) {
                 throw ValidationException::withMessages([
                     'task' => 'This task has already been recorded and cannot be skipped.',
+                ]);
+            }
+
+            if (! $task->can_skip) {
+                throw ValidationException::withMessages([
+                    'task' => 'This task cannot be skipped.',
                 ]);
             }
 
@@ -119,7 +133,7 @@ class VisitTaskService
                 );
             }
 
-            if ($task->is_required) {
+            if ($task->is_required || $task->is_critical) {
                 $this->exceptions->record(
                     $visit,
                     VisitExceptionType::CriticalTaskSkipped,

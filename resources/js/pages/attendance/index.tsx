@@ -43,7 +43,7 @@ export default function AttendanceIndex({
     dsps: OptionItem[];
     supervisors: OptionItem[];
     statuses: { value: string; label: string }[];
-    can: { review_corrections: boolean };
+    can: { review_corrections: boolean; filter_employees?: boolean };
 }) {
     return (
         <>
@@ -79,6 +79,7 @@ export default function AttendanceIndex({
                             className={controlClassName}
                             aria-label="To date"
                         />
+                        {can.filter_employees !== false && (
                         <select
                             name="employee_id"
                             defaultValue={filters.employee_id}
@@ -92,6 +93,7 @@ export default function AttendanceIndex({
                                 </option>
                             ))}
                         </select>
+                        )}
                         <select
                             name="client_id"
                             defaultValue={filters.client_id}
@@ -185,12 +187,6 @@ export default function AttendanceIndex({
                                     label: 'Scheduled',
                                     value: records.status_summary.scheduled,
                                     tone: 'neutral',
-                                },
-                                {
-                                    key: 'exception',
-                                    label: 'Exception',
-                                    value: records.status_summary.exception,
-                                    tone: 'warning',
                                 },
                             ]}
                         />
@@ -354,14 +350,14 @@ export default function AttendanceIndex({
                                                         status={record.status}
                                                         label={record.status_label}
                                                     />
+                                                    {record.has_exception && (
+                                                        <span className="text-status-warning text-xs">
+                                                            Attention
+                                                        </span>
+                                                    )}
                                                     {record.has_gps_issue && (
                                                         <span className="text-muted-foreground text-xs">
                                                             GPS issue
-                                                        </span>
-                                                    )}
-                                                    {record.has_exception && (
-                                                        <span className="text-muted-foreground text-xs">
-                                                            Exception
                                                         </span>
                                                     )}
                                                     {record.adjustment_label && (

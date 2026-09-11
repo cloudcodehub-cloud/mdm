@@ -8,8 +8,10 @@ use App\Http\Requests\UpdateClientRequest;
 use App\Http\Requests\UpdateClientStatusRequest;
 use App\Models\Client;
 use App\Models\ClientDspAssignment;
+use App\Services\CareOverviewService;
 use App\Services\SettingsService;
 use App\Support\DirectoryPresenter;
+use App\Support\TaskCatalogPresenter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -95,12 +97,12 @@ class ClientController extends Controller
         return redirect()->route('clients.show', $client);
     }
 
-    public function show(Request $request, Client $client): Response
+    public function show(Request $request, Client $client, CareOverviewService $overview): Response
     {
         $this->authorize('view', $client);
 
         $client->load([
-            'supervisor',
+            'supervisor.user',
             'authorizations' => fn ($query) => $query->orderByDesc('starts_on'),
             'carePlans.taskTemplates',
             'dspAssignments.employee',
@@ -132,6 +134,11 @@ class ClientController extends Controller
             return true;
         });
 
+        $supervisor = $client->supervisor;
+        $supervisorUser = $supervisor?->user;
+        $canManageCarePlan = $user?->can('manageCarePlan', $client) ?? false;
+        $supervisorName = $supervisor !== null ? $supervisor->full_name : $supervisorUser?->name;
+
         return Inertia::render('clients/show', [
             'client' => DirectoryPresenter::clientDetail($client),
             'authorizations' => DirectoryPresenter::authorizations($client->authorizations),
@@ -144,10 +151,22 @@ class ClientController extends Controller
                 'can_start' => ($user?->can('clockIn', $todayVisit) ?? false)
                     && $todayVisit->isEligibleToStart(),
             ],
+            'care_overview' => $user !== null ? $overview->forClient($client, $user) : [
+                'today' => [],
+                'upcoming' => [],
+                'history' => [],
+            ],
+            'task_catalog' => $canManageCarePlan ? TaskCatalogPresenter::payload() : null,
+            'supervisor_contact' => $supervisorUser === null ? null : [
+                'user_id' => $supervisorUser->id,
+                'name' => $supervisorName ?? $supervisorUser->name,
+                'available' => $supervisorUser->canMessage() && $supervisorUser->id !== $user?->id,
+            ],
             'dspOptions' => DirectoryPresenter::dspOptions(),
             'can' => [
                 'update' => $user?->can('update', $client) ?? false,
                 'manageAssignments' => $user?->can('create', ClientDspAssignment::class) ?? false,
+                'manageCarePlan' => $canManageCarePlan,
             ],
         ]);
     }

@@ -118,4 +118,5 @@ export type DashboardPayload = {
     compliance_health: ComplianceHealth | null;
     open_exceptions: number;
     visit_trend: VisitTrendPoint[];
+    work_items?: import('./care').DspWorkItem[];
 };

@@ -27,6 +27,9 @@ class VisitTaskFactory extends Factory
             'recurrence' => TaskRecurrence::Daily,
             'recurrence_detail' => null,
             'is_required' => true,
+            'note_required' => false,
+            'can_skip' => true,
+            'is_critical' => false,
             'sort_order' => 1,
             'status' => VisitTaskStatus::Pending,
         ];

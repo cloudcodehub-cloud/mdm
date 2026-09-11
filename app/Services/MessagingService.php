@@ -39,7 +39,31 @@ class MessagingService
         return $query->limit(25)->get();
     }
 
-    public function startConversation(User $actor, User $recipient, string $body): Conversation
+    /**
+     * @return array<string, mixed>
+     */
+    public function previewFor(User $actor, User $recipient): array
+    {
+        $this->assertCanMessage($actor, $recipient);
+
+        $conversation = Conversation::query()
+            ->where('participant_key', Conversation::participantKeyFor($actor, $recipient))
+            ->first();
+
+        return [
+            'recipient' => $this->serializeUser($recipient),
+            'conversation' => $conversation === null ? null : [
+                'id' => $conversation->id,
+                'other_user' => $this->serializeUser($recipient),
+            ],
+            'messages' => $conversation === null ? [] : $this->messagesFor($conversation, $actor),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    public function startConversation(User $actor, User $recipient, string $body, array $context = []): Conversation
     {
         $this->assertCanMessage($actor, $recipient);
 
@@ -56,12 +80,15 @@ class MessagingService
             return $conversation;
         });
 
-        $this->sendMessage($actor, $conversation, $body);
+        $this->sendMessage($actor, $conversation, $body, $context);
 
         return $conversation->fresh(['participants', 'messages']) ?? $conversation;
     }
 
-    public function sendMessage(User $actor, Conversation $conversation, string $body): ConversationMessage
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    public function sendMessage(User $actor, Conversation $conversation, string $body, array $context = []): ConversationMessage
     {
         $conversation->loadMissing('participants');
 
@@ -80,6 +107,7 @@ class MessagingService
         $message = $conversation->messages()->create([
             'sender_id' => $actor->id,
             'body' => $body,
+            'care_context' => $context === [] ? null : $context,
         ]);
 
         $conversation->participants()->updateExistingPivot($actor->id, [
@@ -209,6 +237,7 @@ class MessagingService
                 'created_on' => $message->created_at !== null
                     ? $this->settings->formatDate($message->created_at)
                     : null,
+                'care_context' => $message->care_context,
             ]));
     }
 

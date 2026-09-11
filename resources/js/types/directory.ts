@@ -142,9 +142,20 @@ export type CarePlanRecord = {
     notes: string | null;
     tasks: Array<{
         id: number;
+        catalog_item_id?: number | null;
         title: string;
+        instructions?: string | null;
         recurrence: string;
+        recurrence_label?: string;
+        recurrence_detail?: string | null;
+        weekdays?: number[] | null;
+        interval_weeks?: number | null;
+        preferred_timing?: string | null;
+        preferred_timing_label?: string | null;
         is_required: boolean;
+        note_required?: boolean;
+        can_skip?: boolean;
+        is_critical?: boolean;
     }>;
 };
 

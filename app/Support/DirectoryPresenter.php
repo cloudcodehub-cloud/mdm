@@ -244,12 +244,25 @@ final class DirectoryPresenter
             'status' => $plan->status->value,
             'status_label' => Str::headline($plan->status->value),
             'notes' => $plan->notes,
-            'tasks' => self::values($plan->taskTemplates->map(fn (CarePlanTaskTemplate $task): array => [
-                'id' => $task->id,
-                'title' => $task->title,
-                'recurrence' => Str::headline($task->recurrence->value),
-                'is_required' => $task->is_required,
-            ])),
+            'tasks' => self::values($plan->taskTemplates
+                ->where('is_active', true)
+                ->map(fn (CarePlanTaskTemplate $task): array => [
+                    'id' => $task->id,
+                    'catalog_item_id' => $task->catalog_item_id,
+                    'title' => $task->title,
+                    'instructions' => $task->instructions,
+                    'recurrence' => $task->recurrence->value,
+                    'recurrence_label' => $task->recurrence->label(),
+                    'recurrence_detail' => $task->recurrence_detail,
+                    'weekdays' => $task->weekdays,
+                    'interval_weeks' => $task->interval_weeks,
+                    'preferred_timing' => $task->preferred_timing?->value,
+                    'preferred_timing_label' => $task->preferred_timing?->label(),
+                    'is_required' => $task->is_required,
+                    'note_required' => $task->note_required,
+                    'can_skip' => $task->can_skip,
+                    'is_critical' => $task->is_critical,
+                ])),
         ]));
     }
 
@@ -364,6 +377,7 @@ final class DirectoryPresenter
             'clocked_out_at_label' => $visit->clocked_out_at === null
                 ? null
                 : app(SettingsService::class)->formatTime($visit->clocked_out_at),
+            'duration_label' => self::visitDurationLabel($visit),
             'location_method' => $visit->clock_in_location_method->value,
             'location_status' => $visit->clock_in_location_status->value,
             'location_status_label' => self::gpsStatusLabel($visit->clock_in_location_status->value),
@@ -473,9 +487,14 @@ final class DirectoryPresenter
             'instructions' => $task->instructions,
             'recurrence' => $task->recurrence->value,
             'recurrence_label' => $task->recurrence_detail
-                ? Str::headline($task->recurrence->value).' · '.$task->recurrence_detail
-                : Str::headline($task->recurrence->value),
+                ? $task->recurrence->label().' · '.$task->recurrence_detail
+                : $task->recurrence->label(),
+            'preferred_timing' => $task->preferred_timing?->value,
+            'preferred_timing_label' => $task->preferred_timing?->label(),
             'is_required' => $task->is_required,
+            'note_required' => $task->note_required,
+            'can_skip' => $task->can_skip,
+            'is_critical' => $task->is_critical,
             'status' => $task->status->value,
             'status_label' => Str::headline($task->status->value),
             'completed_at' => $task->completed_at?->toIso8601String(),
@@ -758,6 +777,19 @@ final class DirectoryPresenter
                 'email' => $user->email,
                 'role' => $user->role->value,
             ]));
+    }
+
+    private static function visitDurationLabel(Visit $visit): ?string
+    {
+        if ($visit->clocked_out_at === null) {
+            return null;
+        }
+
+        $minutes = (int) $visit->clocked_in_at->diffInMinutes($visit->clocked_out_at);
+        $hours = intdiv(max(0, $minutes), 60);
+        $remainder = max(0, $minutes) % 60;
+
+        return sprintf('%dh %02dm', $hours, $remainder);
     }
 
     /**

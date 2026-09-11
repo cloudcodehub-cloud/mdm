@@ -1,5 +1,7 @@
-import { Form, Head, Link, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { Form, Head, Link, router, usePage } from '@inertiajs/react';
+import { useMemo, useState } from 'react';
+import { CareMessageDrawer } from '@/components/mdm/care-message-drawer';
+import { CareOverviewPanels } from '@/components/mdm/care-overview';
 import { ConfirmAction } from '@/components/mdm/confirm-action';
 import {
     Field,
@@ -9,6 +11,7 @@ import {
 } from '@/components/mdm/directory';
 import { IdentityHeader } from '@/components/mdm/identity-header';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
+import { TaskCatalogBuilder } from '@/components/mdm/task-catalog-builder';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { dashboard } from '@/routes';
@@ -22,6 +25,13 @@ import {
 import { store as storeAssignment } from '@/routes/clients/assignments';
 import { show as showVisit } from '@/routes/visits';
 import { show as showScheduledVisit } from '@/routes/scheduled-visits';
+import type {
+    CareHistoryItem,
+    CareOverview,
+    CarePlanTaskDraft,
+    SupervisorContact,
+    TaskCatalogPayload,
+} from '@/types/care';
 import type { DashboardActiveVisit } from '@/types/dashboard';
 import type {
     AssignmentRecord,
@@ -39,6 +49,9 @@ export default function ClientsShow({
     assignments,
     scheduledVisits,
     today_visit = null,
+    care_overview,
+    task_catalog = null,
+    supervisor_contact = null,
     dspOptions,
     can,
 }: {
@@ -51,17 +64,38 @@ export default function ClientsShow({
         can_start?: boolean;
         active_visit_id?: number | null;
     }) | null;
+    care_overview: CareOverview;
+    task_catalog?: TaskCatalogPayload | null;
+    supervisor_contact?: SupervisorContact | null;
     dspOptions: OptionItem[];
-    can: { update: boolean; manageAssignments: boolean };
+    can: { update: boolean; manageAssignments: boolean; manageCarePlan: boolean };
 }) {
-    const [tab, setTab] = useState('profile');
     const role = usePage().props.auth.user.role;
+    const isDsp = role === 'DSP';
+    const [tab, setTab] = useState(isDsp ? 'care-plan' : 'profile');
     const activeWork = usePage().props.activeWork as DashboardActiveVisit | null;
     const currentAssignments = assignments.filter((assignment) => assignment.is_active);
     const historicalAssignments = assignments.filter((assignment) => !assignment.is_active);
-    const isDsp = role === 'DSP';
     const activeForThisClient =
         activeWork && activeWork.client.id === client.id ? activeWork : null;
+    const [messageOpen, setMessageOpen] = useState(false);
+    const [messageUserId, setMessageUserId] = useState<number | null>(null);
+    const [messageName, setMessageName] = useState('');
+    const [messageContext, setMessageContext] = useState('');
+    const [historyItem, setHistoryItem] = useState<CareHistoryItem | null>(null);
+
+    const openMessage = (
+        userId: number,
+        name: string,
+        context: string,
+        history?: CareHistoryItem,
+    ) => {
+        setMessageUserId(userId);
+        setMessageName(name);
+        setMessageContext(context);
+        setHistoryItem(history ?? null);
+        setMessageOpen(true);
+    };
 
     return (
         <>
@@ -201,38 +235,35 @@ export default function ClientsShow({
                 )}
 
                 {tab === 'care-plan' && (
-                    <div className="space-y-4">
-                        {carePlans.length === 0 ? (
-                            <Panel title="Care Plan">
-                                <EmptyState message="No care plans on file." />
-                            </Panel>
-                        ) : (
-                            carePlans.map((plan) => (
-                                <Panel
-                                    key={plan.id}
-                                    title={plan.title}
-                                    description={`${plan.status_label} · ${plan.starts_on ?? 'No start'}`}
-                                >
-                                    {plan.tasks.length === 0 ? (
-                                        <EmptyState message="No task templates on this plan." />
-                                    ) : (
-                                        <ul className="space-y-2 text-sm">
-                                            {plan.tasks.map((task) => (
-                                                <li key={task.id}>
-                                                    {task.title}
-                                                    <span className="text-muted-foreground">
-                                                        {' '}
-                                                        · {task.recurrence}
-                                                        {task.is_required ? ' · required' : ''}
-                                                    </span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
-                                </Panel>
-                            ))
-                        )}
-                    </div>
+                    <CarePlanTab
+                        client={client}
+                        carePlans={carePlans}
+                        overview={care_overview}
+                        catalog={task_catalog}
+                        canManage={can.manageCarePlan}
+                        isDsp={isDsp}
+                        supervisor={supervisor_contact}
+                        onHistory={(item) => {
+                            setHistoryItem(item);
+                            if (item.previous_dsp_available && item.previous_dsp_user_id) {
+                                openMessage(
+                                    item.previous_dsp_user_id,
+                                    item.dsp_name,
+                                    item.context_label,
+                                    item,
+                                );
+                            }
+                        }}
+                        onContactSupervisor={() => {
+                            if (supervisor_contact?.available) {
+                                openMessage(
+                                    supervisor_contact.user_id,
+                                    supervisor_contact.name,
+                                    `${client.name} · Care plan`,
+                                );
+                            }
+                        }}
+                    />
                 )}
 
                 {tab === 'assigned-dsps' && (
@@ -343,7 +374,151 @@ export default function ClientsShow({
                     </Panel>
                 )}
             </div>
+            <CareMessageDrawer
+                open={messageOpen}
+                onOpenChange={setMessageOpen}
+                userId={messageUserId}
+                recipientName={messageName}
+                contextLabel={messageContext}
+                clientId={client.id}
+                visitId={historyItem?.visit_id}
+                taskTitle={historyItem?.task_title}
+            />
         </>
+    );
+}
+
+function CarePlanTab({
+    client,
+    carePlans,
+    overview,
+    catalog,
+    canManage,
+    isDsp,
+    supervisor,
+    onHistory,
+    onContactSupervisor,
+}: {
+    client: ClientDetail;
+    carePlans: CarePlanRecord[];
+    overview: CareOverview;
+    catalog: TaskCatalogPayload | null;
+    canManage: boolean;
+    isDsp: boolean;
+    supervisor: SupervisorContact | null;
+    onHistory: (item: CareHistoryItem) => void;
+    onContactSupervisor: () => void;
+}) {
+    const activePlan =
+        carePlans.find((plan) => plan.status === 'active') ?? carePlans[0];
+    const initialTasks = useMemo<CarePlanTaskDraft[]>(
+        () =>
+            (activePlan?.tasks ?? []).map((task) => ({
+                id: task.id,
+                catalog_item_id: task.catalog_item_id ?? null,
+                title: task.title,
+                instructions: task.instructions ?? null,
+                recurrence: task.recurrence,
+                recurrence_detail: task.recurrence_detail ?? null,
+                weekdays: task.weekdays ?? null,
+                interval_weeks: task.interval_weeks ?? null,
+                preferred_timing: task.preferred_timing ?? null,
+                is_required: task.is_required,
+                note_required: task.note_required ?? false,
+                can_skip: task.can_skip ?? true,
+                is_critical: task.is_critical ?? false,
+            })),
+        [activePlan],
+    );
+    const [selected, setSelected] = useState<CarePlanTaskDraft[]>(initialTasks);
+    const [saving, setSaving] = useState(false);
+
+    const save = () => {
+        setSaving(true);
+        const payload = { tasks: selected };
+
+        if (activePlan) {
+            router.put(`/care-plans/${activePlan.id}/tasks`, payload, {
+                preserveScroll: true,
+                onFinish: () => setSaving(false),
+            });
+            return;
+        }
+
+        router.post(
+            `/clients/${client.id}/care-plans`,
+            {
+                title: 'Current Care Plan',
+                starts_on: new Date().toISOString().slice(0, 10),
+                status: 'active',
+                ...payload,
+            },
+            {
+                preserveScroll: true,
+                onFinish: () => setSaving(false),
+            },
+        );
+    };
+
+    return (
+        <div className="space-y-4">
+            {isDsp && (
+                <CareOverviewPanels
+                    overview={overview}
+                    onHistory={onHistory}
+                    onContactSupervisor={
+                        supervisor?.available ? onContactSupervisor : undefined
+                    }
+                />
+            )}
+            {canManage && catalog && (
+                <Panel
+                    title="Quick setup / Task Catalog"
+                    description="Services stay on authorizations. These tasks are the DSP visit checklist."
+                >
+                    <TaskCatalogBuilder
+                        catalog={catalog}
+                        selected={selected}
+                        onChange={setSelected}
+                    />
+                    <div className="mt-4">
+                        <Button type="button" onClick={save} disabled={saving}>
+                            Save care-plan tasks
+                        </Button>
+                    </div>
+                </Panel>
+            )}
+            {!isDsp &&
+                carePlans.map((plan) => (
+                    <Panel
+                        key={plan.id}
+                        title={plan.title}
+                        description={`${plan.status_label} · ${plan.starts_on ?? 'No start'}`}
+                    >
+                        {plan.tasks.length === 0 ? (
+                            <EmptyState message="No task templates on this plan." />
+                        ) : (
+                            <ul className="space-y-2 text-sm">
+                                {plan.tasks.map((task) => (
+                                    <li key={task.id}>
+                                        {task.title}
+                                        <span className="text-muted-foreground">
+                                            {' '}
+                                            · {task.recurrence_label ?? task.recurrence}
+                                            {task.is_required ? ' · required' : ''}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </Panel>
+                ))}
+            {!isDsp && carePlans.length === 0 && !canManage && (
+                <Panel title="Care Plan">
+                    <EmptyState message="No care plans on file." />
+                </Panel>
+            )}
+        </div>
     );
 }
 

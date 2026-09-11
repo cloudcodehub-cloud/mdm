@@ -3,6 +3,7 @@
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AttendanceCorrectionController;
+use App\Http\Controllers\CarePlanController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientDspAssignmentController;
 use App\Http\Controllers\ComplianceController;
@@ -38,6 +39,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('employees/{employee}/status', [EmployeeController::class, 'updateStatus'])->name('employees.status');
 
     Route::resource('clients', ClientController::class)->except(['destroy']);
+    Route::post('clients/{client}/care-plans', [CarePlanController::class, 'store'])->name('clients.care-plans.store');
+    Route::patch('care-plans/{care_plan}', [CarePlanController::class, 'update'])->name('care-plans.update');
+    Route::put('care-plans/{care_plan}/tasks', [CarePlanController::class, 'syncTasks'])->name('care-plans.tasks.sync');
     Route::patch('clients/{client}/status', [ClientController::class, 'updateStatus'])->name('clients.status');
     Route::post('clients/{client}/assignments', [ClientDspAssignmentController::class, 'store'])->name('clients.assignments.store');
     Route::patch('assignments/{assignment}/deactivate', [ClientDspAssignmentController::class, 'deactivate'])->name('assignments.deactivate');
@@ -77,6 +81,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('reports/{report}', [ReportController::class, 'show'])->name('reports.show');
     Route::get('messages', [MessageController::class, 'index'])->name('messages.index');
     Route::post('messages/conversations', [MessageController::class, 'store'])->name('conversations.store');
+    Route::get('messages/with/{user}', [MessageController::class, 'preview'])->name('messages.preview');
     Route::get('messages/{conversation}', [MessageController::class, 'show'])->name('messages.show');
     Route::post('messages/{conversation}/messages', [MessageController::class, 'storeMessage'])
         ->name('conversations.messages.store');

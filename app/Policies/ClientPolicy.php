@@ -32,6 +32,19 @@ class ClientPolicy
         return false;
     }
 
+    public function manageCarePlan(User $user, Client $client): bool
+    {
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        if ($user->isSupervisor()) {
+            return $this->view($user, $client);
+        }
+
+        return false;
+    }
+
     public function create(User $user): bool
     {
         return $user->isAdmin();

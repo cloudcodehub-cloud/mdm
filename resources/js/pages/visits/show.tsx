@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Head, Link } from '@inertiajs/react';
+import { CareMessageDrawer } from '@/components/mdm/care-message-drawer';
 import { StatusBadge } from '@/components/mdm/directory';
 import { IdentityHeader } from '@/components/mdm/identity-header';
 import { VisitWorkflow } from '@/components/mdm/visit-workflow';
@@ -16,14 +17,19 @@ import type {
     ActiveVisitRecord,
     SkipReasonOption,
 } from '@/types/visit';
+import type { CareHistoryItem, SupervisorContact } from '@/types/care';
 
 export default function VisitsShow({
     visit,
     skip_reasons = [],
+    care_history = [],
+    supervisor_contact = null,
     can,
 }: {
     visit: ActiveVisitRecord;
     skip_reasons?: SkipReasonOption[];
+    care_history?: CareHistoryItem[];
+    supervisor_contact?: SupervisorContact | null;
     can?: {
         clock_in?: boolean;
         record_tasks?: boolean;
@@ -39,6 +45,19 @@ export default function VisitsShow({
         : monitoring
           ? `Visit monitoring · ${visit.client.name}`
           : `Active visit · ${visit.client.name}`;
+    const [messageOpen, setMessageOpen] = useState(false);
+    const [messageUserId, setMessageUserId] = useState<number | null>(null);
+    const [messageName, setMessageName] = useState('');
+    const [messageContext, setMessageContext] = useState('');
+    const [historyItem, setHistoryItem] = useState<CareHistoryItem | null>(null);
+
+    const openMessage = (userId: number, name: string, item?: CareHistoryItem) => {
+        setMessageUserId(userId);
+        setMessageName(name);
+        setMessageContext(item?.context_label ?? `${visit.client.name} · visit`);
+        setHistoryItem(item ?? null);
+        setMessageOpen(true);
+    };
 
     return (
         <>
@@ -77,9 +96,38 @@ export default function VisitsShow({
                         visit={visit}
                         skipReasons={skip_reasons}
                         can={can}
+                        careHistory={care_history}
+                        supervisor={supervisor_contact}
+                        onMessagePrevious={(item) => {
+                            if (item.previous_dsp_user_id) {
+                                openMessage(
+                                    item.previous_dsp_user_id,
+                                    item.dsp_name,
+                                    item,
+                                );
+                            }
+                        }}
+                        onContactSupervisor={() => {
+                            if (supervisor_contact?.available) {
+                                openMessage(
+                                    supervisor_contact.user_id,
+                                    supervisor_contact.name,
+                                );
+                            }
+                        }}
                     />
                 )}
             </div>
+            <CareMessageDrawer
+                open={messageOpen}
+                onOpenChange={setMessageOpen}
+                userId={messageUserId}
+                recipientName={messageName}
+                contextLabel={messageContext}
+                clientId={visit.client.id}
+                visitId={historyItem?.visit_id ?? visit.id}
+                taskTitle={historyItem?.task_title}
+            />
         </>
     );
 }
@@ -88,6 +136,10 @@ function ActiveVisit({
     visit,
     skipReasons,
     can,
+    careHistory,
+    supervisor,
+    onMessagePrevious,
+    onContactSupervisor,
 }: {
     visit: ActiveVisitRecord;
     skipReasons: SkipReasonOption[];
@@ -96,6 +148,10 @@ function ActiveVisit({
         update_notes?: boolean;
         clock_out?: boolean;
     };
+    careHistory: CareHistoryItem[];
+    supervisor: SupervisorContact | null;
+    onMessagePrevious: (item: CareHistoryItem) => void;
+    onContactSupervisor: () => void;
 }) {
     const percent =
         visit.task_summary.total === 0
@@ -168,6 +224,35 @@ function ActiveVisit({
                                 task={task}
                                 skipReasons={skipReasons}
                                 canRecord={Boolean(can?.record_tasks)}
+                                historyNote={
+                                    careHistory.find(
+                                        (item) => item.task_title === task.title,
+                                    )?.note
+                                }
+                                onMessagePrevious={
+                                    careHistory.find(
+                                        (item) =>
+                                            item.task_title === task.title &&
+                                            item.previous_dsp_available,
+                                    )
+                                        ? () => {
+                                              const item = careHistory.find(
+                                                  (entry) =>
+                                                      entry.task_title ===
+                                                          task.title &&
+                                                      entry.previous_dsp_available,
+                                              );
+                                              if (item) {
+                                                  onMessagePrevious(item);
+                                              }
+                                          }
+                                        : undefined
+                                }
+                                onContactSupervisor={
+                                    supervisor?.available
+                                        ? onContactSupervisor
+                                        : undefined
+                                }
                             />
                         ))}
                     </ul>
@@ -224,6 +309,9 @@ function VisitMonitoring({
                         label="Clock-out"
                         value={visit.clocked_out_at_label ?? '—'}
                     />
+                    {visit.duration_label && (
+                        <Detail label="Duration" value={visit.duration_label} />
+                    )}
                     <Detail
                         label="Visit status"
                         value={visit.status_label}
@@ -278,22 +366,26 @@ function VisitMonitoring({
                     />
                 </dl>
             </Panel>
+            {(visit.visit_notes || visit.handover_note) && (
             <Panel title="DSP notes and handover">
                 <dl className="grid gap-3 text-sm">
+                    {visit.visit_notes && (
                     <Detail
                         label="Visit notes"
-                        value={visit.visit_notes || 'None'}
+                        value={visit.visit_notes}
                     />
+                    )}
+                    {visit.handover_note && (
                     <Detail
                         label="Handover"
-                        value={visit.handover_note || 'None'}
+                        value={visit.handover_note}
                     />
+                    )}
                 </dl>
             </Panel>
+            )}
+            {exceptions.length > 0 && (
             <Panel title="Related exceptions">
-                {exceptions.length === 0 ? (
-                    <EmptyState message="No exceptions recorded for this visit." />
-                ) : (
                     <ul className="space-y-2 text-sm">
                         {exceptions.map((exception) => (
                             <li key={exception.id}>
@@ -315,8 +407,8 @@ function VisitMonitoring({
                             </li>
                         ))}
                     </ul>
-                )}
             </Panel>
+            )}
             <Panel title="Care-plan tasks" className="lg:col-span-2">
                 {visit.tasks.length === 0 ? (
                     <EmptyState message="No care-plan tasks applied to this visit." />

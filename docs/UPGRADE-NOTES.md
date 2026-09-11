@@ -1,5 +1,15 @@
 # Upgrade notes
 
+## Phase 5A — Care workflow and task catalog
+
+- Service (authorization/payer context) and Task (DSP visit activity) remain separate. Catalog items are operational task templates, not billable services.
+- Catalog defaults are suggestions only. The client care plan owns actual recurrence, timing, instructions, and required/skip/note/critical flags.
+- DSP work is organized by client and visit. Visit tasks continue to be generated from the active care plan at clock-in; they are not a shared checklist.
+- Future recurring care items are visible for preparation and are not completable early.
+- Care-note continuity is limited to the same client’s care/visit notes. Private employee HR data is not exposed.
+- Contextual “Message Previous DSP” / “Contact Supervisor” reuses the existing one-to-one messaging system, with optional care context on the message.
+- DSP remains action-first and mobile-first. Supervisors may configure care plans only for scoped clients (`manageCarePlan`). Existing EVV and audit timestamps remain authoritative.
+
 ## Phase 4B-1 — Visual intelligence and role dashboards
 
 - DSP remains workflow-first, not record-first. The dashboard emphasizes the current visit action; task progress is a summary of existing `visit_tasks`, not a new workflow.

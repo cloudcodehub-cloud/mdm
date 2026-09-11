@@ -23,11 +23,17 @@ export function ClockInAction({
     clockInVisit,
     scheduledVisitId,
     canClockIn,
+    hideEmpty = false,
+    emptyTitle,
+    emptyDetail,
 }: {
     activeVisit?: DashboardActiveVisit | null;
     clockInVisit?: ClockInVisitSummary | null;
     scheduledVisitId?: number;
     canClockIn?: boolean;
+    hideEmpty?: boolean;
+    emptyTitle?: string;
+    emptyDetail?: string;
 }) {
     if (activeVisit) {
         const continueThisVisit =
@@ -80,14 +86,18 @@ export function ClockInAction({
             : Boolean(clockInVisit));
 
     if (!showStart || targetId === undefined) {
+        if (hideEmpty) {
+            return null;
+        }
+
         return (
             <div className="rounded-2xl border border-dashed border-border/80 bg-muted/30 p-4">
                 <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                    Next visit action
+                    {emptyTitle ?? 'Upcoming Visit'}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                    No visit is ready to start right now. Open a scheduled visit
-                    for today when you are ready to clock in.
+                    {emptyDetail ??
+                        'Start Visit becomes available on the scheduled service date during the visit window.'}
                 </p>
             </div>
         );

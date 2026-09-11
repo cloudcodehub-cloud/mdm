@@ -40,6 +40,8 @@ class DemoSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call(TaskCatalogSeeder::class);
+
         $admin = User::factory()->admin()->create([
             'name' => 'Avery Quinn',
             'email' => 'admin@mdm.test',

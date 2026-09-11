@@ -88,11 +88,13 @@ export default function ScheduledVisitsShow({
                         clockInVisit={clockInVisit}
                         scheduledVisitId={visit.id}
                         canClockIn={can.clock_in}
+                        emptyTitle="Upcoming Visit"
+                        emptyDetail={`Start Visit becomes available on ${visit.service_date ?? 'the scheduled date'} during ${visit.time_label}. Future visits cannot be started early.`}
                     />
                 )}
 
                 <div className="grid gap-4 lg:grid-cols-2">
-                    <Panel title="Visit details">
+                    <Panel title="Upcoming Visit">
                         <dl className="grid gap-3 text-sm">
                             <Detail label="Service" value={visit.service_type} />
                             <Detail
@@ -147,9 +149,15 @@ export default function ScheduledVisitsShow({
                         </dl>
                     </Panel>
                     <Panel title="Notes">
-                        <p className="text-sm whitespace-pre-wrap">
-                            {visit.notes || 'No notes recorded.'}
-                        </p>
+                        {visit.notes ? (
+                            <p className="text-sm whitespace-pre-wrap">
+                                {visit.notes}
+                            </p>
+                        ) : (
+                            <p className="text-muted-foreground text-sm">
+                                No schedule notes.
+                            </p>
+                        )}
                     </Panel>
                 </div>
             </div>
