@@ -8,10 +8,12 @@ use App\Enums\ScheduledVisitStatus;
 use App\Models\Client;
 use App\Models\Employee;
 use App\Models\ScheduledVisit;
+use App\Models\ScheduledVisitOneOffTask;
 use App\Models\ShiftTemplate;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class ScheduledVisitService
@@ -21,7 +23,12 @@ class ScheduledVisitService
      */
     public function create(array $data): ScheduledVisit
     {
-        return ScheduledVisit::query()->create($this->persistable($data));
+        return DB::transaction(function () use ($data): ScheduledVisit {
+            $visit = ScheduledVisit::query()->create($this->persistable($data));
+            $this->syncOneOffs($visit, is_array($data['one_off_tasks'] ?? null) ? $data['one_off_tasks'] : []);
+
+            return $visit->fresh(['oneOffTasks']) ?? $visit;
+        });
     }
 
     /**
@@ -29,13 +36,19 @@ class ScheduledVisitService
      */
     public function update(ScheduledVisit $visit, array $data): ScheduledVisit
     {
-        if ($visit->status === ScheduledVisitStatus::InProgress) {
-            $data['status'] = ScheduledVisitStatus::InProgress->value;
-        }
+        return DB::transaction(function () use ($visit, $data): ScheduledVisit {
+            if ($visit->status === ScheduledVisitStatus::InProgress) {
+                $data['status'] = ScheduledVisitStatus::InProgress->value;
+            }
 
-        $visit->update($this->persistable($data));
+            $visit->update($this->persistable($data));
 
-        return $visit->fresh() ?? $visit;
+            if ($visit->visit === null && array_key_exists('one_off_tasks', $data)) {
+                $this->syncOneOffs($visit, is_array($data['one_off_tasks']) ? $data['one_off_tasks'] : []);
+            }
+
+            return $visit->fresh(['oneOffTasks']) ?? $visit;
+        });
     }
 
     /**
@@ -227,6 +240,73 @@ class ScheduledVisitService
             'start' => $visit->startsAtOn(),
             'end' => $visit->endsAtOn(),
         ];
+    }
+
+    /**
+     * @param  array<int, mixed>  $tasks
+     */
+    private function syncOneOffs(ScheduledVisit $visit, array $tasks): void
+    {
+        $kept = [];
+        $sort = 0;
+
+        foreach ($tasks as $task) {
+            if (! is_array($task)) {
+                continue;
+            }
+
+            $title = isset($task['title']) && is_string($task['title']) ? trim($task['title']) : '';
+
+            if ($title === '') {
+                continue;
+            }
+
+            $sort++;
+            $attributes = [
+                'title' => $title,
+                'instructions' => $this->nullableString($task['instructions'] ?? null),
+                'note_required' => filter_var($task['note_required'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                'is_required' => filter_var($task['is_required'] ?? true, FILTER_VALIDATE_BOOLEAN),
+                'sort_order' => $sort,
+            ];
+
+            $existing = null;
+
+            if (isset($task['id']) && is_numeric($task['id'])) {
+                $existing = ScheduledVisitOneOffTask::query()
+                    ->where('scheduled_visit_id', $visit->id)
+                    ->whereKey((int) $task['id'])
+                    ->first();
+            }
+
+            if ($existing !== null) {
+                $existing->update($attributes);
+                $kept[] = $existing->id;
+            } else {
+                $created = ScheduledVisitOneOffTask::query()->create([
+                    'scheduled_visit_id' => $visit->id,
+                    ...$attributes,
+                ]);
+                $kept[] = $created->id;
+            }
+        }
+
+        ScheduledVisitOneOffTask::query()
+            ->where('scheduled_visit_id', $visit->id)
+            ->when($kept !== [], fn ($query) => $query->whereNotIn('id', $kept))
+            ->when($kept === [], fn ($query) => $query)
+            ->delete();
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 
     private function normalizedTime(string $time): string

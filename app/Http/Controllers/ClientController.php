@@ -10,6 +10,7 @@ use App\Models\Client;
 use App\Models\ClientDspAssignment;
 use App\Services\CareOverviewService;
 use App\Services\SettingsService;
+use App\Support\CareServicePresenter;
 use App\Support\DirectoryPresenter;
 use App\Support\TaskCatalogPresenter;
 use Illuminate\Http\RedirectResponse;
@@ -94,7 +95,7 @@ class ClientController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Client created.')]);
 
-        return redirect()->route('clients.show', $client);
+        return redirect()->route('clients.setup.edit', $client);
     }
 
     public function show(Request $request, Client $client, CareOverviewService $overview): Response
@@ -105,6 +106,7 @@ class ClientController extends Controller
             'supervisor.user',
             'authorizations' => fn ($query) => $query->orderByDesc('starts_on'),
             'carePlans.taskTemplates',
+            'careServices',
             'dspAssignments.employee',
             'scheduledVisits.employee',
             'scheduledVisits.supervisor',
@@ -150,12 +152,16 @@ class ClientController extends Controller
                 'active_visit_id' => $todayVisit->visit?->id,
                 'can_start' => ($user?->can('clockIn', $todayVisit) ?? false)
                     && $todayVisit->isEligibleToStart(),
+                'is_completed' => $todayVisit->status->value === 'completed'
+                    || $todayVisit->visit?->status?->value === 'completed',
             ],
             'care_overview' => $user !== null ? $overview->forClient($client, $user) : [
                 'today' => [],
                 'upcoming' => [],
                 'history' => [],
+                'services' => [],
             ],
+            'care_services' => CareServicePresenter::options($client->careServices),
             'task_catalog' => $canManageCarePlan ? TaskCatalogPresenter::payload() : null,
             'supervisor_contact' => $supervisorUser === null ? null : [
                 'user_id' => $supervisorUser->id,

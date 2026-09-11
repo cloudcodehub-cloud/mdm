@@ -123,6 +123,7 @@ class DashboardService
                 'scheduled_time' => null,
                 'state' => 'in_progress',
                 'state_label' => 'In progress',
+                'has_exception' => false,
                 'task_progress' => $summary['task_progress'],
                 'action_label' => 'Continue Visit',
                 'href' => route('visits.show', $active->id),
@@ -131,7 +132,7 @@ class DashboardService
         }
 
         $todayVisits = $this->visitsQuery($user)
-            ->with(['client', 'employee', 'shiftTemplate', 'visit.tasks'])
+            ->with(['client', 'employee', 'shiftTemplate', 'visit.tasks', 'visit.exceptions'])
             ->whereDate('service_date', $today)
             ->where('status', '!=', ScheduledVisitStatus::Cancelled)
             ->orderBy('id')
@@ -147,26 +148,38 @@ class DashboardService
             $progress = $recordedVisit !== null
                 ? DirectoryPresenter::activeVisitSummary($recordedVisit)['task_progress']
                 : null;
+            $hasException = $recordedVisit !== null
+                && $recordedVisit->relationLoaded('exceptions')
+                && $recordedVisit->exceptions->contains(fn ($exception): bool => $exception->isOpen());
 
             $action = 'View Visit';
             $href = route('scheduled-visits.show', $visit->id);
             $kind = 'today_visit';
             $priority = 3;
+            $state = $visit->status->value;
+            $stateLabel = Str::headline($visit->status->value);
 
             if ($recordedVisit !== null && $recordedVisit->status === VisitStatus::InProgress) {
                 $action = 'Continue Visit';
                 $href = route('visits.show', $recordedVisit->id);
                 $priority = 1;
                 $kind = 'active_visit';
+                $state = 'in_progress';
+                $stateLabel = 'In progress';
             } elseif ($eligible) {
                 $action = 'Start Visit';
                 $priority = 2;
                 $kind = 'eligible_visit';
-            } elseif ($visit->status === ScheduledVisitStatus::Completed && $recordedVisit !== null) {
-                $action = 'View Visit';
-                $href = route('visits.show', $recordedVisit->id);
+                $stateLabel = 'Ready to start';
+            } elseif ($recordedVisit !== null || $visit->status === ScheduledVisitStatus::Completed) {
+                $action = 'View Visit Summary';
+                $href = $recordedVisit !== null
+                    ? route('visits.show', $recordedVisit->id)
+                    : route('scheduled-visits.show', $visit->id);
                 $priority = 3;
                 $kind = 'completed_visit';
+                $state = 'completed';
+                $stateLabel = 'Completed';
             }
 
             $items[] = [
@@ -176,8 +189,9 @@ class DashboardService
                 'client' => $this->clientSummary($visit->client),
                 'service_type' => $visit->service_type,
                 'scheduled_time' => $this->visitTimeLabel($visit),
-                'state' => $visit->status->value,
-                'state_label' => Str::headline($visit->status->value),
+                'state' => $state,
+                'state_label' => $stateLabel,
+                'has_exception' => $hasException,
                 'task_progress' => $progress,
                 'action_label' => $action,
                 'href' => $href,
@@ -195,6 +209,7 @@ class DashboardService
                 'scheduled_time' => $visit->service_date->toDateString().' · '.$this->visitTimeLabel($visit),
                 'state' => $visit->status->value,
                 'state_label' => 'Upcoming',
+                'has_exception' => false,
                 'task_progress' => null,
                 'action_label' => 'View Visit',
                 'href' => route('scheduled-visits.show', $visit->id),
@@ -216,6 +231,7 @@ class DashboardService
                 'scheduled_time' => null,
                 'state' => 'assigned',
                 'state_label' => 'Assigned',
+                'has_exception' => false,
                 'task_progress' => null,
                 'action_label' => 'View Client',
                 'href' => route('clients.show', $client['id']),

@@ -27,7 +27,7 @@ export default function ClientsCreate({
                     action={store.url()}
                     method="post"
                     supervisors={supervisors}
-                    submitLabel="Create client"
+                    submitLabel="Save & Continue"
                 />
             </div>
         </>

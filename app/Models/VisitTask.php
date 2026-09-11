@@ -15,7 +15,8 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $visit_id
- * @property int $care_plan_task_template_id
+ * @property int|null $care_plan_task_template_id
+ * @property int|null $scheduled_visit_one_off_task_id
  * @property string $title
  * @property string|null $instructions
  * @property TaskRecurrence $recurrence
@@ -35,12 +36,14 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Visit $visit
- * @property-read CarePlanTaskTemplate $carePlanTaskTemplate
+ * @property-read CarePlanTaskTemplate|null $carePlanTaskTemplate
+ * @property-read ScheduledVisitOneOffTask|null $oneOffTask
  * @property-read SkipReason|null $skipReason
  */
 #[Fillable([
     'visit_id',
     'care_plan_task_template_id',
+    'scheduled_visit_one_off_task_id',
     'title',
     'instructions',
     'recurrence',
@@ -96,6 +99,14 @@ class VisitTask extends Model
     public function carePlanTaskTemplate(): BelongsTo
     {
         return $this->belongsTo(CarePlanTaskTemplate::class);
+    }
+
+    /**
+     * @return BelongsTo<ScheduledVisitOneOffTask, $this>
+     */
+    public function oneOffTask(): BelongsTo
+    {
+        return $this->belongsTo(ScheduledVisitOneOffTask::class, 'scheduled_visit_one_off_task_id');
     }
 
     /**

@@ -44,6 +44,7 @@ use Illuminate\Support\Carbon;
  * @property-read Employee|null $supervisor
  * @property-read Collection<int, ClientAuthorization> $authorizations
  * @property-read Collection<int, CarePlan> $carePlans
+ * @property-read Collection<int, CareService> $careServices
  * @property-read Collection<int, ScheduledVisit> $scheduledVisits
  * @property-read Collection<int, Visit> $visits
  *
@@ -126,6 +127,16 @@ class Client extends Model
     public function carePlans(): HasMany
     {
         return $this->hasMany(CarePlan::class);
+    }
+
+    /**
+     * @return BelongsToMany<CareService, $this>
+     */
+    public function careServices(): BelongsToMany
+    {
+        return $this->belongsToMany(CareService::class, 'client_care_services')
+            ->withTimestamps()
+            ->orderByPivot('id');
     }
 
     /**

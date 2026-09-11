@@ -63,6 +63,7 @@ export default function ClientsShow({
     today_visit?: (VisitRecord & {
         can_start?: boolean;
         active_visit_id?: number | null;
+        is_completed?: boolean;
     }) | null;
     care_overview: CareOverview;
     task_catalog?: TaskCatalogPayload | null;
@@ -202,6 +203,17 @@ export default function ClientsShow({
                                 />
                                 <Item label="Phone" value={client.emergency_contact_phone} />
                                 <Item label="Notes" value={client.notes} />
+                                <Item
+                                    label="Services"
+                                    value={
+                                        client.care_services &&
+                                        client.care_services.length > 0
+                                            ? client.care_services
+                                                  .map((service) => service.name)
+                                                  .join(', ')
+                                            : 'None assigned'
+                                    }
+                                />
                             </dl>
                         </Panel>
                     </div>
@@ -471,6 +483,16 @@ function CarePlanTab({
                     }
                 />
             )}
+            {canManage && (
+                <p className="text-sm">
+                    <Link
+                        href={`/clients/${client.id}/setup`}
+                        className="text-primary font-medium"
+                    >
+                        Open guided services &amp; care setup
+                    </Link>
+                </p>
+            )}
             {canManage && catalog && (
                 <Panel
                     title="Quick setup / Task Catalog"
@@ -566,6 +588,7 @@ function TodayVisitCard({
     todayVisit: (VisitRecord & {
         can_start?: boolean;
         active_visit_id?: number | null;
+        is_completed?: boolean;
     }) | null;
     activeVisit: DashboardActiveVisit | null;
 }) {
@@ -581,6 +604,11 @@ function TodayVisitCard({
                 href: showScheduledVisit(visit.id),
                 label: 'Start Visit',
             }
+          : visit?.is_completed && continueVisitId
+            ? {
+                  href: showVisit(continueVisitId),
+                  label: 'View Visit Summary',
+              }
           : continueVisitId
             ? {
                   href: showVisit(continueVisitId),

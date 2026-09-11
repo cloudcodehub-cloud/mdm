@@ -18,11 +18,15 @@ export default function ScheduledVisitsCreate({
     dsps,
     supervisors,
     shiftTemplates,
+    catalog_services = [],
+    care_preview_url,
 }: {
     clients: ClientScheduleOption[];
     dsps: DspScheduleOption[];
     supervisors: OptionItem[];
     shiftTemplates: ShiftTemplateOption[];
+    catalog_services?: OptionItem[];
+    care_preview_url?: string;
 }) {
     return (
         <>
@@ -48,6 +52,8 @@ export default function ScheduledVisitsCreate({
                     dsps={dsps}
                     supervisors={supervisors}
                     shiftTemplates={shiftTemplates}
+                    catalogServices={catalog_services}
+                    carePreviewUrl={care_preview_url}
                     submitLabel="Create scheduled visit"
                 />
             </div>

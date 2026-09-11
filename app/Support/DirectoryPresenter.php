@@ -207,6 +207,9 @@ final class DirectoryPresenter
             'emergency_contact_phone' => $client->emergency_contact_phone,
             'supervisor_id' => $client->supervisor_id,
             'notes' => $client->notes,
+            'care_services' => $client->relationLoaded('careServices')
+                ? CareServicePresenter::options($client->careServices)
+                : [],
         ];
     }
 
@@ -348,6 +351,15 @@ final class DirectoryPresenter
                 'name' => $visit->shiftTemplate->name,
             ],
             'active_visit_id' => $visit->visit?->id,
+            'one_off_tasks' => $visit->relationLoaded('oneOffTasks')
+                ? self::values($visit->oneOffTasks->map(fn ($task): array => [
+                    'id' => $task->id,
+                    'title' => $task->title,
+                    'instructions' => $task->instructions,
+                    'note_required' => $task->note_required,
+                    'is_required' => $task->is_required,
+                ]))
+                : [],
         ];
     }
 
@@ -506,6 +518,7 @@ final class DirectoryPresenter
             'skip_reason_name' => $task->skipReason?->name,
             'skip_comment' => $task->skip_comment,
             'completion_note' => $task->completion_note,
+            'is_one_off' => $task->scheduled_visit_one_off_task_id !== null,
         ]));
     }
 
@@ -675,11 +688,12 @@ final class DirectoryPresenter
     }
 
     /**
-     * @return list<array{id: int, name: string, client_number: string, supervisor_id: int|null}>
+     * @return list<array{id: int, name: string, client_number: string, supervisor_id: int|null, services: list<array{id: int, name: string, slug: string}>}>
      */
     public static function schedulingClientOptions(User $user): array
     {
         return self::values(Client::query()
+            ->with(['careServices' => fn ($query) => $query->active()])
             ->visibleTo($user)
             ->where('status', ClientStatus::Active)
             ->orderBy('last_name')
@@ -690,6 +704,7 @@ final class DirectoryPresenter
                 'name' => $client->full_name,
                 'client_number' => $client->client_number,
                 'supervisor_id' => $client->supervisor_id,
+                'services' => CareServicePresenter::options($client->careServices),
             ]));
     }
 

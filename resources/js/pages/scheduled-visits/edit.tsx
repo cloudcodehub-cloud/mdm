@@ -21,12 +21,16 @@ export default function ScheduledVisitsEdit({
     dsps,
     supervisors,
     shiftTemplates,
+    catalog_services = [],
+    care_preview_url,
 }: {
     visit: VisitRecord;
     clients: ClientScheduleOption[];
     dsps: DspScheduleOption[];
     supervisors: OptionItem[];
     shiftTemplates: ShiftTemplateOption[];
+    catalog_services?: OptionItem[];
+    care_preview_url?: string;
 }) {
     return (
         <>
@@ -53,6 +57,8 @@ export default function ScheduledVisitsEdit({
                     dsps={dsps}
                     supervisors={supervisors}
                     shiftTemplates={shiftTemplates}
+                    catalogServices={catalog_services}
+                    carePreviewUrl={care_preview_url}
                     submitLabel="Save changes"
                 />
             </div>

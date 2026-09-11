@@ -10,8 +10,19 @@ export function CareOverviewPanels({
     onHistory?: (item: CareHistoryItem) => void;
     onContactSupervisor?: () => void;
 }) {
+    const serviceLabel =
+        overview.services && overview.services.length > 0
+            ? overview.services.map((service) => service.name).join(', ')
+            : null;
+
     return (
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="space-y-3">
+            {serviceLabel && (
+                <p className="text-muted-foreground text-sm">
+                    Services: {serviceLabel}
+                </p>
+            )}
+            <div className="grid gap-4 lg:grid-cols-3">
             <Panel title="Today" description="Expected during today’s visit.">
                 {overview.today.length === 0 ? (
                     <p className="text-muted-foreground text-sm">
@@ -57,7 +68,7 @@ export function CareOverviewPanels({
             </Panel>
             <Panel title="History" description="Recent care notes for this client.">
                 {overview.history.length === 0 ? (
-                    <EmptyState message="No recent care notes." />
+                    <EmptyState compact message="No recent care notes." />
                 ) : (
                     <ul className="space-y-3">
                         {overview.history.map((item) => (
@@ -68,6 +79,15 @@ export function CareOverviewPanels({
                                     {item.dsp_name} · {item.occurred_at_label}
                                 </p>
                                 <div className="mt-2 flex flex-wrap gap-2">
+                                    {onHistory && (
+                                        <button
+                                            type="button"
+                                            className="text-primary text-xs font-medium"
+                                            onClick={() => onHistory(item)}
+                                        >
+                                            View History
+                                        </button>
+                                    )}
                                     {item.previous_dsp_available && onHistory && (
                                         <button
                                             type="button"
@@ -92,6 +112,7 @@ export function CareOverviewPanels({
                     </ul>
                 )}
             </Panel>
+            </div>
         </div>
     );
 }

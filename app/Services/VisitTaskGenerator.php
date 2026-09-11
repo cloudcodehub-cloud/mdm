@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\CarePlanStatus;
+use App\Enums\TaskRecurrence;
 use App\Enums\VisitTaskStatus;
 use App\Models\CarePlanTaskTemplate;
 use App\Models\Visit;
@@ -55,6 +56,39 @@ class VisitTaskGenerator
                     'can_skip' => $template->can_skip,
                     'is_critical' => $template->is_critical,
                     'sort_order' => $template->sort_order,
+                    'status' => VisitTaskStatus::Pending,
+                ],
+            );
+        }
+
+        $this->generateOneOffs($visit);
+    }
+
+    private function generateOneOffs(Visit $visit): void
+    {
+        $visit->loadMissing('scheduledVisit.oneOffTasks');
+        $sort = (int) VisitTask::query()->where('visit_id', $visit->id)->max('sort_order');
+
+        foreach ($visit->scheduledVisit->oneOffTasks as $oneOff) {
+            $sort++;
+
+            VisitTask::query()->firstOrCreate(
+                [
+                    'visit_id' => $visit->id,
+                    'scheduled_visit_one_off_task_id' => $oneOff->id,
+                ],
+                [
+                    'care_plan_task_template_id' => null,
+                    'title' => $oneOff->title,
+                    'instructions' => $oneOff->instructions,
+                    'recurrence' => TaskRecurrence::Custom,
+                    'recurrence_detail' => 'Visit-specific',
+                    'preferred_timing' => null,
+                    'is_required' => $oneOff->is_required,
+                    'note_required' => $oneOff->note_required,
+                    'can_skip' => true,
+                    'is_critical' => false,
+                    'sort_order' => $sort,
                     'status' => VisitTaskStatus::Pending,
                 ],
             );

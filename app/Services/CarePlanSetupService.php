@@ -7,6 +7,7 @@ use App\Enums\TaskPreferredTiming;
 use App\Enums\TaskRecurrence;
 use App\Models\CarePlan;
 use App\Models\CarePlanTaskTemplate;
+use App\Models\CareService;
 use App\Models\Client;
 use App\Models\TaskCatalogItem;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +28,74 @@ class CarePlanSetupService
             'status' => $payload['status'] ?? CarePlanStatus::Active,
             'notes' => $payload['notes'] ?? null,
         ]);
+    }
+
+    /**
+     * @param  array<int, mixed>  $serviceIds
+     */
+    public function syncServices(Client $client, array $serviceIds): void
+    {
+        $ids = [];
+
+        foreach ($serviceIds as $serviceId) {
+            $id = (int) $serviceId;
+
+            if ($id > 0) {
+                $ids[] = $id;
+            }
+        }
+
+        $ids = array_values(array_unique($ids));
+
+        if ($ids !== []) {
+            $valid = CareService::query()->whereKey($ids)->pluck('id')->all();
+
+            if (count($valid) !== count($ids)) {
+                throw ValidationException::withMessages([
+                    'service_ids' => 'A selected service is no longer available.',
+                ]);
+            }
+        }
+
+        $client->careServices()->sync($ids);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function completeSetup(Client $client, array $payload): CarePlan
+    {
+        return DB::transaction(function () use ($client, $payload): CarePlan {
+            $rawServiceIds = $payload['service_ids'] ?? [];
+            $this->syncServices($client, is_array($rawServiceIds) ? $rawServiceIds : []);
+
+            $plan = $client->carePlans()
+                ->currentlyActive()
+                ->orderByDesc('starts_on')
+                ->first();
+
+            if ($plan === null) {
+                $plan = $this->createPlan($client, [
+                    'title' => $payload['title'] ?? 'Current Care Plan',
+                    'starts_on' => $payload['starts_on'] ?? now()->toDateString(),
+                    'ends_on' => $payload['ends_on'] ?? null,
+                    'status' => CarePlanStatus::Active,
+                    'notes' => $payload['notes'] ?? null,
+                ]);
+            }
+
+            $tasks = [];
+
+            if (isset($payload['tasks']) && is_array($payload['tasks'])) {
+                foreach ($payload['tasks'] as $task) {
+                    if (is_array($task)) {
+                        $tasks[] = $task;
+                    }
+                }
+            }
+
+            return $this->syncTasks($plan, $tasks);
+        });
     }
 
     /**

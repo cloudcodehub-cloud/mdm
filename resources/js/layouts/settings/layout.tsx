@@ -23,6 +23,11 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                       href: '/settings/general',
                       icon: null,
                   } satisfies NavItem,
+                  {
+                      title: 'Service Catalog',
+                      href: '/care-services',
+                      icon: null,
+                  } satisfies NavItem,
               ]
             : []),
         {

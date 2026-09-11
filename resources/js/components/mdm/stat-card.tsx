@@ -74,10 +74,15 @@ export function Panel({
 export function EmptyState({
     message,
     action,
+    compact = false,
 }: {
     message: string;
     action?: { href: string; label: string };
+    compact?: boolean;
 }) {
+    if (compact) {
+        return <p className="text-muted-foreground text-sm">{message}</p>;
+    }
     return (
         <div className="text-muted-foreground rounded-lg border border-dashed border-border/80 bg-muted/20 px-4 py-6 text-center">
             <Inbox className="mx-auto mb-2 size-5 opacity-60" aria-hidden="true" />

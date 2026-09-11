@@ -412,6 +412,9 @@ function DspDashboard({ data }: { data: DashboardPayload }) {
                                         </p>
                                         <p className="text-muted-foreground mt-1 text-xs">
                                             {item.state_label}
+                                            {item.has_exception
+                                                ? ' · Exception'
+                                                : ''}
                                             {item.task_progress
                                                 ? ` · ${item.task_progress.completed}/${item.task_progress.total} tasks`
                                                 : ''}
@@ -432,6 +435,9 @@ function DspDashboard({ data }: { data: DashboardPayload }) {
                 </Panel>
             </div>
             <div className="space-y-4">
+                {!(
+                    data.assigned_clients.length === 0 && workItems.length === 0
+                ) && (
                 <Panel title="Assigned clients">
                     <PersonList
                         people={data.assigned_clients.map((client) => ({
@@ -443,6 +449,7 @@ function DspDashboard({ data }: { data: DashboardPayload }) {
                         empty="No active client assignments."
                     />
                 </Panel>
+                )}
                 <Panel title="Announcements">
                     <AnnouncementList announcements={data.announcements} />
                 </Panel>

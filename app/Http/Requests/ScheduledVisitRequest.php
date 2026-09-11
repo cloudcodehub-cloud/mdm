@@ -73,6 +73,12 @@ class ScheduledVisitRequest extends FormRequest
                 ScheduledVisitStatus::Completed,
             ])],
             'notes' => ['nullable', 'string'],
+            'one_off_tasks' => ['sometimes', 'array'],
+            'one_off_tasks.*.id' => ['nullable', 'integer'],
+            'one_off_tasks.*.title' => ['nullable', 'string', 'max:255'],
+            'one_off_tasks.*.instructions' => ['nullable', 'string'],
+            'one_off_tasks.*.note_required' => ['sometimes', 'boolean'],
+            'one_off_tasks.*.is_required' => ['sometimes', 'boolean'],
         ];
     }
 

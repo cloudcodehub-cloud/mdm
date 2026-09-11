@@ -4,6 +4,8 @@ use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AttendanceCorrectionController;
 use App\Http\Controllers\CarePlanController;
+use App\Http\Controllers\CareServiceController;
+use App\Http\Controllers\ClientCareSetupController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientDspAssignmentController;
 use App\Http\Controllers\ComplianceController;
@@ -39,6 +41,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('employees/{employee}/status', [EmployeeController::class, 'updateStatus'])->name('employees.status');
 
     Route::resource('clients', ClientController::class)->except(['destroy']);
+    Route::get('clients/{client}/setup', [ClientCareSetupController::class, 'edit'])->name('clients.setup.edit');
+    Route::post('clients/{client}/setup', [ClientCareSetupController::class, 'update'])->name('clients.setup.update');
     Route::post('clients/{client}/care-plans', [CarePlanController::class, 'store'])->name('clients.care-plans.store');
     Route::patch('care-plans/{care_plan}', [CarePlanController::class, 'update'])->name('care-plans.update');
     Route::put('care-plans/{care_plan}/tasks', [CarePlanController::class, 'syncTasks'])->name('care-plans.tasks.sync');
@@ -46,6 +50,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('clients/{client}/assignments', [ClientDspAssignmentController::class, 'store'])->name('clients.assignments.store');
     Route::patch('assignments/{assignment}/deactivate', [ClientDspAssignmentController::class, 'deactivate'])->name('assignments.deactivate');
 
+    Route::get('care-services', [CareServiceController::class, 'index'])->name('care-services.index');
+    Route::post('care-services', [CareServiceController::class, 'store'])->name('care-services.store');
+    Route::patch('care-services/{care_service}', [CareServiceController::class, 'update'])->name('care-services.update');
+
+    Route::get('scheduled-visits/care-preview', [ScheduledVisitController::class, 'carePreview'])
+        ->name('scheduled-visits.care-preview');
     Route::resource('scheduled-visits', ScheduledVisitController::class)->except(['destroy']);
     Route::post('scheduled-visits/{scheduled_visit}/clock-in', [VisitClockInController::class, 'store'])
         ->name('scheduled-visits.clock-in');

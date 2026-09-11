@@ -7,6 +7,7 @@ use App\Models\CarePlanTaskTemplate;
 use App\Models\Client;
 use App\Models\User;
 use App\Models\VisitTask;
+use App\Support\CareServicePresenter;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 
@@ -18,11 +19,12 @@ class CareOverviewService
     ) {}
 
     /**
-     * @return array{today: list<array<string, mixed>>, upcoming: list<array<string, mixed>>, history: list<array<string, mixed>>}
+     * @return array{today: list<array<string, mixed>>, upcoming: list<array<string, mixed>>, history: list<array<string, mixed>>, services: list<array{id: int, name: string, slug: string}>}
      */
     public function forClient(Client $client, User $viewer): array
     {
         $today = Carbon::parse($this->settings->today())->startOfDay();
+        $client->loadMissing(['careServices' => fn ($query) => $query->active()]);
         $plan = $client->carePlans()
             ->currentlyActive()
             ->with(['taskTemplates' => fn ($query) => $query->active()->orderBy('sort_order')])
@@ -56,6 +58,7 @@ class CareOverviewService
             'today' => $todayItems,
             'upcoming' => array_slice($upcoming, 0, 8),
             'history' => $this->history($client, $viewer),
+            'services' => CareServicePresenter::options($client->careServices),
         ];
     }
 

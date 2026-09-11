@@ -16,6 +16,7 @@ use App\Enums\TaskRecurrence;
 use App\Enums\TrainingStatus;
 use App\Models\CarePlan;
 use App\Models\CarePlanTaskTemplate;
+use App\Models\CareService;
 use App\Models\Client;
 use App\Models\ClientAuthorization;
 use App\Models\ClientDspAssignment;
@@ -41,6 +42,7 @@ class DemoSeeder extends Seeder
     public function run(): void
     {
         $this->call(TaskCatalogSeeder::class);
+        $this->call(CareServiceSeeder::class);
 
         $admin = User::factory()->admin()->create([
             'name' => 'Avery Quinn',
@@ -276,6 +278,7 @@ class DemoSeeder extends Seeder
         $this->seedCredentials($jordan, $priya, $maya, $luis, $nina, $owen, $sara);
         $this->seedTrainings($maya, $luis, $nina, $owen, $sara);
         $this->seedAuthorizations($elena, $theo, $harper, $malik, $ruby, $ian);
+        $this->seedClientServices($elena, $theo, $harper, $malik, $ruby);
         $this->seedCarePlans($elena, $theo, $harper, $malik, $ruby, $ian);
         $this->seedScheduledVisits($jordan, $priya, $maya, $luis, $nina, $elena, $theo, $harper, $malik, $ruby);
 
@@ -415,6 +418,31 @@ class DemoSeeder extends Seeder
             'status' => TrainingStatus::Completed,
             'notes' => 'Historical training retained after termination.',
         ]);
+    }
+
+    private function seedClientServices(
+        Client $elena,
+        Client $theo,
+        Client $harper,
+        Client $malik,
+        Client $ruby,
+    ): void {
+        $bySlug = CareService::query()->pluck('id', 'slug');
+
+        $elena->careServices()->sync(array_filter([
+            $bySlug['residential-habilitation'] ?? null,
+            $bySlug['community-integration'] ?? null,
+        ]));
+        $theo->careServices()->sync(array_filter([$bySlug['personal-care'] ?? null]));
+        $harper->careServices()->sync(array_filter([
+            $bySlug['community-integration'] ?? null,
+            $bySlug['appointment-escort'] ?? null,
+        ]));
+        $malik->careServices()->sync(array_filter([
+            $bySlug['residential-habilitation'] ?? null,
+            $bySlug['overnight-supervision'] ?? null,
+        ]));
+        $ruby->careServices()->sync(array_filter([$bySlug['personal-care'] ?? null]));
     }
 
     private function seedAuthorizations(

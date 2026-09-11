@@ -79,6 +79,28 @@ export type CareOverview = {
     today: CareOverviewItem[];
     upcoming: CareOverviewItem[];
     history: CareHistoryItem[];
+    services?: Array<{ id: number; name: string; slug: string }>;
+};
+
+export type CareServiceRecord = {
+    id: number;
+    slug: string;
+    name: string;
+    description: string | null;
+    is_active: boolean;
+    note_required: boolean;
+    supervisor_review_expected: boolean;
+    payer_code: string | null;
+    sort_order: number;
+    recommended_bundle_ids: number[];
+    recommended_item_ids: number[];
+    recommended_bundle_names: string[];
+};
+
+export type CareServiceOption = {
+    id: number;
+    name: string;
+    slug: string;
 };
 
 export type SupervisorContact = {
@@ -105,4 +127,5 @@ export type DspWorkItem = {
     } | null;
     action_label: string;
     href: string;
+    has_exception?: boolean;
 };

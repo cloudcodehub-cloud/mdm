@@ -37,7 +37,7 @@ use RuntimeException;
  * @property-read Employee $dsp
  * @property-read Employee|null $supervisor
  * @property-read ShiftTemplate|null $shiftTemplate
- * @property-read Visit|null $visit
+ * @property-read Collection<int, ScheduledVisitOneOffTask> $oneOffTasks
  * @property-read Collection<int, AttendanceCorrection> $attendanceCorrections
  *
  * @method static Builder<static> scheduled()
@@ -122,6 +122,14 @@ class ScheduledVisit extends Model
     public function visit(): HasOne
     {
         return $this->hasOne(Visit::class);
+    }
+
+    /**
+     * @return HasMany<ScheduledVisitOneOffTask, $this>
+     */
+    public function oneOffTasks(): HasMany
+    {
+        return $this->hasMany(ScheduledVisitOneOffTask::class)->orderBy('sort_order')->orderBy('id');
     }
 
     /**

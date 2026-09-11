@@ -40,10 +40,12 @@ export function TaskCatalogBuilder({
     catalog,
     selected,
     onChange,
+    suggestedBundleIds = [],
 }: {
     catalog: TaskCatalogPayload;
     selected: CarePlanTaskDraft[];
     onChange: (tasks: CarePlanTaskDraft[]) => void;
+    suggestedBundleIds?: number[];
 }) {
     const [query, setQuery] = useState('');
     const [category, setCategory] = useState<string>('all');
@@ -119,9 +121,15 @@ export function TaskCatalogBuilder({
                             key={bundle.id}
                             type="button"
                             onClick={() => addBundle(bundle.item_ids)}
-                            className="border-border/80 hover:border-primary/40 hover:bg-primary/8 rounded-full border px-3 py-1.5 text-xs font-medium"
+                            className={cn(
+                                'border-border/80 hover:border-primary/40 hover:bg-primary/8 rounded-full border px-3 py-1.5 text-xs font-medium',
+                                suggestedBundleIds.includes(bundle.id) &&
+                                    'border-primary/50 bg-primary/10',
+                            )}
                         >
-                            {bundle.name}
+                            {suggestedBundleIds.includes(bundle.id)
+                                ? `Suggested · ${bundle.name}`
+                                : bundle.name}
                         </button>
                     ))}
                 </div>

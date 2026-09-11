@@ -117,6 +117,7 @@ export type ClientDetail = ClientSummary & {
     emergency_contact_phone: string | null;
     supervisor_id: number | null;
     notes: string | null;
+    care_services?: Array<{ id: number; name: string; slug: string }>;
 };
 
 export type AuthorizationRecord = {
@@ -210,6 +211,38 @@ export type VisitRecord = {
         name: string;
     } | null;
     active_visit_id?: number | null;
+    visit_phase?: 'upcoming' | 'eligible' | 'active' | 'completed' | 'cancelled';
+    start_unavailable_reason?: string | null;
+    one_off_tasks?: Array<{
+        id?: number;
+        title: string;
+        instructions?: string | null;
+        note_required?: boolean;
+        is_required?: boolean;
+    }>;
+    recorded_visit?: {
+        id: number;
+        status: string;
+        clocked_in_at_label: string | null;
+        clocked_out_at_label: string | null;
+        duration_label: string | null;
+        location_status_label: string | null;
+        visit_notes: string | null;
+        handover_note: string | null;
+        task_summary: {
+            total: number;
+            completed: number;
+            skipped: number;
+            pending: number;
+        };
+        tasks: Array<{
+            id: number;
+            title: string;
+            status: string;
+            status_label: string;
+        }>;
+        exceptions: Array<{ id: number }>;
+    } | null;
 };
 
 export type DspScheduleOption = OptionItem & {
@@ -219,6 +252,7 @@ export type DspScheduleOption = OptionItem & {
 export type ClientScheduleOption = OptionItem & {
     client_number: string;
     supervisor_id?: number | null;
+    services?: Array<{ id: number; name: string; slug: string }>;
 };
 
 export type ShiftTemplateOption = {

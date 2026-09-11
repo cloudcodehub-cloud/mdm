@@ -2,10 +2,14 @@
 
 ## Phase 5A — Care workflow and task catalog
 
-- Service (authorization/payer context) and Task (DSP visit activity) remain separate. Catalog items are operational task templates, not billable services.
-- Catalog defaults are suggestions only. The client care plan owns actual recurrence, timing, instructions, and required/skip/note/critical flags.
+- Service is a care/program umbrella. Task is the actual DSP work. Services do not own recurrence or visit schedules.
+- A service may recommend task bundles. Selecting a service does not force those tasks onto the client.
+- Catalog defaults remain suggestions. The client care plan owns recurrence, timing, instructions, and required/skip/note/critical flags.
+- Scheduled Visit can preview which care-plan tasks are due for the selected client and date. That preview does not create `visit_tasks`.
+- One-off tasks belong only to that scheduled visit and never change the permanent care plan.
+- Clock-in remains the authoritative visit-task generation point (due care-plan tasks plus that visit’s one-offs).
+- DSP future recurring items are preparation-only and cannot be completed early.
 - DSP work is organized by client and visit. Visit tasks continue to be generated from the active care plan at clock-in; they are not a shared checklist.
-- Future recurring care items are visible for preparation and are not completable early.
 - Care-note continuity is limited to the same client’s care/visit notes. Private employee HR data is not exposed.
 - Contextual “Message Previous DSP” / “Contact Supervisor” reuses the existing one-to-one messaging system, with optional care context on the message.
 - DSP remains action-first and mobile-first. Supervisors may configure care plans only for scoped clients (`manageCarePlan`). Existing EVV and audit timestamps remain authoritative.
