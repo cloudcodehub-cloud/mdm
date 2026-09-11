@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
@@ -48,6 +49,8 @@ use RuntimeException;
  * @property-read ShiftTemplate|null $shiftTemplate
  * @property-read ScheduledVisitSeries|null $series
  * @property-read Collection<int, ScheduledVisitOneOffTask> $oneOffTasks
+ * @property-read Collection<int, ScheduledVisitTaskOverride> $taskOverrides
+ * @property-read Collection<int, CareService> $careServices
  * @property-read Collection<int, AttendanceCorrection> $attendanceCorrections
  * @property-read Collection<int, ScheduledVisitAssignment> $assignments
  *
@@ -147,9 +150,6 @@ class ScheduledVisit extends Model
     }
 
     /**
-     * @return HasMany<ScheduledVisitOneOffTask, $this>
-     */
-    /**
      * @return BelongsTo<ScheduledVisitSeries, $this>
      */
     public function series(): BelongsTo
@@ -187,6 +187,25 @@ class ScheduledVisit extends Model
     public function oneOffTasks(): HasMany
     {
         return $this->hasMany(ScheduledVisitOneOffTask::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * @return HasMany<ScheduledVisitTaskOverride, $this>
+     */
+    public function taskOverrides(): HasMany
+    {
+        return $this->hasMany(ScheduledVisitTaskOverride::class);
+    }
+
+    /**
+     * @return BelongsToMany<CareService, $this>
+     */
+    public function careServices(): BelongsToMany
+    {
+        return $this->belongsToMany(CareService::class, 'scheduled_visit_care_services')
+            ->withPivot('sort_order')
+            ->withTimestamps()
+            ->orderByPivot('sort_order');
     }
 
     /**

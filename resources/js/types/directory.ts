@@ -177,6 +177,7 @@ export type VisitRecord = {
     id: number;
     service_date: string | null;
     service_type: string;
+    services?: Array<{ id: number; name: string; slug: string }>;
     status: string;
     status_label: string;
     time_label: string;
@@ -226,10 +227,16 @@ export type VisitRecord = {
     }>;
     one_off_tasks?: Array<{
         id?: number;
+        catalog_item_id?: number | null;
         title: string;
         instructions?: string | null;
         note_required?: boolean;
         is_required?: boolean;
+    }>;
+    task_overrides?: Array<{
+        care_plan_task_template_id: number;
+        included: boolean;
+        exclusion_reason?: string | null;
     }>;
     recorded_visit?: {
         id: number;

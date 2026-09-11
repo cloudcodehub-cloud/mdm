@@ -11,6 +11,7 @@ export type AvailabilityDspRow = {
     employee_number: string;
     assigned_to_client: boolean;
     fully_available: boolean;
+    availability_confirmed?: boolean;
     hard_blocked: boolean;
     block_reason: string | null;
     score: number;

@@ -11,6 +11,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $scheduled_visit_id
+ * @property int|null $catalog_item_id
  * @property string $title
  * @property string|null $instructions
  * @property bool $note_required
@@ -22,6 +23,7 @@ use Illuminate\Support\Carbon;
  */
 #[Fillable([
     'scheduled_visit_id',
+    'catalog_item_id',
     'title',
     'instructions',
     'note_required',
@@ -56,5 +58,13 @@ class ScheduledVisitOneOffTask extends Model
     public function visitTasks(): HasMany
     {
         return $this->hasMany(VisitTask::class);
+    }
+
+    /**
+     * @return BelongsTo<TaskCatalogItem, $this>
+     */
+    public function catalogItem(): BelongsTo
+    {
+        return $this->belongsTo(TaskCatalogItem::class, 'catalog_item_id');
     }
 }

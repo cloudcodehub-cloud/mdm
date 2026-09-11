@@ -1,8 +1,13 @@
 import { Form } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
-import { AvailabilityStrip } from '@/components/mdm/availability-strip';
+import { DspAvailabilityBoard } from '@/components/mdm/dsp-availability-board';
 import { Field, controlClassName } from '@/components/mdm/directory';
-import { Button } from '@/components/ui/button';
+import {
+    VisitCarePlanEditor,
+    type OneOffDraft,
+    type VisitCareTask,
+    type VisitCatalogOption,
+} from '@/components/mdm/visit-care-plan-editor';
 import { Input } from '@/components/ui/input';
 import type {
     ClientScheduleOption,
@@ -11,29 +16,13 @@ import type {
     ShiftTemplateOption,
     VisitRecord,
 } from '@/types/directory';
-import type { AvailabilityBoard, AvailabilityDspRow } from '@/types/scheduling';
+import type { AvailabilityBoard } from '@/types/scheduling';
 
 const statuses = [
     { value: 'scheduled', label: 'Scheduled' },
     { value: 'cancelled', label: 'Cancelled' },
     { value: 'completed', label: 'Completed' },
 ];
-
-type PreviewTask = {
-    key: string;
-    title: string;
-    recurrence_label: string;
-    due: boolean;
-    due_label: string;
-    source: string;
-};
-
-type OneOffDraft = {
-    id?: number;
-    title: string;
-    instructions: string;
-    note_required: boolean;
-};
 
 export function ScheduledVisitForm({
     action,
@@ -64,8 +53,10 @@ export function ScheduledVisitForm({
     const [clientId, setClientId] = useState(
         visit?.client_id ? String(visit.client_id) : '',
     );
+    const [serviceIds, setServiceIds] = useState<number[]>(
+        (visit?.services ?? []).map((service) => service.id),
+    );
     const [serviceDate, setServiceDate] = useState(visit?.service_date ?? '');
-    const [serviceType, setServiceType] = useState(visit?.service_type ?? '');
     const [timingMode, setTimingMode] = useState<'template' | 'custom'>(
         visit?.shift_template_id ? 'template' : 'custom',
     );
@@ -80,15 +71,27 @@ export function ScheduledVisitForm({
     const [supervisorOverride, setSupervisorOverride] = useState(
         visit?.supervisor_id ? String(visit.supervisor_id) : '',
     );
+    const [showSupervisorOverride, setShowSupervisorOverride] = useState(
+        Boolean(
+            isAdmin &&
+                visit?.supervisor_id &&
+                visit.supervisor_id !==
+                    clients.find((client) => client.id === visit.client_id)
+                        ?.supervisor_id,
+        ),
+    );
     const [repeat, setRepeat] = useState(false);
-    const [preview, setPreview] = useState<PreviewTask[]>([]);
+    const [preview, setPreview] = useState<VisitCareTask[]>([]);
+    const [catalog, setCatalog] = useState<VisitCatalogOption[]>([]);
     const [board, setBoard] = useState<AvailabilityBoard | null>(null);
     const [oneOffs, setOneOffs] = useState<OneOffDraft[]>(
         (visit?.one_off_tasks ?? []).map((task) => ({
             id: task.id,
+            catalog_item_id: task.catalog_item_id ?? null,
             title: task.title,
             instructions: task.instructions ?? '',
             note_required: Boolean(task.note_required),
+            is_required: task.is_required !== false,
         })),
     );
 
@@ -104,13 +107,10 @@ export function ScheduledVisitForm({
     const supervisorId = isAdmin
         ? supervisorOverride || String(selectedClient?.supervisor_id ?? '')
         : String(selectedClient?.supervisor_id ?? visit?.supervisor_id ?? '');
-
-    const selectedDsp: AvailabilityDspRow | undefined = board?.dsps.find(
-        (row) => String(row.id) === employeeId,
-    );
-    const otherDsps = (board?.dsps ?? []).filter(
-        (row) => String(row.id) !== employeeId,
-    );
+    const selectedDspName =
+        board?.dsps.find((row) => String(row.id) === employeeId)?.name ??
+        visit?.dsp_name ??
+        dsps.find((row) => String(row.id) === employeeId)?.name;
 
     const requestTimes = useMemo(() => {
         if (timingMode === 'template') {
@@ -125,9 +125,15 @@ export function ScheduledVisitForm({
         return { starts: startsAt, ends: endsAt };
     }, [timingMode, templateId, shiftTemplates, startsAt, endsAt]);
 
+    const serviceTypeLabel = clientServices
+        .filter((service) => serviceIds.includes(service.id))
+        .map((service) => service.name)
+        .join(' · ');
+
     useEffect(() => {
         if (!carePreviewUrl || clientId === '' || serviceDate === '') {
             setPreview([]);
+            setCatalog([]);
             return;
         }
 
@@ -135,6 +141,7 @@ export function ScheduledVisitForm({
             client_id: clientId,
             service_date: serviceDate,
         });
+        serviceIds.forEach((id) => params.append('service_ids[]', String(id)));
 
         if (visit?.id) {
             params.set('scheduled_visit_id', String(visit.id));
@@ -148,15 +155,24 @@ export function ScheduledVisitForm({
             signal: controller.signal,
         })
             .then((response) => (response.ok ? response.json() : null))
-            .then((payload: { tasks?: PreviewTask[] } | null) => {
-                setPreview(payload?.tasks ?? []);
-            })
+            .then(
+                (
+                    payload: {
+                        tasks?: VisitCareTask[];
+                        catalog?: VisitCatalogOption[];
+                    } | null,
+                ) => {
+                    setPreview(payload?.tasks ?? []);
+                    setCatalog(payload?.catalog ?? []);
+                },
+            )
             .catch(() => {
                 setPreview([]);
+                setCatalog([]);
             });
 
         return () => controller.abort();
-    }, [carePreviewUrl, clientId, serviceDate, visit?.id]);
+    }, [carePreviewUrl, clientId, serviceDate, serviceIds.join(','), visit?.id]);
 
     useEffect(() => {
         if (
@@ -173,7 +189,7 @@ export function ScheduledVisitForm({
         const params = new URLSearchParams({
             client_id: clientId,
             service_date: serviceDate,
-            service_type: serviceType,
+            service_type: serviceTypeLabel,
             starts_at: requestTimes.starts,
             ends_at: requestTimes.ends,
         });
@@ -216,7 +232,7 @@ export function ScheduledVisitForm({
         availabilityBoardUrl,
         clientId,
         serviceDate,
-        serviceType,
+        serviceTypeLabel,
         requestTimes.starts,
         requestTimes.ends,
         timingMode,
@@ -224,14 +240,28 @@ export function ScheduledVisitForm({
         visit?.id,
     ]);
 
+    const toggleService = (id: number) => {
+        setServiceIds((current) =>
+            current.includes(id)
+                ? current.filter((value) => value !== id)
+                : [...current, id],
+        );
+        setEmployeeId('');
+    };
+
     return (
-        <Form action={action} method={method} className="space-y-6">
+        <Form action={action} method={method} className="space-y-4">
             {({ processing, errors }) => (
                 <>
-                    <section className="surface-panel grid gap-4 p-4 md:grid-cols-2 md:p-5">
-                        <h2 className="text-sm font-semibold md:col-span-2">
-                            Client and service
-                        </h2>
+                    <section className="surface-panel grid gap-3 p-4 md:grid-cols-2 md:p-5">
+                        <div className="md:col-span-2">
+                            <p className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+                                1 · Client & Services
+                            </p>
+                            <h2 className="text-sm font-semibold">
+                                Client and services
+                            </h2>
+                        </div>
                         <Field
                             label="Client"
                             htmlFor="client_id"
@@ -244,7 +274,7 @@ export function ScheduledVisitForm({
                                 value={clientId}
                                 onChange={(event) => {
                                     setClientId(event.target.value);
-                                    setServiceType('');
+                                    setServiceIds([]);
                                     setEmployeeId('');
                                 }}
                                 className={controlClassName}
@@ -257,58 +287,78 @@ export function ScheduledVisitForm({
                                 ))}
                             </select>
                         </Field>
-                        <Field
-                            label="Service"
-                            htmlFor="service_type"
-                            error={errors.service_type}
-                        >
-                            <select
-                                id="service_type"
+                        <div>
+                            <p className="mb-2 text-sm font-medium">Services</p>
+                            {serviceIds.map((id) => (
+                                <input
+                                    key={id}
+                                    type="hidden"
+                                    name="service_ids[]"
+                                    value={id}
+                                />
+                            ))}
+                            <input
+                                type="hidden"
                                 name="service_type"
-                                required
-                                value={serviceType}
-                                onChange={(event) =>
-                                    setServiceType(event.target.value)
-                                }
-                                className={controlClassName}
-                                disabled={clientId === ''}
-                            >
-                                <option value="">Select service</option>
-                                {clientServices.map((service) => (
-                                    <option
-                                        key={service.id}
-                                        value={service.name}
-                                    >
-                                        {service.name}
-                                    </option>
-                                ))}
-                                {visit?.service_type &&
-                                    !clientServices.some(
-                                        (service) =>
-                                            service.name === visit.service_type,
-                                    ) && (
-                                        <option value={visit.service_type}>
-                                            {visit.service_type}
-                                        </option>
-                                    )}
-                            </select>
-                            <p className="text-muted-foreground mt-1 text-xs">
-                                {clientId === ''
-                                    ? 'Select a client to load assigned services.'
-                                    : clientServices.length === 0
-                                      ? 'This client has no active assigned services.'
-                                      : 'Only services assigned to this client.'}
-                            </p>
-                        </Field>
+                                value={serviceTypeLabel}
+                            />
+                            {clientId === '' ? (
+                                <p className="text-muted-foreground text-xs">
+                                    Select a client to load assigned services.
+                                </p>
+                            ) : clientServices.length === 0 ? (
+                                <p className="text-muted-foreground text-xs">
+                                    This client has no active assigned
+                                    services.
+                                </p>
+                            ) : (
+                                <div className="flex flex-wrap gap-1.5">
+                                    {clientServices.map((service) => {
+                                        const active = serviceIds.includes(
+                                            service.id,
+                                        );
+                                        return (
+                                            <button
+                                                key={service.id}
+                                                type="button"
+                                                onClick={() =>
+                                                    toggleService(service.id)
+                                                }
+                                                className={
+                                                    active
+                                                        ? 'bg-primary text-primary-foreground inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium'
+                                                        : 'bg-muted/70 hover:bg-muted inline-flex items-center rounded-full px-3 py-1 text-xs font-medium'
+                                                }
+                                            >
+                                                {service.name}
+                                                {active ? ' ×' : ''}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            {errors.service_ids && (
+                                <p className="text-destructive mt-1 text-sm">
+                                    {errors.service_ids}
+                                </p>
+                            )}
+                            {errors.service_type && (
+                                <p className="text-destructive mt-1 text-sm">
+                                    {errors.service_type}
+                                </p>
+                            )}
+                        </div>
                         <div className="md:col-span-2">
-                            <p className="text-muted-foreground text-xs">
-                                Supervisor
-                            </p>
-                            <p className="mt-1 text-sm font-medium">
-                                {supervisorName ?? 'Not assigned on client profile'}
-                            </p>
-                            <p className="text-muted-foreground text-xs">
-                                Assigned through client profile
+                            <p className="text-sm">
+                                Supervisor:{' '}
+                                <span className="font-medium">
+                                    {supervisorName ??
+                                        'Not assigned on client profile'}
+                                </span>
+                                <span className="text-muted-foreground">
+                                    {' '}
+                                    · Assigned from client profile
+                                </span>
                             </p>
                             <input
                                 type="hidden"
@@ -316,40 +366,65 @@ export function ScheduledVisitForm({
                                 value={supervisorId}
                             />
                             {isAdmin && (
-                                <Field
-                                    label="Admin override"
-                                    htmlFor="supervisor_override"
-                                    error={errors.supervisor_id}
-                                >
-                                    <select
-                                        id="supervisor_override"
-                                        value={supervisorId}
-                                        onChange={(event) =>
-                                            setSupervisorOverride(
-                                                event.target.value,
-                                            )
-                                        }
-                                        className={controlClassName}
-                                    >
-                                        <option value="">Use client supervisor</option>
-                                        {supervisors.map((supervisor) => (
-                                            <option
-                                                key={supervisor.id}
-                                                value={supervisor.id}
+                                <div className="mt-2">
+                                    {!showSupervisorOverride ? (
+                                        <button
+                                            type="button"
+                                            className="text-muted-foreground text-xs underline-offset-4 hover:underline"
+                                            onClick={() =>
+                                                setShowSupervisorOverride(true)
+                                            }
+                                        >
+                                            Override supervisor
+                                        </button>
+                                    ) : (
+                                        <Field
+                                            label="Admin override"
+                                            htmlFor="supervisor_override"
+                                            error={errors.supervisor_id}
+                                        >
+                                            <select
+                                                id="supervisor_override"
+                                                value={supervisorId}
+                                                onChange={(event) =>
+                                                    setSupervisorOverride(
+                                                        event.target.value,
+                                                    )
+                                                }
+                                                className={controlClassName}
                                             >
-                                                {supervisor.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </Field>
+                                                <option value="">
+                                                    Use client supervisor
+                                                </option>
+                                                {supervisors.map(
+                                                    (supervisor) => (
+                                                        <option
+                                                            key={supervisor.id}
+                                                            value={
+                                                                supervisor.id
+                                                            }
+                                                        >
+                                                            {supervisor.name}
+                                                        </option>
+                                                    ),
+                                                )}
+                                            </select>
+                                        </Field>
+                                    )}
+                                </div>
                             )}
                         </div>
                     </section>
 
-                    <section className="surface-panel grid gap-4 p-4 md:grid-cols-2 md:p-5">
-                        <h2 className="text-sm font-semibold md:col-span-2">
-                            Requested window
-                        </h2>
+                    <section className="surface-panel grid gap-3 p-4 md:grid-cols-2 md:p-5">
+                        <div className="md:col-span-2">
+                            <p className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+                                2 · Date & Requested Time
+                            </p>
+                            <h2 className="text-sm font-semibold">
+                                Service date and requested window
+                            </h2>
+                        </div>
                         <Field
                             label="Service date"
                             htmlFor="service_date"
@@ -433,8 +508,9 @@ export function ScheduledVisitForm({
                                             key={template.id}
                                             value={template.id}
                                         >
-                                            {template.name} ({template.starts_at}{' '}
-                                            – {template.ends_at}
+                                            {template.name} (
+                                            {template.starts_at} –{' '}
+                                            {template.ends_at}
                                             {template.spans_overnight
                                                 ? ', overnight'
                                                 : ''}
@@ -486,6 +562,17 @@ export function ScheduledVisitForm({
                         )}
                     </section>
 
+                    {clientId !== '' && serviceDate !== '' && (
+                        <VisitCarePlanEditor
+                            tasks={preview}
+                            onChange={setPreview}
+                            catalog={catalog}
+                            oneOffs={oneOffs}
+                            onOneOffsChange={setOneOffs}
+                            errors={errors}
+                        />
+                    )}
+
                     {board?.authorization && (
                         <p className="border-warning/40 bg-warning/10 rounded-md border px-3 py-2 text-sm">
                             {board.authorization.message}
@@ -493,265 +580,23 @@ export function ScheduledVisitForm({
                     )}
 
                     {board && (
-                        <section className="surface-panel space-y-4 p-4 md:p-5">
-                            <div>
-                                <h2 className="text-sm font-semibold">
-                                    DSP availability
-                                </h2>
-                                <p className="text-muted-foreground mt-1 text-xs">
-                                    Eligible DSPs for this client’s supervisor.
-                                    Select a row to assign. Ranked by assignment,
-                                    availability, continuity, and workload — not
-                                    AI.
-                                </p>
-                            </div>
-                            <input
-                                type="hidden"
-                                name="employee_id"
-                                value={employeeId}
-                            />
-                            {errors.employee_id && (
-                                <p className="text-destructive text-sm">
-                                    {errors.employee_id}
-                                </p>
-                            )}
-                            {selectedDsp && (
-                                <button
-                                    type="button"
-                                    className="border-primary/40 bg-primary/5 w-full rounded-lg border p-3 text-left"
-                                >
-                                    <div className="flex flex-wrap items-start justify-between gap-2">
-                                        <div>
-                                            <p className="font-semibold">
-                                                {selectedDsp.name}
-                                            </p>
-                                            <p className="text-muted-foreground text-xs">
-                                                {selectedDsp.reason_label}
-                                            </p>
-                                        </div>
-                                        <p className="text-xs">
-                                            {selectedDsp.workload.day_hours}h today
-                                            · {selectedDsp.workload.week_hours}h
-                                            week · {selectedDsp.workload.visit_count}{' '}
-                                            visits
-                                        </p>
-                                    </div>
-                                    <div className="mt-3">
-                                        <AvailabilityStrip
-                                            segments={selectedDsp.timeline}
-                                        />
-                                    </div>
-                                    {selectedDsp.warnings.map((warning) => (
-                                        <p
-                                            key={warning}
-                                            className="text-warning mt-2 text-xs"
-                                        >
-                                            {warning}
-                                        </p>
-                                    ))}
-                                    {selectedDsp.block_reason && (
-                                        <p className="text-destructive mt-2 text-xs">
-                                            {selectedDsp.block_reason}
-                                        </p>
-                                    )}
-                                </button>
-                            )}
-                            <div className="space-y-2">
-                                {otherDsps.map((row) => (
-                                    <button
-                                        key={row.id}
-                                        type="button"
-                                        onClick={() =>
-                                            setEmployeeId(String(row.id))
-                                        }
-                                        className="hover:bg-muted/40 w-full rounded-md p-2 text-left"
-                                    >
-                                        <div className="mb-1 flex justify-between gap-2 text-xs">
-                                            <span className="font-medium">
-                                                {row.name}
-                                                {row.assigned_to_client
-                                                    ? ' · assigned'
-                                                    : ''}
-                                            </span>
-                                            <span className="text-muted-foreground">
-                                                {row.workload.week_hours}h week
-                                            </span>
-                                        </div>
-                                        <AvailabilityStrip
-                                            compact
-                                            segments={row.timeline}
-                                        />
-                                    </button>
-                                ))}
-                            </div>
-                            {board.coverage && (
-                                <div className="border-border rounded-md border p-3 text-sm">
-                                    <p>{board.coverage.message}</p>
-                                    <ul className="mt-2 space-y-1 text-xs">
-                                        {board.coverage.options.map((option) => (
-                                            <li key={option.label}>
-                                                <button
-                                                    type="button"
-                                                    className="hover:text-foreground"
-                                                    onClick={() =>
-                                                        setEmployeeId(
-                                                            String(
-                                                                option.employee_id,
-                                                            ),
-                                                        )
-                                                    }
-                                                >
-                                                    {option.label}
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                            {dsps.length === 0 && (
-                                <p className="text-muted-foreground text-sm">
-                                    No DSPs in directory.
-                                </p>
-                            )}
-                        </section>
+                        <DspAvailabilityBoard
+                            board={board}
+                            employeeId={employeeId}
+                            onSelect={setEmployeeId}
+                            error={errors.employee_id}
+                        />
                     )}
 
-                    {clientId !== '' && serviceDate !== '' && (
-                        <section className="surface-panel p-4 md:p-5">
-                            <h2 className="text-sm font-semibold">
-                                Care-plan preview
-                            </h2>
-                            <p className="text-muted-foreground mt-1 text-xs">
-                                Tasks do not control DSP availability. Visit
-                                tasks are created at clock-in.
+                    <section className="surface-panel grid gap-3 p-4 md:grid-cols-2 md:p-5">
+                        <div className="md:col-span-2">
+                            <p className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+                                5 · Notes & Repeat
                             </p>
-                            {preview.length === 0 ? (
-                                <p className="text-muted-foreground mt-3 text-sm">
-                                    No care-plan tasks are configured for this
-                                    date.
-                                </p>
-                            ) : (
-                                <ul className="mt-3 space-y-1 text-sm">
-                                    {preview.map((task) => (
-                                        <li
-                                            key={task.key}
-                                            className="flex justify-between gap-3"
-                                        >
-                                            <span>
-                                                {task.title} —{' '}
-                                                {task.recurrence_label}
-                                            </span>
-                                            <span
-                                                className={
-                                                    task.due
-                                                        ? 'text-primary text-xs font-medium'
-                                                        : 'text-muted-foreground text-xs'
-                                                }
-                                            >
-                                                {task.due_label}
-                                            </span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </section>
-                    )}
-
-                    <section className="surface-panel p-4 md:p-5">
-                        <h2 className="text-sm font-semibold">
-                            One-off visit tasks
-                        </h2>
-                        <p className="text-muted-foreground mt-1 text-xs">
-                            Applies only to this scheduled visit.
-                        </p>
-                        <ul className="mt-3 space-y-3">
-                            {oneOffs.map((task, index) => (
-                                <li
-                                    key={task.id ?? `new-${index}`}
-                                    className="grid gap-2 md:grid-cols-[1fr_auto]"
-                                >
-                                    {task.id && (
-                                        <input
-                                            type="hidden"
-                                            name={`one_off_tasks[${index}][id]`}
-                                            value={task.id}
-                                        />
-                                    )}
-                                    <Input
-                                        name={`one_off_tasks[${index}][title]`}
-                                        value={task.title}
-                                        placeholder="Pick up prescription before returning home."
-                                        onChange={(event) => {
-                                            const next = [...oneOffs];
-                                            next[index] = {
-                                                ...task,
-                                                title: event.target.value,
-                                            };
-                                            setOneOffs(next);
-                                        }}
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() =>
-                                            setOneOffs(
-                                                oneOffs.filter(
-                                                    (_, item) => item !== index,
-                                                ),
-                                            )
-                                        }
-                                    >
-                                        Remove
-                                    </Button>
-                                    <textarea
-                                        name={`one_off_tasks[${index}][instructions]`}
-                                        value={task.instructions}
-                                        placeholder="Optional instructions"
-                                        className={`${controlClassName} h-auto py-2 md:col-span-2`}
-                                        rows={2}
-                                        onChange={(event) => {
-                                            const next = [...oneOffs];
-                                            next[index] = {
-                                                ...task,
-                                                instructions:
-                                                    event.target.value,
-                                            };
-                                            setOneOffs(next);
-                                        }}
-                                    />
-                                </li>
-                            ))}
-                        </ul>
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            className="mt-3"
-                            onClick={() =>
-                                setOneOffs([
-                                    ...oneOffs,
-                                    {
-                                        title: '',
-                                        instructions: '',
-                                        note_required: false,
-                                    },
-                                ])
-                            }
-                        >
-                            Add visit-specific task
-                        </Button>
-                        {visit && oneOffs.length === 0 && (
-                            <input
-                                type="hidden"
-                                name="one_off_tasks[0][title]"
-                                value=""
-                            />
-                        )}
-                    </section>
-
-                    <section className="surface-panel grid gap-4 p-4 md:grid-cols-2 md:p-5">
-                        <h2 className="text-sm font-semibold md:col-span-2">
-                            Notes and recurrence
-                        </h2>
+                            <h2 className="text-sm font-semibold">
+                                Notes and recurrence
+                            </h2>
+                        </div>
                         <Field
                             label="Notes"
                             htmlFor="notes"
@@ -800,15 +645,21 @@ export function ScheduledVisitForm({
                                                 defaultValue="weekly"
                                                 className={controlClassName}
                                             >
-                                                <option value="daily">Daily</option>
+                                                <option value="daily">
+                                                    Daily
+                                                </option>
                                                 <option value="weekdays">
                                                     Weekdays
                                                 </option>
-                                                <option value="weekly">Weekly</option>
+                                                <option value="weekly">
+                                                    Weekly
+                                                </option>
                                                 <option value="biweekly">
                                                     Biweekly
                                                 </option>
-                                                <option value="custom">Custom</option>
+                                                <option value="custom">
+                                                    Custom
+                                                </option>
                                             </select>
                                         </Field>
                                         <Field
@@ -837,6 +688,50 @@ export function ScheduledVisitForm({
                             </Field>
                         )}
                     </section>
+
+                    <section className="surface-panel space-y-2 p-4 md:p-5">
+                        <p className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+                            6 · Review / Schedule
+                        </p>
+                        <dl className="grid gap-1 text-sm md:grid-cols-2">
+                            <div>
+                                <dt className="text-muted-foreground text-xs">
+                                    Client
+                                </dt>
+                                <dd>{selectedClient?.name ?? '—'}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-muted-foreground text-xs">
+                                    Services
+                                </dt>
+                                <dd>{serviceTypeLabel || '—'}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-muted-foreground text-xs">
+                                    Window
+                                </dt>
+                                <dd>
+                                    {serviceDate || '—'} ·{' '}
+                                    {requestTimes.starts || '—'}–
+                                    {requestTimes.ends || '—'}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt className="text-muted-foreground text-xs">
+                                    DSP
+                                </dt>
+                                <dd>{selectedDspName ?? '—'}</dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    {visit && oneOffs.length === 0 && (
+                        <input
+                            type="hidden"
+                            name="one_off_tasks[0][title]"
+                            value=""
+                        />
+                    )}
 
                     <div className="sticky-form-actions flex flex-wrap gap-2">
                         <button

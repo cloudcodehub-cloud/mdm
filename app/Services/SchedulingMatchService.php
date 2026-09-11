@@ -163,6 +163,7 @@ class SchedulingMatchService
         $workload = $this->workload($dsp, $serviceDate);
         $block = $this->availability->hardBlockReason($dsp, $serviceDate, $requested, $exceptVisitId);
         $covers = $block === null && $this->availability->covers($dsp, $serviceDate, $requested);
+        $confirmed = $this->availability->availabilityConfirmed($dsp, $serviceDate);
         $overlap = $this->availability->overlapWithAvailability($dsp, $serviceDate, $requested);
         $daypart = $this->availability->preferredDaypart($dsp, $serviceDate);
         $requestedDaypart = $this->daypartFor($requested['start']);
@@ -181,10 +182,14 @@ class SchedulingMatchService
 
         if ($covers) {
             $score += 80;
-            $reasons[] = 'Available';
+            $reasons[] = $confirmed ? 'Available' : 'Availability not confirmed';
         } elseif ($overlap !== null) {
             $score += 20;
             $reasons[] = 'Partial: '.ClockMinutes::toLabel($overlap['start']).'–'.ClockMinutes::toLabel($overlap['end']);
+        }
+
+        if ($covers && ! $confirmed) {
+            $warnings[] = 'Availability not confirmed — weekly hours are not set for this day.';
         }
 
         if ($historyCount > 0) {
@@ -224,6 +229,7 @@ class SchedulingMatchService
             'employee_number' => $dsp->employee_number,
             'assigned_to_client' => $assigned,
             'fully_available' => $covers,
+            'availability_confirmed' => $confirmed,
             'hard_blocked' => $block !== null,
             'block_reason' => $block,
             'score' => $score,
@@ -344,6 +350,38 @@ class SchedulingMatchService
             return null;
         }
 
+        $names = preg_split('/\s*[·,;|]\s*/u', $serviceType) ?: [$serviceType];
+        $messages = [];
+
+        foreach ($names as $name) {
+            $name = trim((string) $name);
+
+            if ($name === '') {
+                continue;
+            }
+
+            $warning = $this->authorizationWarningForName($client, $name, $serviceDate);
+
+            if ($warning !== null) {
+                $messages[] = $warning['message'];
+            }
+        }
+
+        if ($messages === []) {
+            return null;
+        }
+
+        return [
+            'level' => 'warning',
+            'message' => implode(' ', array_unique($messages)),
+        ];
+    }
+
+    /**
+     * @return array{level: string, message: string}|null
+     */
+    private function authorizationWarningForName(Client $client, string $serviceType, string $serviceDate): ?array
+    {
         $day = Carbon::parse($serviceDate)->startOfDay();
         $matches = $client->authorizations()
             ->whereRaw('lower(service_type) = ?', [mb_strtolower($serviceType)])

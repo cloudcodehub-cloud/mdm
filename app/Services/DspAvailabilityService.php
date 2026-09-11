@@ -395,6 +395,7 @@ class DspAvailabilityService
             $onLeave = $this->contains($leave, $mid);
             $busy = $this->occupiedAt($occupied, $mid);
             $open = $this->contains($available, $mid);
+            $confirmed = $this->availabilityConfirmed($employee, $date);
             $inRequest = $requested !== null && $mid >= $requested['start'] && $mid < min(1440, $requested['end']);
             $conflict = $inRequest && ($onLeave || $busy !== null || ! $open);
 
@@ -407,6 +408,9 @@ class DspAvailabilityService
             } elseif ($busy !== null) {
                 $state = 'occupied';
                 $label = $busy['client_name'];
+            } elseif ($open && ! $confirmed) {
+                $state = 'unconfirmed';
+                $label = 'Availability not confirmed';
             } elseif ($open) {
                 $state = 'available';
             }
@@ -625,6 +629,25 @@ class DspAvailabilityService
         }
 
         return $days;
+    }
+
+    public function availabilityConfirmed(Employee $employee, CarbonInterface|string $date): bool
+    {
+        $day = Carbon::parse($date)->startOfDay();
+
+        $hasWeekly = DspWeeklyAvailability::query()
+            ->where('employee_id', $employee->id)
+            ->where('weekday', (int) $day->dayOfWeek)
+            ->exists();
+
+        if ($hasWeekly) {
+            return true;
+        }
+
+        return DspAvailabilityException::query()
+            ->where('employee_id', $employee->id)
+            ->whereDate('exception_date', $day->toDateString())
+            ->exists();
     }
 
     private function assertPending(DspAvailabilityRequest $request): void

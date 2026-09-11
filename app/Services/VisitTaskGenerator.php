@@ -16,7 +16,7 @@ class VisitTaskGenerator
 
     public function generate(Visit $visit): void
     {
-        $visit->loadMissing('scheduledVisit');
+        $visit->loadMissing(['scheduledVisit.oneOffTasks', 'scheduledVisit.taskOverrides']);
         $serviceDate = $visit->scheduledVisit->service_date->toDateString();
 
         $templates = CarePlanTaskTemplate::query()
@@ -35,8 +35,15 @@ class VisitTaskGenerator
             ->orderBy('id')
             ->get();
 
+        $overrides = $visit->scheduledVisit->taskOverrides
+            ->keyBy('care_plan_task_template_id');
+
         foreach ($templates as $template) {
-            if (! $this->recurrence->appliesOn($template, $visit->scheduledVisit->service_date)) {
+            $due = $this->recurrence->appliesOn($template, $visit->scheduledVisit->service_date);
+            $override = $overrides->get($template->id);
+            $include = $override !== null ? $override->included : $due;
+
+            if (! $include) {
                 continue;
             }
 

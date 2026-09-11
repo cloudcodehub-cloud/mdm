@@ -307,6 +307,9 @@ final class DirectoryPresenter
             'id' => $visit->id,
             'service_date' => self::date($visit->service_date),
             'service_type' => $visit->service_type,
+            'services' => $visit->relationLoaded('careServices')
+                ? CareServicePresenter::options($visit->careServices)
+                : [],
             'status' => $visit->status->value,
             'status_label' => Str::headline($visit->status->value),
             'time_label' => self::visitTimeLabel($visit),
@@ -357,10 +360,18 @@ final class DirectoryPresenter
             'one_off_tasks' => $visit->relationLoaded('oneOffTasks')
                 ? self::values($visit->oneOffTasks->map(fn ($task): array => [
                     'id' => $task->id,
+                    'catalog_item_id' => $task->catalog_item_id,
                     'title' => $task->title,
                     'instructions' => $task->instructions,
                     'note_required' => $task->note_required,
                     'is_required' => $task->is_required,
+                ]))
+                : [],
+            'task_overrides' => $visit->relationLoaded('taskOverrides')
+                ? self::values($visit->taskOverrides->map(fn ($row): array => [
+                    'care_plan_task_template_id' => $row->care_plan_task_template_id,
+                    'included' => $row->included,
+                    'exclusion_reason' => $row->exclusion_reason,
                 ]))
                 : [],
             'series' => $visit->series === null ? null : [

@@ -25,7 +25,7 @@ class ScheduleCalendarService
         };
 
         $visits = ScheduledVisit::query()
-            ->with(['client', 'employee', 'supervisor', 'shiftTemplate'])
+            ->with(['client', 'employee', 'supervisor', 'shiftTemplate', 'careServices'])
             ->visibleTo($user)
             ->whereDate('service_date', '>=', $start->toDateString())
             ->whereDate('service_date', '<=', $end->toDateString())

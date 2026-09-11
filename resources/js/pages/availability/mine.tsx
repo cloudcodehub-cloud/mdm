@@ -1,8 +1,10 @@
 import { Form, Head } from '@inertiajs/react';
+import { useState } from 'react';
 import { Field, StatusBadge, controlClassName } from '@/components/mdm/directory';
 import { Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 
 type WeeklyDay = {
@@ -14,6 +16,19 @@ type WeeklyDay = {
     preferred_daypart: string | null;
     configured: boolean;
 };
+
+function requestLabel(status: string): string {
+    if (status === 'pending') {
+        return 'Pending review';
+    }
+    if (status === 'approved') {
+        return 'Approved';
+    }
+    if (status === 'rejected') {
+        return 'Rejected';
+    }
+    return status;
+}
 
 export default function MyAvailability({
     weekly,
@@ -46,6 +61,36 @@ export default function MyAvailability({
         status: string;
     }>;
 }) {
+    const [days, setDays] = useState(weekly);
+
+    const updateDay = (weekday: number, patch: Partial<WeeklyDay>) => {
+        setDays((current) =>
+            current.map((day) =>
+                day.weekday === weekday ? { ...day, ...patch } : day,
+            ),
+        );
+    };
+
+    const copyMondayToWeekdays = () => {
+        const monday = days.find((day) => day.weekday === 1);
+        if (!monday) {
+            return;
+        }
+        setDays((current) =>
+            current.map((day) =>
+                day.weekday >= 2 && day.weekday <= 5
+                    ? {
+                          ...day,
+                          is_available: monday.is_available,
+                          starts_at: monday.starts_at,
+                          ends_at: monday.ends_at,
+                          preferred_daypart: monday.preferred_daypart,
+                      }
+                    : day,
+            ),
+        );
+    };
+
     return (
         <>
             <Head title="My Availability" />
@@ -60,21 +105,41 @@ export default function MyAvailability({
                     </p>
                 </div>
 
-                <Panel title="Approved weekly availability">
-                    <div className="grid gap-2">
+                <Panel
+                    title="Approved weekly availability"
+                    description="Configured days are confirmed. Unconfigured days are not treated as approved coverage."
+                >
+                    <div className="mb-3 flex h-3 overflow-hidden rounded-md">
+                        {weekly.map((day) => (
+                            <span
+                                key={day.weekday}
+                                title={`${day.weekday_label}: ${day.configured ? (day.is_available ? `${day.starts_at}–${day.ends_at}` : 'Unavailable') : 'Not confirmed'}`}
+                                className={cn(
+                                    'flex-1',
+                                    !day.configured
+                                        ? 'bg-amber-400/40'
+                                        : day.is_available
+                                          ? 'bg-emerald-500/70'
+                                          : 'bg-slate-400/40',
+                                )}
+                            />
+                        ))}
+                    </div>
+                    <div className="grid gap-1 text-sm">
                         {weekly.map((day) => (
                             <div
                                 key={day.weekday}
-                                className="flex flex-wrap justify-between gap-2 text-sm"
+                                className="flex flex-wrap justify-between gap-2"
                             >
                                 <span className="font-medium">
                                     {day.weekday_label}
                                 </span>
                                 <span className="text-muted-foreground">
-                                    {day.is_available
-                                        ? `${day.starts_at ?? '—'}–${day.ends_at ?? '—'}`
-                                        : 'Unavailable'}
-                                    {!day.configured ? ' (default)' : ''}
+                                    {!day.configured
+                                        ? 'Availability not confirmed'
+                                        : day.is_available
+                                          ? `${day.starts_at ?? '—'}–${day.ends_at ?? '—'}`
+                                          : 'Off'}
                                 </span>
                             </div>
                         ))}
@@ -96,53 +161,95 @@ export default function MyAvailability({
                                 required
                             />
                         </Field>
-                        {weekly.map((day, index) => (
-                            <div
-                                key={day.weekday}
-                                className="grid gap-2 md:grid-cols-4"
-                            >
-                                <input
-                                    type="hidden"
-                                    name={`payload[days][${index}][weekday]`}
-                                    value={day.weekday}
-                                />
-                                <label className="flex items-center gap-2 text-sm">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={copyMondayToWeekdays}
+                        >
+                            Copy Monday to weekdays
+                        </Button>
+                        <div className="grid gap-2">
+                            {days.map((day, index) => (
+                                <div
+                                    key={day.weekday}
+                                    className="border-border/60 grid items-center gap-2 rounded-md border p-2 md:grid-cols-[7rem_auto_1fr_1fr_8rem]"
+                                >
                                     <input
                                         type="hidden"
-                                        name={`payload[days][${index}][is_available]`}
-                                        value="0"
+                                        name={`payload[days][${index}][weekday]`}
+                                        value={day.weekday}
                                     />
-                                    <input
-                                        type="checkbox"
-                                        name={`payload[days][${index}][is_available]`}
-                                        defaultChecked={day.is_available}
-                                        value="1"
+                                    <label className="flex items-center gap-2 text-sm font-medium">
+                                        <input
+                                            type="hidden"
+                                            name={`payload[days][${index}][is_available]`}
+                                            value="0"
+                                        />
+                                        <input
+                                            type="checkbox"
+                                            name={`payload[days][${index}][is_available]`}
+                                            checked={day.is_available}
+                                            value="1"
+                                            onChange={(event) =>
+                                                updateDay(day.weekday, {
+                                                    is_available:
+                                                        event.target.checked,
+                                                })
+                                            }
+                                        />
+                                        {day.weekday_label}
+                                    </label>
+                                    <span className="text-muted-foreground text-xs">
+                                        {day.is_available ? 'On' : 'Off'}
+                                    </span>
+                                    <Input
+                                        type="time"
+                                        name={`payload[days][${index}][starts_at]`}
+                                        value={day.starts_at ?? '07:00'}
+                                        disabled={!day.is_available}
+                                        onChange={(event) =>
+                                            updateDay(day.weekday, {
+                                                starts_at: event.target.value,
+                                            })
+                                        }
                                     />
-                                    {day.weekday_label}
-                                </label>
-                                <Input
-                                    type="time"
-                                    name={`payload[days][${index}][starts_at]`}
-                                    defaultValue={day.starts_at ?? '07:00'}
-                                />
-                                <Input
-                                    type="time"
-                                    name={`payload[days][${index}][ends_at]`}
-                                    defaultValue={day.ends_at ?? '23:00'}
-                                />
-                                <select
-                                    name={`payload[days][${index}][preferred_daypart]`}
-                                    defaultValue={day.preferred_daypart ?? ''}
-                                    className={controlClassName}
-                                >
-                                    <option value="">Daypart</option>
-                                    <option value="morning">Morning</option>
-                                    <option value="afternoon">Afternoon</option>
-                                    <option value="evening">Evening</option>
-                                    <option value="overnight">Overnight</option>
-                                </select>
-                            </div>
-                        ))}
+                                    <Input
+                                        type="time"
+                                        name={`payload[days][${index}][ends_at]`}
+                                        value={day.ends_at ?? '23:00'}
+                                        disabled={!day.is_available}
+                                        onChange={(event) =>
+                                            updateDay(day.weekday, {
+                                                ends_at: event.target.value,
+                                            })
+                                        }
+                                    />
+                                    <select
+                                        name={`payload[days][${index}][preferred_daypart]`}
+                                        value={day.preferred_daypart ?? ''}
+                                        className={controlClassName}
+                                        disabled={!day.is_available}
+                                        onChange={(event) =>
+                                            updateDay(day.weekday, {
+                                                preferred_daypart:
+                                                    event.target.value || null,
+                                            })
+                                        }
+                                    >
+                                        <option value="">Daypart</option>
+                                        <option value="morning">Morning</option>
+                                        <option value="afternoon">
+                                            Afternoon
+                                        </option>
+                                        <option value="evening">Evening</option>
+                                        <option value="overnight">
+                                            Overnight
+                                        </option>
+                                    </select>
+                                </div>
+                            ))}
+                        </div>
                         <Field label="Reason" htmlFor="reason">
                             <Input id="reason" name="reason" />
                         </Field>
@@ -150,7 +257,10 @@ export default function MyAvailability({
                     </Form>
                 </Panel>
 
-                <Panel title="One-off exception request">
+                <Panel
+                    title="One-off exception request"
+                    description="A single-date change to availability. This is not time off."
+                >
                     <Form
                         action="/my-availability/requests"
                         method="post"
@@ -187,7 +297,11 @@ export default function MyAvailability({
                                 type="time"
                             />
                         </Field>
-                        <input type="hidden" name="payload[is_available]" value="0" />
+                        <input
+                            type="hidden"
+                            name="payload[is_available]"
+                            value="0"
+                        />
                         <Field label="Note" htmlFor="ex_note">
                             <Input id="ex_note" name="reason" />
                         </Field>
@@ -200,7 +314,9 @@ export default function MyAvailability({
                             {exceptions.map((row) => (
                                 <li key={row.id}>
                                     {row.exception_date}:{' '}
-                                    {row.is_available ? 'available' : 'unavailable'}{' '}
+                                    {row.is_available
+                                        ? 'available'
+                                        : 'unavailable'}{' '}
                                     {row.starts_at ?? ''}–{row.ends_at ?? ''}
                                 </li>
                             ))}
@@ -208,7 +324,10 @@ export default function MyAvailability({
                     )}
                 </Panel>
 
-                <Panel title="Time off">
+                <Panel
+                    title="Time off"
+                    description="Leave requests stay separate from weekly hours and exceptions."
+                >
                     <Form
                         action="/my-availability/time-off"
                         method="post"
@@ -239,9 +358,12 @@ export default function MyAvailability({
                     </Form>
                     <ul className="mt-4 space-y-1 text-sm">
                         {time_off.map((row) => (
-                            <li key={row.id} className="flex gap-2">
+                            <li key={row.id} className="flex flex-wrap gap-2">
                                 {row.starts_on} – {row.ends_on}
-                                <StatusBadge status={row.status} label={row.status} />
+                                <StatusBadge
+                                    status={row.status}
+                                    label={requestLabel(row.status)}
+                                />
                             </li>
                         ))}
                     </ul>
@@ -250,8 +372,14 @@ export default function MyAvailability({
                 <Panel title="Request history">
                     <ul className="space-y-2 text-sm">
                         {requests.map((row) => (
-                            <li key={row.id} className="flex flex-wrap gap-2">
-                                <StatusBadge status={row.status} label={row.status} />
+                            <li
+                                key={row.id}
+                                className="flex flex-wrap items-center gap-2"
+                            >
+                                <StatusBadge
+                                    status={row.status}
+                                    label={requestLabel(row.status)}
+                                />
                                 <span>
                                     {row.type} effective {row.effective_on}
                                 </span>

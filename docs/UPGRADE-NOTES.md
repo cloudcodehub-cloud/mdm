@@ -1,5 +1,14 @@
 # Upgrade notes
 
+## Phase 5B — Scheduling workspace refinement
+
+- A visit may contain multiple client-assigned Services. Each selected service is stored on the visit; list labels may join names for display only.
+- Visit Care Plan is editable per visit (include/exclude, extra catalog, custom one-off) without changing the permanent Client Care Plan.
+- Tasks are reviewed before DSP selection. Date and requested time drive DSP availability; tasks never do.
+- Excluding a due Required or Critical care-plan task requires an explicit reason before scheduling.
+- DSP selection uses compact availability cards. Backend ranking remains authoritative.
+- Missing weekly availability is not presented as confirmed coverage. Scheduling may still be allowed under existing rules, with a caution state.
+
 ## Phase 5B — Scheduling and workforce orchestration
 
 - Scheduling is workforce/date/time driven. Client → assigned service → date and requested window → the client’s assigned Supervisor → eligible DSP availability and workload.

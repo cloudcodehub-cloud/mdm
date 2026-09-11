@@ -6,10 +6,13 @@ use App\Enums\ClientStatus;
 use App\Enums\JobType;
 use App\Enums\ScheduledVisitStatus;
 use App\Enums\VisitAssignmentKind;
+use App\Models\CarePlanTaskTemplate;
+use App\Models\CareService;
 use App\Models\Client;
 use App\Models\Employee;
 use App\Models\ScheduledVisit;
 use App\Models\ScheduledVisitOneOffTask;
+use App\Models\ScheduledVisitTaskOverride;
 use App\Models\ShiftTemplate;
 use App\Models\User;
 use App\Support\ClockMinutes;
@@ -33,7 +36,9 @@ class ScheduledVisitService
     {
         return DB::transaction(function () use ($data): ScheduledVisit {
             $visit = ScheduledVisit::query()->create($this->persistable($data));
+            $this->syncServices($visit, $data);
             $this->syncOneOffs($visit, is_array($data['one_off_tasks'] ?? null) ? $data['one_off_tasks'] : []);
+            $this->syncTaskOverrides($visit, array_values(is_array($data['task_overrides'] ?? null) ? $data['task_overrides'] : []));
 
             $actor = $this->actor($data);
 
@@ -69,9 +74,16 @@ class ScheduledVisitService
             ];
 
             $visit->update($this->persistable($data));
+            $this->syncServices($visit, $data);
 
-            if ($visit->visit === null && array_key_exists('one_off_tasks', $data)) {
-                $this->syncOneOffs($visit, is_array($data['one_off_tasks']) ? $data['one_off_tasks'] : []);
+            if ($visit->visit === null) {
+                if (array_key_exists('one_off_tasks', $data)) {
+                    $this->syncOneOffs($visit, is_array($data['one_off_tasks']) ? $data['one_off_tasks'] : []);
+                }
+
+                if (array_key_exists('task_overrides', $data)) {
+                    $this->syncTaskOverrides($visit, array_values(is_array($data['task_overrides']) ? $data['task_overrides'] : []));
+                }
             }
 
             $visit = $visit->fresh(['oneOffTasks', 'employee', 'client', 'shiftTemplate']) ?? $visit;
@@ -264,7 +276,7 @@ class ScheduledVisitService
             'service_date' => $data['service_date'],
             'starts_at' => $shiftTemplateId === null ? $this->normalizedTime((string) $data['starts_at']) : null,
             'ends_at' => $shiftTemplateId === null ? $this->normalizedTime((string) $data['ends_at']) : null,
-            'service_type' => $data['service_type'],
+            'service_type' => $this->displayServiceType($data),
             'status' => $data['status'],
             'notes' => $data['notes'] ?? null,
         ];
@@ -286,6 +298,119 @@ class ScheduledVisitService
         }
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function displayServiceType(array $data): string
+    {
+        $ids = $this->serviceIdsFrom($data);
+
+        if ($ids !== []) {
+            $names = CareService::query()
+                ->whereIn('id', $ids)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->pluck('name')
+                ->all();
+
+            if ($names !== []) {
+                return implode(' · ', $names);
+            }
+        }
+
+        return (string) ($data['service_type'] ?? '');
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return list<int>
+     */
+    private function serviceIdsFrom(array $data): array
+    {
+        $raw = $data['service_ids'] ?? [];
+
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $ids = [];
+
+        foreach ($raw as $value) {
+            if (is_numeric($value) && (int) $value > 0) {
+                $ids[] = (int) $value;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function syncServices(ScheduledVisit $visit, array $data): void
+    {
+        if (! array_key_exists('service_ids', $data)) {
+            return;
+        }
+
+        $ids = $this->serviceIdsFrom($data);
+        $sync = [];
+
+        foreach ($ids as $index => $id) {
+            $sync[$id] = ['sort_order' => $index + 1];
+        }
+
+        $visit->careServices()->sync($sync);
+    }
+
+    /**
+     * @param  list<mixed>  $rows
+     */
+    private function syncTaskOverrides(ScheduledVisit $visit, array $rows): void
+    {
+        $kept = [];
+
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $templateId = isset($row['care_plan_task_template_id']) && is_numeric($row['care_plan_task_template_id'])
+                ? (int) $row['care_plan_task_template_id']
+                : 0;
+
+            if ($templateId < 1) {
+                continue;
+            }
+
+            $template = CarePlanTaskTemplate::query()->find($templateId);
+
+            if ($template === null) {
+                continue;
+            }
+
+            $included = filter_var($row['included'] ?? true, FILTER_VALIDATE_BOOLEAN);
+            $reason = $this->nullableString($row['exclusion_reason'] ?? null);
+
+            $override = ScheduledVisitTaskOverride::query()->updateOrCreate(
+                [
+                    'scheduled_visit_id' => $visit->id,
+                    'care_plan_task_template_id' => $templateId,
+                ],
+                [
+                    'included' => $included,
+                    'exclusion_reason' => $included ? null : $reason,
+                ],
+            );
+            $kept[] = $override->id;
+        }
+
+        ScheduledVisitTaskOverride::query()
+            ->where('scheduled_visit_id', $visit->id)
+            ->when($kept !== [], fn ($query) => $query->whereNotIn('id', $kept))
+            ->delete();
     }
 
     /**
@@ -336,11 +461,14 @@ class ScheduledVisitService
 
             $sort++;
             $attributes = [
-                'title' => $title,
-                'instructions' => $this->nullableString($task['instructions'] ?? null),
-                'note_required' => filter_var($task['note_required'] ?? false, FILTER_VALIDATE_BOOLEAN),
-                'is_required' => filter_var($task['is_required'] ?? true, FILTER_VALIDATE_BOOLEAN),
-                'sort_order' => $sort,
+                    'title' => $title,
+                    'catalog_item_id' => isset($task['catalog_item_id']) && is_numeric($task['catalog_item_id'])
+                        ? (int) $task['catalog_item_id']
+                        : null,
+                    'instructions' => $this->nullableString($task['instructions'] ?? null),
+                    'note_required' => filter_var($task['note_required'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                    'is_required' => filter_var($task['is_required'] ?? true, FILTER_VALIDATE_BOOLEAN),
+                    'sort_order' => $sort,
             ];
 
             $existing = null;
@@ -395,7 +523,7 @@ class ScheduledVisitService
 
     public function duplicate(ScheduledVisit $source, string $serviceDate, User $actor): ScheduledVisit
     {
-        $source->loadMissing('oneOffTasks');
+        $source->loadMissing(['oneOffTasks', 'careServices', 'taskOverrides']);
 
         $payload = [
             'client_id' => $source->client_id,
@@ -410,9 +538,16 @@ class ScheduledVisitService
             'notes' => $source->notes,
             'one_off_tasks' => $source->oneOffTasks->map(fn ($task): array => [
                 'title' => $task->title,
+                'catalog_item_id' => $task->catalog_item_id,
                 'instructions' => $task->instructions,
                 'note_required' => $task->note_required,
                 'is_required' => $task->is_required,
+            ])->all(),
+            'service_ids' => $source->careServices->pluck('id')->all(),
+            'task_overrides' => $source->taskOverrides->map(fn ($row): array => [
+                'care_plan_task_template_id' => $row->care_plan_task_template_id,
+                'included' => $row->included,
+                'exclusion_reason' => $row->exclusion_reason,
             ])->all(),
             'created_by_user_id' => $actor->id,
             'updated_by_user_id' => $actor->id,

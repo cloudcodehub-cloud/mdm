@@ -49,7 +49,7 @@ class ScheduledVisitController extends Controller
         ];
 
         $visits = ScheduledVisit::query()
-            ->with(['client', 'employee', 'supervisor', 'shiftTemplate'])
+            ->with(['client', 'employee', 'supervisor', 'shiftTemplate', 'careServices'])
             ->visibleTo($user)
             ->when(
                 $filters['service_date'] !== '',
@@ -189,17 +189,23 @@ class ScheduledVisitController extends Controller
         $client = Client::query()->findOrFail($clientId);
         $this->authorize('view', $client);
 
+        $serviceIds = [];
+
+        foreach ((array) $request->input('service_ids', []) as $value) {
+            if (is_numeric($value) && (int) $value > 0) {
+                $serviceIds[] = (int) $value;
+            }
+        }
+
         $scheduled = $scheduledId > 0
-            ? ScheduledVisit::query()->with('oneOffTasks')->find($scheduledId)
+            ? ScheduledVisit::query()->with(['oneOffTasks', 'taskOverrides'])->find($scheduledId)
             : null;
 
         if ($scheduled !== null) {
             $this->authorize('view', $scheduled);
         }
 
-        return response()->json([
-            'tasks' => $preview->forClientOnDate($client, $serviceDate, $scheduled),
-        ]);
+        return response()->json($preview->forClientOnDate($client, $serviceDate, $serviceIds, $scheduled));
     }
 
     public function store(ScheduledVisitRequest $request, ScheduledVisitService $visits, VisitSeriesService $series): RedirectResponse
@@ -237,6 +243,8 @@ class ScheduledVisitController extends Controller
             'supervisor',
             'shiftTemplate',
             'oneOffTasks',
+            'careServices',
+            'taskOverrides',
             'series',
             'assignments.employee',
             'assignments.assignedBy',
@@ -295,7 +303,7 @@ class ScheduledVisitController extends Controller
         $user = $request->user();
         abort_unless($user !== null, 401);
 
-        $scheduledVisit->load(['client', 'employee', 'supervisor', 'shiftTemplate', 'oneOffTasks']);
+        $scheduledVisit->load(['client', 'employee', 'supervisor', 'shiftTemplate', 'oneOffTasks', 'careServices', 'taskOverrides']);
 
         return Inertia::render('scheduled-visits/edit', [
             'visit' => DirectoryPresenter::scheduledVisitDetail($scheduledVisit),

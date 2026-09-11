@@ -226,7 +226,14 @@ export default function ScheduledVisitsShow({
                         }
                     >
                         <dl className="grid gap-3 text-sm">
-                            <Detail label="Service" value={visit.service_type} />
+            <Detail
+                label="Service"
+                value={
+                    visit.services && visit.services.length > 0
+                        ? visit.services.map((service) => service.name).join(' · ')
+                        : visit.service_type
+                }
+            />
                             <Detail
                                 label="Client"
                                 value={

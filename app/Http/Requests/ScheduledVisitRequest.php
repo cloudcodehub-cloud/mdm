@@ -5,9 +5,12 @@ namespace App\Http\Requests;
 use App\Enums\ScheduledVisitStatus;
 use App\Enums\SeriesEditScope;
 use App\Enums\VisitRecurrencePattern;
+use App\Models\CarePlanTaskTemplate;
+use App\Models\CareService;
 use App\Models\Client;
 use App\Models\ScheduledVisit;
 use App\Services\ScheduledVisitService;
+use App\Services\TaskRecurrenceMatcher;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -59,11 +62,29 @@ class ScheduledVisitRequest extends FormRequest
             }
         }
 
+        $serviceIds = $this->normalizedServiceIds();
+        $serviceType = $this->blankToNull($this->input('service_type'));
+
+        if ($serviceIds !== []) {
+            $names = CareService::query()
+                ->whereIn('id', $serviceIds)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->pluck('name')
+                ->all();
+
+            if ($names !== []) {
+                $serviceType = implode(' · ', $names);
+            }
+        }
+
         $merge = [
             'supervisor_id' => $supervisorId,
             'shift_template_id' => $shiftTemplateId,
             'starts_at' => $this->normalizeTime($startsAt),
             'ends_at' => $this->normalizeTime($endsAt),
+            'service_ids' => $serviceIds,
+            'service_type' => $serviceType,
             'notes' => $this->blankToNull($this->input('notes')),
             'cancellation_reason' => $this->blankToNull($this->input('cancellation_reason')),
             'updated_by_user_id' => $this->user()?->id,
@@ -90,6 +111,8 @@ class ScheduledVisitRequest extends FormRequest
             'service_date' => ['required', 'date'],
             'starts_at' => ['nullable', 'date_format:H:i:s', 'required_without:shift_template_id'],
             'ends_at' => ['nullable', 'date_format:H:i:s', 'required_without:shift_template_id'],
+            'service_ids' => ['sometimes', 'array'],
+            'service_ids.*' => ['integer', 'exists:care_services,id'],
             'service_type' => ['required', 'string', 'max:255'],
             'status' => ['required', Rule::enum(ScheduledVisitStatus::class)->only([
                 ScheduledVisitStatus::Scheduled,
@@ -110,10 +133,15 @@ class ScheduledVisitRequest extends FormRequest
             'updated_by_user_id' => ['nullable', 'integer'],
             'one_off_tasks' => ['sometimes', 'array'],
             'one_off_tasks.*.id' => ['nullable', 'integer'],
+            'one_off_tasks.*.catalog_item_id' => ['nullable', 'integer', 'exists:task_catalog_items,id'],
             'one_off_tasks.*.title' => ['nullable', 'string', 'max:255'],
             'one_off_tasks.*.instructions' => ['nullable', 'string'],
             'one_off_tasks.*.note_required' => ['sometimes', 'boolean'],
             'one_off_tasks.*.is_required' => ['sometimes', 'boolean'],
+            'task_overrides' => ['sometimes', 'array'],
+            'task_overrides.*.care_plan_task_template_id' => ['required', 'integer', 'exists:care_plan_task_templates,id'],
+            'task_overrides.*.included' => ['required', 'boolean'],
+            'task_overrides.*.exclusion_reason' => ['nullable', 'string', 'max:1000'],
         ];
     }
 
@@ -143,8 +171,11 @@ class ScheduledVisitRequest extends FormRequest
                     'starts_at',
                     'ends_at',
                     'service_type',
+                    'service_ids',
                     'status',
                     'notes',
+                    'one_off_tasks',
+                    'task_overrides',
                 ]), $existing);
             } catch (ValidationException $exception) {
                 foreach ($exception->errors() as $key => $messages) {
@@ -153,7 +184,104 @@ class ScheduledVisitRequest extends FormRequest
                     }
                 }
             }
+
+            $this->assertAssignedServices($validator);
+            $this->assertTaskExclusions($validator);
         });
+    }
+
+    private function assertAssignedServices(Validator $validator): void
+    {
+        $ids = $this->input('service_ids');
+
+        if (! is_array($ids) || $ids === []) {
+            return;
+        }
+
+        $clientId = (int) $this->input('client_id');
+        $client = Client::query()->find($clientId);
+
+        if ($client === null) {
+            return;
+        }
+
+        $allowed = $client->careServices()->pluck('care_services.id')->all();
+
+        foreach ($ids as $index => $id) {
+            if (! in_array((int) $id, $allowed, true)) {
+                $validator->errors()->add('service_ids.'.$index, 'Select a service already assigned to this client.');
+            }
+        }
+    }
+
+    private function assertTaskExclusions(Validator $validator): void
+    {
+        $overrides = $this->input('task_overrides');
+
+        if (! is_array($overrides) || $overrides === []) {
+            return;
+        }
+
+        $serviceDate = $this->string('service_date')->trim()->value();
+
+        if ($serviceDate === '') {
+            return;
+        }
+
+        $matcher = app(TaskRecurrenceMatcher::class);
+        $day = \Illuminate\Support\Carbon::parse($serviceDate)->startOfDay();
+
+        foreach ($overrides as $index => $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $included = filter_var($row['included'] ?? true, FILTER_VALIDATE_BOOLEAN);
+
+            if ($included) {
+                continue;
+            }
+
+            $templateId = (int) ($row['care_plan_task_template_id'] ?? 0);
+            $template = CarePlanTaskTemplate::query()->find($templateId);
+
+            if ($template === null) {
+                continue;
+            }
+
+            $due = $matcher->appliesOn($template, $day);
+            $sensitive = $template->is_required || $template->is_critical;
+            $reason = is_string($row['exclusion_reason'] ?? null) ? trim($row['exclusion_reason']) : '';
+
+            if ($due && $sensitive && $reason === '') {
+                $validator->errors()->add(
+                    'task_overrides.'.$index.'.exclusion_reason',
+                    'Give a reason before excluding a due required or critical care-plan task.',
+                );
+            }
+        }
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function normalizedServiceIds(): array
+    {
+        $raw = $this->input('service_ids', []);
+
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $ids = [];
+
+        foreach ($raw as $value) {
+            if (is_numeric($value) && (int) $value > 0) {
+                $ids[] = (int) $value;
+            }
+        }
+
+        return array_values(array_unique($ids));
     }
 
     private function blankToNull(mixed $value): mixed
