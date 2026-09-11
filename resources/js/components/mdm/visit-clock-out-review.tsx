@@ -90,7 +90,7 @@ export function VisitClockOutReview({
 
     if (!open) {
         return (
-            <Button type="button" onClick={() => setOpen(true)}>
+            <Button type="button" className="min-h-11 w-full sm:w-auto" onClick={() => setOpen(true)}>
                 Review and clock out
             </Button>
         );
@@ -169,10 +169,11 @@ export function VisitClockOutReview({
             )}
 
             {!needsAttestation ? (
-                <div className="flex flex-wrap gap-2">
-                    <Button
-                        type="button"
-                        onClick={startClockOut}
+                    <div className="flex flex-wrap gap-2">
+                        <Button
+                            type="button"
+                            className="min-h-11 w-full sm:w-auto"
+                            onClick={startClockOut}
                         disabled={
                             locating ||
                             (pendingRequired > 0 &&

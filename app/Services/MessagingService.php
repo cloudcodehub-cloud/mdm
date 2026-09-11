@@ -168,10 +168,29 @@ class MessagingService
         }));
     }
 
+    public function firstUnreadMessageId(User $user, Conversation $conversation): ?int
+    {
+        $lastRead = $conversation->participants()
+            ->where('users.id', $user->id)
+            ->value('conversation_participants.last_read_at');
+
+        $query = $conversation->messages()
+            ->where('sender_id', '!=', $user->id)
+            ->orderBy('id');
+
+        if (filled($lastRead)) {
+            $query->where('created_at', '>', $lastRead);
+        }
+
+        $id = $query->value('id');
+
+        return $id === null ? null : (int) $id;
+    }
+
     /**
      * @return list<array<string, mixed>>
      */
-    public function messagesFor(Conversation $conversation): array
+    public function messagesFor(Conversation $conversation, User $viewer): array
     {
         return $this->values($conversation->messages()
             ->with('sender')
@@ -183,8 +202,12 @@ class MessagingService
                 'body' => $message->body,
                 'sender_id' => $message->sender_id,
                 'sender_name' => $message->sender->name,
+                'is_mine' => $message->sender_id === $viewer->id,
                 'created_at' => $message->created_at !== null
                     ? $this->settings->formatDateTime($message->created_at)
+                    : null,
+                'created_on' => $message->created_at !== null
+                    ? $this->settings->formatDate($message->created_at)
                     : null,
             ]));
     }

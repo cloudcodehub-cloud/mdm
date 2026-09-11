@@ -59,11 +59,13 @@ export function ClockInAction({
                         </Button>
                     </div>
                     {continueThisVisit && activeVisit.task_progress && (
-                        <ProgressRing
-                            value={activeVisit.task_progress.percent}
-                            label={`${activeVisit.task_progress.percent}%`}
-                            detail={`${activeVisit.task_progress.completed} of ${activeVisit.task_progress.total} tasks completed · ${activeVisit.task_progress.pending} pending · ${activeVisit.task_progress.skipped} skipped`}
-                        />
+                        <div className="flex flex-col gap-3 sm:items-end">
+                            <ProgressRing
+                                value={activeVisit.task_progress.percent}
+                                label={`${activeVisit.task_progress.percent}%`}
+                                detail={`${activeVisit.task_progress.completed} completed · ${activeVisit.task_progress.pending} pending · ${activeVisit.task_progress.skipped} skipped`}
+                            />
+                        </div>
                     )}
                 </div>
             </div>

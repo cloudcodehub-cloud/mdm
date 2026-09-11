@@ -19,6 +19,7 @@ export type ConversationSummary = {
 export type ConversationDetail = {
     id: number;
     other_user: MessagingUser | null;
+    first_unread_id?: number | null;
 };
 
 export type ChatMessage = {
@@ -26,7 +27,9 @@ export type ChatMessage = {
     body: string;
     sender_id: number;
     sender_name: string;
+    is_mine?: boolean;
     created_at: string | null;
+    created_on?: string | null;
 };
 
 export type AnnouncementRecord = {

@@ -1,4 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
+import { CheckCircle2, Circle, CircleSlash } from 'lucide-react';
 import { useState } from 'react';
 import { StatusBadge } from '@/components/mdm/directory';
 import InputError from '@/components/input-error';
@@ -13,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { complete, skip } from '@/routes/visits/tasks';
+import { cn } from '@/lib/utils';
 import type { ActiveVisitTask, SkipReasonOption } from '@/types/visit';
 
 export function VisitTaskCard({
@@ -69,9 +71,36 @@ export function VisitTaskCard({
     };
 
     return (
-        <li className="rounded-xl border border-border/70 p-3">
+        <li
+            className={cn(
+                'rounded-xl border p-3 transition-[background-color,border-color,box-shadow] duration-150 motion-reduce:transition-none',
+                task.status === 'completed'
+                    ? 'border-status-success/35 bg-status-success/8'
+                    : task.status === 'skipped'
+                      ? 'border-status-warning/35 bg-status-warning/8'
+                      : 'border-border/70 bg-card/40',
+            )}
+        >
             <div className="flex items-start justify-between gap-3">
-                <p className="font-medium">{task.title}</p>
+                <div className="flex min-w-0 items-start gap-2">
+                    {task.status === 'completed' ? (
+                        <CheckCircle2
+                            className="text-status-success mt-0.5 size-4 shrink-0"
+                            aria-hidden="true"
+                        />
+                    ) : task.status === 'skipped' ? (
+                        <CircleSlash
+                            className="text-status-warning mt-0.5 size-4 shrink-0"
+                            aria-hidden="true"
+                        />
+                    ) : (
+                        <Circle
+                            className="text-status-info mt-0.5 size-4 shrink-0"
+                            aria-hidden="true"
+                        />
+                    )}
+                    <p className="font-medium">{task.title}</p>
+                </div>
                 <StatusBadge status={task.status} label={task.status_label} />
             </div>
             <p className="text-muted-foreground mt-1 text-xs">
@@ -102,15 +131,17 @@ export function VisitTaskCard({
                 <div className="mt-3 flex flex-wrap gap-2">
                     <Button
                         type="button"
-                        size="sm"
+                        size="lg"
+                        className="min-h-11 flex-1 sm:min-h-8 sm:flex-none"
                         onClick={() => setCompleteOpen(true)}
                     >
                         Complete
                     </Button>
                     <Button
                         type="button"
-                        size="sm"
+                        size="lg"
                         variant="secondary"
+                        className="min-h-11 flex-1 sm:min-h-8 sm:flex-none"
                         onClick={() => setSkipOpen(true)}
                     >
                         Skip

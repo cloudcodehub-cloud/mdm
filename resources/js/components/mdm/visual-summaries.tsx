@@ -127,7 +127,7 @@ export function ProgressRing({
                     cy="40"
                     r={radius}
                     fill="none"
-                    className="stroke-primary"
+                    className="stroke-primary transition-[stroke-dashoffset] duration-300 ease-out motion-reduce:transition-none"
                     strokeWidth="8"
                     strokeLinecap="round"
                     strokeDasharray={circumference}
@@ -158,7 +158,7 @@ export function MiniBarChart({
 
     return (
         <div className={cn('flex h-24 items-end gap-2', className)}>
-            {points.map((point) => (
+            {points.map((point, index) => (
                 <div
                     key={point.date}
                     className="flex min-w-0 flex-1 flex-col items-center gap-1"
@@ -168,7 +168,16 @@ export function MiniBarChart({
                     </span>
                     <div className="bg-muted/80 flex h-16 w-full items-end overflow-hidden rounded-sm">
                         <span
-                            className="bg-primary/70 w-full rounded-sm"
+                            className={cn(
+                                'w-full rounded-sm bg-gradient-to-t',
+                                [
+                                    'from-chart-1 to-chart-2',
+                                    'from-chart-4 to-chart-2',
+                                    'from-chart-3 to-chart-1',
+                                    'from-chart-5 to-chart-4',
+                                    'from-chart-2 to-chart-4',
+                                ][index % 5],
+                            )}
                             style={{
                                 height: `${(point.value / max) * 100}%`,
                             }}

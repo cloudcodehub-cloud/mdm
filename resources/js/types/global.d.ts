@@ -1,4 +1,5 @@
 import type { Auth, DemoWeather, OrganizationSettings } from '@/types/auth';
+import type { DashboardActiveVisit } from '@/types/dashboard';
 import type { InboxActivity } from '@/types/messaging';
 
 declare module 'react' {
@@ -16,6 +17,7 @@ declare module '@inertiajs/core' {
             sidebarOpen: boolean;
             demoWeather: DemoWeather;
             inbox: InboxActivity;
+            activeWork: DashboardActiveVisit | null;
             [key: string]: unknown;
         };
     }

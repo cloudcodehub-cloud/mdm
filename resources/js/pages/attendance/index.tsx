@@ -1,4 +1,5 @@
 import { Form, Head, Link, router } from '@inertiajs/react';
+import { ConfirmAction } from '@/components/mdm/confirm-action';
 import { Pagination, StatusBadge, controlClassName } from '@/components/mdm/directory';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { SegmentedStatusBar } from '@/components/mdm/visual-summaries';
@@ -253,19 +254,27 @@ export default function AttendanceIndex({
                                         >
                                             Approve
                                         </Button>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() =>
-                                                router.patch(
-                                                    rejectCorrection.url(
-                                                        correction.id,
-                                                    ),
-                                                )
-                                            }
+                                        <ConfirmAction
+                                            triggerLabel="Reject"
+                                            title="Reject this correction?"
+                                            description={`This will reject the correction for ${correction.employee_name ?? 'this employee'}${correction.client_name ? ` · ${correction.client_name}` : ''}. Original DSP clock times stay unchanged.`}
+                                            confirmLabel="Reject correction"
+                                            destructive
                                         >
-                                            Reject
-                                        </Button>
+                                            <Button
+                                                type="button"
+                                                variant="destructive"
+                                                onClick={() =>
+                                                    router.patch(
+                                                        rejectCorrection.url(
+                                                            correction.id,
+                                                        ),
+                                                    )
+                                                }
+                                            >
+                                                Reject correction
+                                            </Button>
+                                        </ConfirmAction>
                                     </div>
                                 </div>
                             ))}

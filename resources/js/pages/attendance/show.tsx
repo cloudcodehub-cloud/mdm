@@ -1,6 +1,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 import InputError from '@/components/input-error';
+import { ConfirmAction } from '@/components/mdm/confirm-action';
 import { StatusBadge } from '@/components/mdm/directory';
 import { Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
@@ -325,18 +326,26 @@ function CorrectionReview({ id }: { id: number }) {
                 >
                     Approve
                 </Button>
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() =>
-                        form.patch(rejectCorrection.url(id), {
-                            preserveScroll: true,
-                        })
-                    }
-                    disabled={form.processing}
+                <ConfirmAction
+                    triggerLabel="Reject"
+                    title="Reject this correction?"
+                    description="This will reject the attendance correction. Original DSP clock times stay unchanged."
+                    confirmLabel="Reject correction"
+                    destructive
                 >
-                    Reject
-                </Button>
+                    <Button
+                        type="button"
+                        variant="destructive"
+                        onClick={() =>
+                            form.patch(rejectCorrection.url(id), {
+                                preserveScroll: true,
+                            })
+                        }
+                        disabled={form.processing}
+                    >
+                        Reject correction
+                    </Button>
+                </ConfirmAction>
             </div>
         </div>
     );

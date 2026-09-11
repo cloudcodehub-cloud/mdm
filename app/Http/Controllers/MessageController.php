@@ -48,6 +48,8 @@ class MessageController extends Controller
         abort_unless($user !== null, 401);
         $this->authorize('view', $conversation);
 
+        $firstUnreadId = $this->messaging->firstUnreadMessageId($user, $conversation);
+        $messages = $this->messaging->messagesFor($conversation, $user);
         $this->messaging->markRead($user, $conversation);
 
         $search = $request->string('search')->trim()->value();
@@ -59,8 +61,9 @@ class MessageController extends Controller
             'conversation' => [
                 'id' => $conversation->id,
                 'other_user' => $other === null ? null : $this->messaging->serializeUser($other),
+                'first_unread_id' => $firstUnreadId,
             ],
-            'messages' => $this->messaging->messagesFor($conversation),
+            'messages' => $messages,
             'recipients' => $this->messaging->searchableUsers($user, $search !== '' ? $search : null)
                 ->map(fn (User $recipient): array => $this->messaging->serializeUser($recipient))
                 ->values()

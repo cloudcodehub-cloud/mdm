@@ -1,6 +1,8 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import { useState } from 'react';
+import { ConfirmAction } from '@/components/mdm/confirm-action';
 import { ModuleTabs, StatusBadge } from '@/components/mdm/directory';
+import { IdentityHeader } from '@/components/mdm/identity-header';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
@@ -36,15 +38,11 @@ export default function EmployeesShow({
         <>
             <Head title={employee.name} />
             <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <p className="text-muted-foreground text-sm">
-                            {employee.employee_number}
-                        </p>
-                        <h1 className="text-xl font-semibold tracking-tight">
-                            {employee.name}
-                        </h1>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                <IdentityHeader
+                    eyebrow={employee.employee_number}
+                    title={employee.name}
+                    meta={
+                        <>
                             <StatusBadge
                                 status={employee.employment_status}
                                 label={employee.employment_status_label}
@@ -52,38 +50,43 @@ export default function EmployeesShow({
                             <span className="text-muted-foreground text-sm">
                                 {employee.job_title ?? employee.job_type_label}
                             </span>
-                        </div>
-                    </div>
-                    {can.update && (
-                        <div className="flex flex-wrap gap-2">
-                            <Button asChild variant="secondary">
-                                <Link href={edit(employee.id)}>Edit</Link>
-                            </Button>
-                            {employee.employment_status !== 'active' && (
-                                <StatusForm
-                                    employeeId={employee.id}
-                                    statusValue="active"
-                                    label="Activate"
-                                />
-                            )}
-                            {employee.employment_status === 'active' && (
-                                <StatusForm
-                                    employeeId={employee.id}
-                                    statusValue="inactive"
-                                    label="Inactivate"
-                                />
-                            )}
-                            {employee.employment_status !== 'terminated' && (
-                                <StatusForm
-                                    employeeId={employee.id}
-                                    statusValue="terminated"
-                                    label="Terminate"
-                                    destructive
-                                />
-                            )}
-                        </div>
-                    )}
-                </div>
+                        </>
+                    }
+                    actions={
+                        can.update ? (
+                            <>
+                                <Button asChild variant="secondary">
+                                    <Link href={edit(employee.id)}>Edit</Link>
+                                </Button>
+                                {employee.employment_status !== 'active' && (
+                                    <StatusForm
+                                        employeeId={employee.id}
+                                        employeeName={employee.name}
+                                        statusValue="active"
+                                        label="Activate"
+                                    />
+                                )}
+                                {employee.employment_status === 'active' && (
+                                    <StatusForm
+                                        employeeId={employee.id}
+                                        employeeName={employee.name}
+                                        statusValue="inactive"
+                                        label="Inactivate"
+                                    />
+                                )}
+                                {employee.employment_status !== 'terminated' && (
+                                    <StatusForm
+                                        employeeId={employee.id}
+                                        employeeName={employee.name}
+                                        statusValue="terminated"
+                                        label="Terminate"
+                                        destructive
+                                    />
+                                )}
+                            </>
+                        ) : undefined
+                    }
+                />
 
                 <ModuleTabs
                     tabs={[
@@ -252,29 +255,58 @@ function RecordTable({
 
 function StatusForm({
     employeeId,
+    employeeName,
     statusValue,
     label,
     destructive = false,
 }: {
     employeeId: number;
+    employeeName: string;
     statusValue: 'active' | 'inactive' | 'terminated';
     label: string;
     destructive?: boolean;
 }) {
+    const description =
+        statusValue === 'terminated'
+            ? `This will terminate ${employeeName}. Records stay in MDM, but they will no longer be able to sign in or start visits.`
+            : statusValue === 'inactive'
+              ? `This will inactivate ${employeeName}. They will no longer appear as available for scheduling.`
+              : `This will set ${employeeName} back to active.`;
+
     return (
-        <Form action={status.url(employeeId)} method="patch">
-            <input type="hidden" name="employment_status" value={statusValue} />
-            {statusValue === 'terminated' && (
+        <ConfirmAction
+            triggerLabel={label}
+            triggerVariant={destructive ? 'destructive' : 'outline'}
+            title={`${label} ${employeeName}?`}
+            description={description}
+            confirmLabel={label}
+            destructive={destructive || statusValue === 'inactive'}
+        >
+            <Form action={status.url(employeeId)} method="patch">
                 <input
                     type="hidden"
-                    name="terminated_on"
-                    value={new Date().toISOString().slice(0, 10)}
+                    name="employment_status"
+                    value={statusValue}
                 />
-            )}
-            <Button type="submit" variant={destructive ? 'destructive' : 'outline'}>
-                {label}
-            </Button>
-        </Form>
+                {statusValue === 'terminated' && (
+                    <input
+                        type="hidden"
+                        name="terminated_on"
+                        value={new Date().toISOString().slice(0, 10)}
+                    />
+                )}
+                <Button
+                    type="submit"
+                    variant={
+                        destructive || statusValue === 'inactive'
+                            ? 'destructive'
+                            : 'default'
+                    }
+                >
+                    {label}
+                </Button>
+            </Form>
+        </ConfirmAction>
     );
 }
 

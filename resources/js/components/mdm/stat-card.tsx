@@ -1,3 +1,4 @@
+import { Inbox } from 'lucide-react';
 import { Link } from '@inertiajs/react';
 import { cn } from '@/lib/utils';
 
@@ -70,10 +71,27 @@ export function Panel({
     );
 }
 
-export function EmptyState({ message }: { message: string }) {
+export function EmptyState({
+    message,
+    action,
+}: {
+    message: string;
+    action?: { href: string; label: string };
+}) {
     return (
-        <p className="text-muted-foreground rounded-lg border border-dashed border-border/80 bg-muted/20 px-4 py-6 text-center text-sm">
-            {message}
-        </p>
+        <div className="text-muted-foreground rounded-lg border border-dashed border-border/80 bg-muted/20 px-4 py-6 text-center">
+            <Inbox className="mx-auto mb-2 size-5 opacity-60" aria-hidden="true" />
+            <p className="text-sm">{message}</p>
+            {action ? (
+                <p className="mt-3">
+                    <Link
+                        href={action.href}
+                        className="text-primary text-sm font-medium hover:underline"
+                    >
+                        {action.label}
+                    </Link>
+                </p>
+            ) : null}
+        </div>
     );
 }

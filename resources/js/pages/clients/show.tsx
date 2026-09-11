@@ -1,11 +1,13 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import { Form, Head, Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
+import { ConfirmAction } from '@/components/mdm/confirm-action';
 import {
     Field,
     ModuleTabs,
     StatusBadge,
     controlClassName,
 } from '@/components/mdm/directory';
+import { IdentityHeader } from '@/components/mdm/identity-header';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +20,9 @@ import {
     status,
 } from '@/routes/clients';
 import { store as storeAssignment } from '@/routes/clients/assignments';
-import { show as showVisit } from '@/routes/scheduled-visits';
+import { show as showVisit } from '@/routes/visits';
+import { show as showScheduledVisit } from '@/routes/scheduled-visits';
+import type { DashboardActiveVisit } from '@/types/dashboard';
 import type {
     AssignmentRecord,
     AuthorizationRecord,
@@ -34,6 +38,7 @@ export default function ClientsShow({
     carePlans,
     assignments,
     scheduledVisits,
+    today_visit = null,
     dspOptions,
     can,
 }: {
@@ -42,46 +47,84 @@ export default function ClientsShow({
     carePlans: CarePlanRecord[];
     assignments: AssignmentRecord[];
     scheduledVisits: VisitRecord[];
+    today_visit?: (VisitRecord & {
+        can_start?: boolean;
+        active_visit_id?: number | null;
+    }) | null;
     dspOptions: OptionItem[];
     can: { update: boolean; manageAssignments: boolean };
 }) {
     const [tab, setTab] = useState('profile');
+    const role = usePage().props.auth.user.role;
+    const activeWork = usePage().props.activeWork as DashboardActiveVisit | null;
     const currentAssignments = assignments.filter((assignment) => assignment.is_active);
     const historicalAssignments = assignments.filter((assignment) => !assignment.is_active);
+    const isDsp = role === 'DSP';
+    const activeForThisClient =
+        activeWork && activeWork.client.id === client.id ? activeWork : null;
 
     return (
         <>
             <Head title={client.name} />
             <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <p className="text-muted-foreground text-sm">
-                            {client.client_number}
-                        </p>
-                        <h1 className="text-xl font-semibold tracking-tight">
-                            {client.name}
-                        </h1>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                            <StatusBadge status={client.status} label={client.status_label} />
+                <IdentityHeader
+                    eyebrow={client.client_number}
+                    title={client.name}
+                    meta={
+                        <>
+                            <StatusBadge
+                                status={client.status}
+                                label={client.status_label}
+                            />
                             <span className="text-muted-foreground text-sm">
-                                Supervisor: {client.supervisor_name ?? 'Unassigned'}
+                                Supervisor:{' '}
+                                {client.supervisor_name ?? 'Unassigned'}
                             </span>
-                        </div>
-                    </div>
-                    {can.update && (
-                        <div className="flex flex-wrap gap-2">
-                            <Button asChild variant="secondary">
-                                <Link href={edit(client.id)}>Edit</Link>
-                            </Button>
-                            {client.status !== 'active' && (
-                                <StatusForm clientId={client.id} statusValue="active" label="Activate" />
+                            {isDsp && currentAssignments[0] && (
+                                <span className="text-muted-foreground text-sm">
+                                    Assigned DSP coverage
+                                </span>
                             )}
-                            {client.status === 'active' && (
-                                <StatusForm clientId={client.id} statusValue="inactive" label="Set inactive" />
+                            {activeForThisClient && (
+                                <span className="text-primary text-sm font-medium">
+                                    Visit in progress
+                                </span>
                             )}
-                        </div>
-                    )}
-                </div>
+                        </>
+                    }
+                    actions={
+                        can.update ? (
+                            <>
+                                <Button asChild variant="secondary">
+                                    <Link href={edit(client.id)}>Edit</Link>
+                                </Button>
+                                {client.status !== 'active' && (
+                                    <StatusForm
+                                        clientId={client.id}
+                                        clientName={client.name}
+                                        statusValue="active"
+                                        label="Activate"
+                                    />
+                                )}
+                                {client.status === 'active' && (
+                                    <StatusForm
+                                        clientId={client.id}
+                                        clientName={client.name}
+                                        statusValue="inactive"
+                                        label="Set inactive"
+                                    />
+                                )}
+                            </>
+                        ) : undefined
+                    }
+                />
+
+                {isDsp && (today_visit || activeForThisClient) && (
+                    <TodayVisitCard
+                        todayVisit={today_visit}
+                        activeVisit={activeForThisClient}
+                    />
+                )}
 
                 <ModuleTabs
                     tabs={[
@@ -341,22 +384,131 @@ function AssignmentList({
     );
 }
 
+function TodayVisitCard({
+    todayVisit,
+    activeVisit,
+}: {
+    todayVisit: (VisitRecord & {
+        can_start?: boolean;
+        active_visit_id?: number | null;
+    }) | null;
+    activeVisit: DashboardActiveVisit | null;
+}) {
+    const visit = todayVisit;
+    const continueVisitId = activeVisit?.id ?? visit?.active_visit_id ?? null;
+    const action = activeVisit
+        ? {
+              href: showVisit(activeVisit.id),
+              label: 'Continue Visit',
+          }
+        : visit?.can_start
+          ? {
+                href: showScheduledVisit(visit.id),
+                label: 'Start Visit',
+            }
+          : continueVisitId
+            ? {
+                  href: showVisit(continueVisitId),
+                  label: "View Today's Visit",
+              }
+            : visit
+              ? {
+                    href: showScheduledVisit(visit.id),
+                    label: "View Today's Visit",
+                }
+              : null;
+
+    return (
+        <section className="surface-panel border-module-accent/25 from-brand-coral/12 via-card to-brand-peach/10 bg-gradient-to-br p-4 md:p-5">
+            <p className="text-primary text-xs font-medium tracking-wide uppercase">
+                Today's Visit
+            </p>
+            <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <dl className="grid gap-2 text-sm sm:grid-cols-2">
+                    <div>
+                        <dt className="text-muted-foreground text-xs">Time</dt>
+                        <dd className="font-medium">
+                            {visit?.time_label ?? 'In progress'}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt className="text-muted-foreground text-xs">
+                            Service
+                        </dt>
+                        <dd>
+                            {visit?.service_type ??
+                                activeVisit?.service_type ??
+                                '—'}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt className="text-muted-foreground text-xs">
+                            Supervisor
+                        </dt>
+                        <dd>{visit?.supervisor_name ?? 'Unassigned'}</dd>
+                    </div>
+                    <div>
+                        <dt className="text-muted-foreground text-xs">Status</dt>
+                        <dd>
+                            {visit ? (
+                                <StatusBadge
+                                    status={visit.status}
+                                    label={visit.status_label}
+                                />
+                            ) : (
+                                <span className="text-sm font-medium">
+                                    Visit in progress
+                                </span>
+                            )}
+                        </dd>
+                    </div>
+                </dl>
+                {action ? (
+                    <Button className="min-h-11 w-full sm:w-auto" asChild>
+                        <Link href={action.href}>{action.label}</Link>
+                    </Button>
+                ) : null}
+            </div>
+        </section>
+    );
+}
+
 function StatusForm({
     clientId,
+    clientName,
     statusValue,
     label,
 }: {
     clientId: number;
+    clientName: string;
     statusValue: 'active' | 'inactive';
     label: string;
 }) {
+    const inactivate = statusValue === 'inactive';
+
     return (
-        <Form action={status.url(clientId)} method="patch">
-            <input type="hidden" name="status" value={statusValue} />
-            <Button type="submit" variant="outline">
-                {label}
-            </Button>
-        </Form>
+        <ConfirmAction
+            triggerLabel={label}
+            triggerVariant={inactivate ? 'destructive' : 'outline'}
+            title={`${label} ${clientName}?`}
+            description={
+                inactivate
+                    ? `This will inactivate ${clientName}. Historical visits, assignments, and care records stay in MDM.`
+                    : `This will set ${clientName} back to active.`
+            }
+            confirmLabel={label}
+            destructive={inactivate}
+        >
+            <Form action={status.url(clientId)} method="patch">
+                <input type="hidden" name="status" value={statusValue} />
+                <Button
+                    type="submit"
+                    variant={inactivate ? 'destructive' : 'default'}
+                >
+                    {label}
+                </Button>
+            </Form>
+        </ConfirmAction>
     );
 }
 

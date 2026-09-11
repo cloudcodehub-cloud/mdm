@@ -217,7 +217,7 @@ export function EmployeeForm({
                         )}
                     </section>
 
-                    <div className="flex justify-end">
+                    <div className="sticky-form-actions">
                         <button
                             type="submit"
                             disabled={processing}

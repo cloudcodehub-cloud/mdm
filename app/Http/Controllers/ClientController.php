@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateClientRequest;
 use App\Http\Requests\UpdateClientStatusRequest;
 use App\Models\Client;
 use App\Models\ClientDspAssignment;
+use App\Services\SettingsService;
 use App\Support\DirectoryPresenter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -106,6 +107,7 @@ class ClientController extends Controller
             'scheduledVisits.employee',
             'scheduledVisits.supervisor',
             'scheduledVisits.shiftTemplate',
+            'scheduledVisits.visit',
         ]);
 
         $visits = $client->scheduledVisits
@@ -115,16 +117,37 @@ class ClientController extends Controller
             ->sortByDesc(fn ($assignment) => $assignment->started_on->toDateString())
             ->values();
 
+        $user = $request->user();
+        $user?->loadMissing('employee');
+        $today = app(SettingsService::class)->today();
+        $todayVisit = $visits->first(function ($visit) use ($today, $user): bool {
+            if ($visit->service_date->toDateString() !== $today) {
+                return false;
+            }
+
+            if ($user?->isDsp()) {
+                return $visit->employee_id === $user->employee?->id;
+            }
+
+            return true;
+        });
+
         return Inertia::render('clients/show', [
             'client' => DirectoryPresenter::clientDetail($client),
             'authorizations' => DirectoryPresenter::authorizations($client->authorizations),
             'carePlans' => DirectoryPresenter::carePlans($client->carePlans),
             'assignments' => DirectoryPresenter::assignments($assignments),
             'scheduledVisits' => DirectoryPresenter::scheduledVisits($visits),
+            'today_visit' => $todayVisit === null ? null : [
+                ...DirectoryPresenter::scheduledVisitSummary($todayVisit),
+                'active_visit_id' => $todayVisit->visit?->id,
+                'can_start' => ($user?->can('clockIn', $todayVisit) ?? false)
+                    && $todayVisit->isEligibleToStart(),
+            ],
             'dspOptions' => DirectoryPresenter::dspOptions(),
             'can' => [
-                'update' => $request->user()?->can('update', $client) ?? false,
-                'manageAssignments' => $request->user()?->can('create', ClientDspAssignment::class) ?? false,
+                'update' => $user?->can('update', $client) ?? false,
+                'manageAssignments' => $user?->can('create', ClientDspAssignment::class) ?? false,
             ],
         ]);
     }

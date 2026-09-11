@@ -1,6 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import { StatusBadge } from '@/components/mdm/directory';
+import { IdentityHeader } from '@/components/mdm/identity-header';
+import { VisitWorkflow } from '@/components/mdm/visit-workflow';
+import { ProgressRing } from '@/components/mdm/visual-summaries';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { VisitClockOutReview } from '@/components/mdm/visit-clock-out-review';
 import { VisitNotesForm } from '@/components/mdm/visit-notes-form';
@@ -41,30 +44,28 @@ export default function VisitsShow({
         <>
             <Head title={title} />
             <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
-                <div>
-                    <p className="text-muted-foreground text-sm">
+                <IdentityHeader
+                    eyebrow={
                         <Link
                             href={showScheduled(visit.scheduled_visit.id)}
                             className="hover:text-foreground"
                         >
                             Scheduled visit
                         </Link>
-                    </p>
-                    <h1 className="text-xl font-semibold tracking-tight">
-                        {completed || monitoring
-                            ? visit.client.name
-                            : visit.client.name}
-                    </h1>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <StatusBadge
-                            status={visit.status}
-                            label={visit.status_label}
-                        />
-                        <span className="text-muted-foreground text-sm">
-                            {visit.service_type}
-                        </span>
-                    </div>
-                </div>
+                    }
+                    title={visit.client.name}
+                    meta={
+                        <>
+                            <StatusBadge
+                                status={visit.status}
+                                label={visit.status_label}
+                            />
+                            <span className="text-muted-foreground text-sm">
+                                {visit.service_type} · {visit.client.client_number}
+                            </span>
+                        </>
+                    }
+                />
 
                 {completed || monitoring ? (
                     <VisitMonitoring
@@ -96,8 +97,34 @@ function ActiveVisit({
         clock_out?: boolean;
     };
 }) {
+    const percent =
+        visit.task_summary.total === 0
+            ? 0
+            : Math.round(
+                  (visit.task_summary.completed / visit.task_summary.total) *
+                      100,
+              );
+    const readyToComplete =
+        visit.task_summary.pending_required === 0 ||
+        visit.unfinished_required_acknowledged;
+
     return (
         <div className="grid gap-4 lg:grid-cols-2">
+            <div className="surface-panel border-primary/20 from-primary/8 via-card to-brand-lime/15 bg-gradient-to-br p-4 md:col-span-2 md:p-5">
+                <VisitWorkflow visit={visit} />
+                <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <ProgressRing
+                        value={percent}
+                        label={`${percent}%`}
+                        detail={`${visit.task_summary.completed} completed · ${visit.task_summary.pending} pending · ${visit.task_summary.skipped} skipped`}
+                    />
+                    <p className="text-sm">
+                        {readyToComplete
+                            ? 'Visit is ready for review and clock-out after notes.'
+                            : 'Finish remaining required tasks, or acknowledge them at clock-out.'}
+                    </p>
+                </div>
+            </div>
             <Panel title="Visit">
                 <dl className="grid gap-3 text-sm">
                     <Detail label="Client" value={visit.client.name} />
@@ -155,8 +182,8 @@ function ActiveVisit({
                 />
             </Panel>
             <Panel
-                title="Finish visit"
-                description="Review the visit before clock-out. Clock-out uses server time and a new GPS request."
+                title="Review, acknowledgments, and clock out"
+                description="Confirm task review, required acknowledgments, then clock out. Clock-out uses server time and a new GPS request."
             >
                 <VisitClockOutReview
                     visit={visit}

@@ -11,8 +11,16 @@ import {
     ProgressRing,
     SegmentedStatusBar,
 } from '@/components/mdm/visual-summaries';
+import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
+import { create as createClient } from '@/routes/clients';
+import { show as showClient } from '@/routes/clients';
+import { create as createEmployee } from '@/routes/employees';
+import { show as showEmployee } from '@/routes/employees';
 import { index as operationsIndex } from '@/routes/operations';
+import { create as createScheduledVisit, show as showScheduledVisit } from '@/routes/scheduled-visits';
+import { index as exceptionsIndex } from '@/routes/visit-exceptions';
+import { show as showVisit } from '@/routes/visits';
 import type { DashboardPayload } from '@/types/dashboard';
 
 export default function Dashboard({
@@ -31,6 +39,7 @@ export default function Dashboard({
                     <h2 className="text-xl font-semibold tracking-tight">
                         {headline(data.role)}
                     </h2>
+                    <RoleQuickActions data={data} />
                 </div>
 
                 <div
@@ -60,6 +69,63 @@ export default function Dashboard({
                 )}
             </div>
         </>
+    );
+}
+
+function RoleQuickActions({ data }: { data: DashboardPayload }) {
+    if (data.role === 'ADMIN') {
+        return (
+            <div className="mt-3 flex flex-wrap gap-2">
+                <Button size="sm" asChild>
+                    <Link href={createEmployee()}>Add Employee</Link>
+                </Button>
+                <Button size="sm" variant="secondary" asChild>
+                    <Link href={createClient()}>Add Client</Link>
+                </Button>
+                <Button size="sm" variant="secondary" asChild>
+                    <Link href={createScheduledVisit()}>Schedule Visit</Link>
+                </Button>
+            </div>
+        );
+    }
+
+    if (data.role === 'SUPERVISOR') {
+        return (
+            <div className="mt-3 flex flex-wrap gap-2">
+                <Button size="sm" asChild>
+                    <Link href={operationsIndex()}>Open Operations</Link>
+                </Button>
+                <Button size="sm" variant="secondary" asChild>
+                    <Link href={exceptionsIndex()}>Review exceptions</Link>
+                </Button>
+            </div>
+        );
+    }
+
+    return (
+        <div className="mt-3 flex flex-wrap gap-2">
+            {data.active_visit && (
+                <Button size="sm" className="min-h-10" asChild>
+                    <Link href={showVisit(data.active_visit.id)}>
+                        Continue Visit
+                    </Link>
+                </Button>
+            )}
+            {data.active_visit && (
+                <Button size="sm" variant="secondary" className="min-h-10" asChild>
+                    <Link href={showVisit(data.active_visit.id)}>
+                        Complete Tasks
+                    </Link>
+                </Button>
+            )}
+            {!data.active_visit && data.clock_in_visit && (
+                <Button size="sm" className="min-h-10" asChild>
+                    <Link href={showScheduledVisit(data.clock_in_visit.id)}>
+                        Start Visit
+                    </Link>
+                </Button>
+            )}
+        </div>
     );
 }
 
@@ -165,7 +231,7 @@ function AdminDashboard({ data }: { data: DashboardPayload }) {
                 <VisitList
                     visits={data.today_visits}
                     showEmployee
-                    empty="No visits scheduled for today."
+                    empty="You're clear for today. No visits are currently scheduled."
                 />
             </Panel>
             <Panel
@@ -278,6 +344,7 @@ function SupervisorDashboard({ data }: { data: DashboardPayload }) {
                         id: dsp.id,
                         name: dsp.name,
                         detail: dsp.employee_number,
+                        href: showEmployee.url(dsp.id),
                     }))}
                     empty="No assigned DSPs."
                 />
@@ -288,6 +355,7 @@ function SupervisorDashboard({ data }: { data: DashboardPayload }) {
                         id: client.id,
                         name: client.name,
                         detail: client.client_number,
+                        href: showClient.url(client.id),
                     }))}
                     empty="No assigned clients."
                 />
@@ -316,7 +384,7 @@ function DspDashboard({ data }: { data: DashboardPayload }) {
                 >
                     <VisitList
                         visits={data.today_visits}
-                        empty="No visits scheduled for you today."
+                        empty="You're clear for today. No visits are currently scheduled."
                     />
                 </Panel>
             </div>
@@ -330,6 +398,7 @@ function DspDashboard({ data }: { data: DashboardPayload }) {
                             id: client.id,
                             name: client.name,
                             detail: client.client_number,
+                            href: showClient.url(client.id),
                         }))}
                         empty="No active client assignments."
                     />

@@ -217,6 +217,15 @@ class DashboardTest extends TestCase
                 ->where('dashboard.active_visit.task_progress.skipped', 1)
                 ->where('dashboard.active_visit.task_progress.total', 5)
                 ->where('dashboard.active_visit.task_progress.percent', 60)
+                ->where('activeWork.id', $visit->id)
+                ->where('activeWork.task_progress.percent', 60)
+            );
+
+        $this->actingAs($dsp->user()->firstOrFail())
+            ->get(route('messages.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('activeWork.id', $visit->id)
             );
     }
 }

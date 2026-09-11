@@ -1,10 +1,16 @@
+import { Link } from '@inertiajs/react';
 import { EmptyState } from '@/components/mdm/stat-card';
 
 export function PersonList({
     people,
     empty,
 }: {
-    people: Array<{ id: number; name: string; detail?: string }>;
+    people: Array<{
+        id: number;
+        name: string;
+        detail?: string;
+        href?: string;
+    }>;
     empty: string;
 }) {
     if (people.length === 0) {
@@ -18,9 +24,18 @@ export function PersonList({
                     key={person.id}
                     className="flex items-center justify-between gap-3 rounded-lg px-1 py-1.5"
                 >
-                    <span className="truncate text-sm font-medium">
-                        {person.name}
-                    </span>
+                    {person.href ? (
+                        <Link
+                            href={person.href}
+                            className="hover:text-primary truncate text-sm font-medium underline-offset-4 hover:underline"
+                        >
+                            {person.name}
+                        </Link>
+                    ) : (
+                        <span className="truncate text-sm font-medium">
+                            {person.name}
+                        </span>
+                    )}
                     {person.detail && (
                         <span className="text-muted-foreground shrink-0 text-xs">
                             {person.detail}

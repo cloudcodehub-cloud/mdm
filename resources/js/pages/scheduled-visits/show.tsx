@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { ClockInAction } from '@/components/mdm/clock-in-action';
 import { StatusBadge } from '@/components/mdm/directory';
+import { IdentityHeader } from '@/components/mdm/identity-header';
 import { Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
@@ -34,42 +35,52 @@ export default function ScheduledVisitsShow({
         <>
             <Head title={visit.service_type} />
             <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <p className="text-muted-foreground text-sm">
-                            <Link
-                                href={visitsIndex()}
-                                className="hover:text-foreground"
-                            >
-                                Scheduled Visits
-                            </Link>
-                        </p>
-                        <h1 className="text-xl font-semibold tracking-tight">
-                            {visit.client?.name ?? visit.client_name}
-                        </h1>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                <IdentityHeader
+                    eyebrow={
+                        <Link
+                            href={visitsIndex()}
+                            className="hover:text-foreground"
+                        >
+                            Scheduled Visits
+                        </Link>
+                    }
+                    title={visit.client?.name ?? visit.client_name}
+                    meta={
+                        <>
                             <StatusBadge
                                 status={visit.status}
                                 label={visit.status_label}
                             />
                             <span className="text-muted-foreground text-sm">
-                                {visit.service_date} · {visit.time_label}
+                                {visit.service_type} · {visit.service_date} ·{' '}
+                                {visit.time_label}
                             </span>
-                        </div>
-                    </div>
-                    {can.update && (
-                        <Button asChild variant="secondary">
-                            <Link href={edit(visit.id)}>Edit</Link>
-                        </Button>
-                    )}
-                    {visit.active_visit_id && role !== 'DSP' && (
-                        <Button asChild>
-                            <Link href={showVisit(visit.active_visit_id)}>
-                                View active visit
-                            </Link>
-                        </Button>
-                    )}
-                </div>
+                        </>
+                    }
+                    actions={
+                        can.update ||
+                        (Boolean(visit.active_visit_id) && role !== 'DSP') ? (
+                            <>
+                                {can.update && (
+                                    <Button asChild variant="secondary">
+                                        <Link href={edit(visit.id)}>Edit</Link>
+                                    </Button>
+                                )}
+                                {visit.active_visit_id && role !== 'DSP' && (
+                                    <Button asChild>
+                                        <Link
+                                            href={showVisit(
+                                                visit.active_visit_id,
+                                            )}
+                                        >
+                                            View active visit
+                                        </Link>
+                                    </Button>
+                                )}
+                            </>
+                        ) : undefined
+                    }
+                />
 
                 {role === 'DSP' && (
                     <ClockInAction

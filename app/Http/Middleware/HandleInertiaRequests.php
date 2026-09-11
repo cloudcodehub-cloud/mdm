@@ -4,6 +4,8 @@ namespace App\Http\Middleware;
 
 use App\Services\InboxActivityService;
 use App\Services\SettingsService;
+use App\Services\VisitClockInService;
+use App\Support\DirectoryPresenter;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -63,6 +65,21 @@ class HandleInertiaRequests extends Middleware
                 }
 
                 return app(InboxActivityService::class)->summary($user);
+            },
+            'activeWork' => function () use ($user): ?array {
+                if ($user === null || ! $user->isDsp()) {
+                    return null;
+                }
+
+                $user->loadMissing('employee');
+
+                if ($user->employee === null) {
+                    return null;
+                }
+
+                $visit = app(VisitClockInService::class)->activeVisitFor($user->employee);
+
+                return $visit === null ? null : DirectoryPresenter::activeVisitSummary($visit);
             },
         ];
     }

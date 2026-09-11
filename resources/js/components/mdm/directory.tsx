@@ -61,19 +61,25 @@ export function StatusBadge({
     label: string;
 }) {
     const tone =
-        status === 'active' || status === 'completed' || status === 'in_progress'
-            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-            : status === 'terminated' ||
-                status === 'discharged' ||
-                status === 'cancelled' ||
-                status === 'revoked' ||
-                status === 'expired' ||
-                status === 'late' ||
-                status === 'exception'
-              ? 'bg-destructive/10 text-destructive'
-              : status === 'resolved'
-                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                : 'bg-amber-500/10 text-amber-800 dark:text-amber-200';
+        status === 'active' ||
+        status === 'completed' ||
+        status === 'in_progress'
+            ? 'bg-status-success/10 text-status-success'
+            : status === 'skipped'
+              ? 'bg-status-warning/10 text-status-warning'
+              : status === 'pending'
+                ? 'bg-status-info/10 text-status-info'
+                : status === 'terminated' ||
+                    status === 'discharged' ||
+                    status === 'cancelled' ||
+                    status === 'revoked' ||
+                    status === 'expired' ||
+                    status === 'late' ||
+                    status === 'exception'
+                  ? 'bg-destructive/10 text-destructive'
+                  : status === 'resolved'
+                    ? 'bg-status-success/10 text-status-success'
+                    : 'bg-status-warning/10 text-status-warning';
 
     return (
         <span

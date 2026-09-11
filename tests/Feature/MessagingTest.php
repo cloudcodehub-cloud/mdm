@@ -145,6 +145,8 @@ class MessagingTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->where('conversations.0.unread_count', 0)
                 ->where('inbox.unread_messages', 0)
+                ->where('messages.0.is_mine', false)
+                ->where('conversation.first_unread_id', $conversation->messages()->value('id'))
             );
     }
 

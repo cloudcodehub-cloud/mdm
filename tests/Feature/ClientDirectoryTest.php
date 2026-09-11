@@ -4,12 +4,15 @@ namespace Tests\Feature;
 
 use App\Enums\AssignmentStatus;
 use App\Enums\ClientStatus;
+use App\Enums\ScheduledVisitStatus;
 use App\Models\Client;
 use App\Models\ClientDspAssignment;
 use App\Models\Employee;
+use App\Models\ScheduledVisit;
 use App\Models\User;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Route;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -169,6 +172,29 @@ class ClientDirectoryTest extends TestCase
                 ->has('assignments')
                 ->has('scheduledVisits')
                 ->where('can.manageAssignments', true)
+            );
+    }
+
+    public function test_assigned_dsp_client_detail_includes_todays_visit_state(): void
+    {
+        Carbon::setTestNow('2026-09-11 14:00:00');
+
+        $dsp = Employee::factory()->dsp()->create();
+        $client = Client::factory()->create();
+        ClientDspAssignment::factory()->forDsp($dsp)->forClient($client)->create();
+        $scheduled = ScheduledVisit::factory()->forClient($client)->forDsp($dsp)->create([
+            'service_date' => '2026-09-11',
+            'status' => ScheduledVisitStatus::Scheduled,
+        ]);
+
+        $this->actingAs($dsp->user()->firstOrFail())
+            ->get(route('clients.show', $client))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('clients/show')
+                ->where('today_visit.id', $scheduled->id)
+                ->where('today_visit.can_start', true)
+                ->where('can.update', false)
             );
     }
 }
