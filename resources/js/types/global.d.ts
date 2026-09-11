@@ -1,4 +1,5 @@
 import type { Auth, DemoWeather, OrganizationSettings } from '@/types/auth';
+import type { InboxActivity } from '@/types/messaging';
 
 declare module 'react' {
     interface InputHTMLAttributes<T> {
@@ -14,6 +15,7 @@ declare module '@inertiajs/core' {
             organization: OrganizationSettings;
             sidebarOpen: boolean;
             demoWeather: DemoWeather;
+            inbox: InboxActivity;
             [key: string]: unknown;
         };
     }

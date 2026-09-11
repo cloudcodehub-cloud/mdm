@@ -78,4 +78,5 @@ export type DashboardPayload = {
     activity: DashboardActivityItem[];
     active_visit: DashboardActiveVisit | null;
     clock_in_visit: ClockInVisitSummary | null;
+    announcements: import('./messaging').AnnouncementRecord[];
 };

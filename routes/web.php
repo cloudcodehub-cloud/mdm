@@ -1,13 +1,15 @@
 <?php
 
+use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AttendanceCorrectionController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientDspAssignmentController;
-use App\Http\Controllers\ComingSoonController;
 use App\Http\Controllers\ComplianceController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\MessageController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ScheduledVisitController;
 use App\Http\Controllers\SupervisorController;
@@ -65,7 +67,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('reports/{report}/download', [ReportController::class, 'download'])->name('reports.download');
     Route::get('reports/{report}', [ReportController::class, 'show'])->name('reports.show');
-    Route::get('messages', ComingSoonController::class)->name('messages.index');
+    Route::get('messages', [MessageController::class, 'index'])->name('messages.index');
+    Route::post('messages/conversations', [MessageController::class, 'store'])->name('conversations.store');
+    Route::get('messages/{conversation}', [MessageController::class, 'show'])->name('messages.show');
+    Route::post('messages/{conversation}/messages', [MessageController::class, 'storeMessage'])
+        ->name('conversations.messages.store');
+
+    Route::get('announcements', [AnnouncementController::class, 'index'])->name('announcements.index');
+    Route::post('announcements', [AnnouncementController::class, 'store'])->name('announcements.store');
+    Route::patch('announcements/{announcement}', [AnnouncementController::class, 'update'])->name('announcements.update');
+    Route::post('announcements/{announcement}/read', [AnnouncementController::class, 'markRead'])
+        ->name('announcements.read');
+
+    Route::get('inbox/activity', [NotificationController::class, 'activity'])->name('inbox.activity');
+    Route::post('notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::post('notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
 });
 
 require __DIR__.'/settings.php';

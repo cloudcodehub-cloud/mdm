@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\InboxActivityService;
 use App\Services\SettingsService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -52,6 +53,17 @@ class HandleInertiaRequests extends Middleware
                 'condition' => 'Partly cloudy',
                 'temperature' => '68°F',
             ],
+            'inbox' => function () use ($user): array {
+                if ($user === null) {
+                    return [
+                        'unread_messages' => 0,
+                        'unread_notifications' => 0,
+                        'notifications' => [],
+                    ];
+                }
+
+                return app(InboxActivityService::class)->summary($user);
+            },
         ];
     }
 }

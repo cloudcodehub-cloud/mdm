@@ -25,7 +25,7 @@ Specifications for each area live in sibling docs. Implementation comes after Ph
 - Attendance / EVV-lite visits
 - Compliance
 - Payroll-hour exports
-- Messaging / announcements
+- Messaging / announcements — 1-to-1 internal chat, in-app notifications (polling), and role-scoped announcements. No WebSockets yet.
 - Reporting
 - Audit / activity history
 

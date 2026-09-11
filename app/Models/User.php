@@ -4,11 +4,16 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\Appearance;
+use App\Enums\EmploymentStatus;
 use App\Enums\Role;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -32,6 +37,11 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Employee|null $employee
+ * @property-read Collection<int, Conversation> $conversations
+ * @property-read Collection<int, Announcement> $authoredAnnouncements
+ * @property-read Collection<int, InAppNotification> $inAppNotifications
+ *
+ * @method static Builder<static> activeForMessaging()
  */
 #[Fillable(['name', 'email', 'password', 'role', 'appearance'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
@@ -62,6 +72,32 @@ class User extends Authenticatable implements PasskeyUser
     public function employee(): HasOne
     {
         return $this->hasOne(Employee::class);
+    }
+
+    /**
+     * @return BelongsToMany<Conversation, $this>
+     */
+    public function conversations(): BelongsToMany
+    {
+        return $this->belongsToMany(Conversation::class, 'conversation_participants')
+            ->withPivot('last_read_at')
+            ->withTimestamps();
+    }
+
+    /**
+     * @return HasMany<Announcement, $this>
+     */
+    public function authoredAnnouncements(): HasMany
+    {
+        return $this->hasMany(Announcement::class, 'author_id');
+    }
+
+    /**
+     * @return HasMany<InAppNotification, $this>
+     */
+    public function inAppNotifications(): HasMany
+    {
+        return $this->hasMany(InAppNotification::class);
     }
 
     public function hasRole(Role $role): bool
@@ -101,5 +137,26 @@ class User extends Authenticatable implements PasskeyUser
         }
 
         return $employee->employment_status->allowsLogin();
+    }
+
+    public function canMessage(): bool
+    {
+        return $this->canAccessApplication();
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeActiveForMessaging(Builder $query): Builder
+    {
+        return $query->where(function (Builder $builder): void {
+            $builder->where('role', Role::Admin)
+                ->orWhereDoesntHave('employee')
+                ->orWhereHas(
+                    'employee',
+                    fn (Builder $employee) => $employee->where('employment_status', EmploymentStatus::Active),
+                );
+        });
     }
 }

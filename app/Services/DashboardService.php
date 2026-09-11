@@ -28,6 +28,7 @@ class DashboardService
         private VisitClockInService $clockIn,
         private SettingsService $settings,
         private ComplianceStatusService $compliance,
+        private AnnouncementService $announcements,
     ) {}
 
     /**
@@ -51,6 +52,7 @@ class DashboardService
             'activity' => $this->activity($user),
             'active_visit' => $this->activeVisit($user, $employee),
             'clock_in_visit' => $this->clockInVisit($user, $employee),
+            'announcements' => $this->announcements->serializeForUser($user, 5),
         ];
     }
 

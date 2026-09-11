@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { AttentionList } from '@/components/mdm/attention-list';
+import { AnnouncementList } from '@/components/mdm/announcement-list';
 import { ClockInAction } from '@/components/mdm/clock-in-action';
 import { ActivityList, PersonList } from '@/components/mdm/person-list';
 import { Panel, StatCard } from '@/components/mdm/stat-card';
@@ -101,6 +102,12 @@ function AdminDashboard({ data }: { data: DashboardPayload }) {
             >
                 <ActivityList items={data.activity} />
             </Panel>
+            <Panel
+                title="Announcements"
+                description="Notices for this organization."
+            >
+                <AnnouncementList announcements={data.announcements} />
+            </Panel>
         </div>
     );
 }
@@ -153,6 +160,9 @@ function SupervisorDashboard({ data }: { data: DashboardPayload }) {
             <Panel title="Upcoming visits">
                 <VisitList visits={data.upcoming_visits} showEmployee />
             </Panel>
+            <Panel title="Announcements">
+                <AnnouncementList announcements={data.announcements} />
+            </Panel>
         </div>
     );
 }
@@ -188,6 +198,9 @@ function DspDashboard({ data }: { data: DashboardPayload }) {
                         }))}
                         empty="No active client assignments."
                     />
+                </Panel>
+                <Panel title="Announcements">
+                    <AnnouncementList announcements={data.announcements} />
                 </Panel>
             </div>
         </div>

@@ -1,0 +1,248 @@
+<?php
+
+namespace App\Services;
+
+use App\Enums\InAppNotificationType;
+use App\Models\Conversation;
+use App\Models\ConversationMessage;
+use App\Models\User;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+
+class MessagingService
+{
+    public function __construct(
+        private InAppNotificationService $notifications,
+        private SettingsService $settings,
+    ) {}
+
+    /**
+     * @return Collection<int, User>
+     */
+    public function searchableUsers(User $actor, ?string $term = null): Collection
+    {
+        $query = User::query()
+            ->activeForMessaging()
+            ->where('id', '!=', $actor->id)
+            ->orderBy('name');
+
+        $term = trim((string) $term);
+
+        if ($term !== '') {
+            $query->where(function ($builder) use ($term): void {
+                $builder->where('name', 'like', '%'.$term.'%')
+                    ->orWhere('email', 'like', '%'.$term.'%');
+            });
+        }
+
+        return $query->limit(25)->get();
+    }
+
+    public function startConversation(User $actor, User $recipient, string $body): Conversation
+    {
+        $this->assertCanMessage($actor, $recipient);
+
+        $conversation = DB::transaction(function () use ($actor, $recipient): Conversation {
+            $key = Conversation::participantKeyFor($actor, $recipient);
+
+            $conversation = Conversation::query()->firstOrCreate(
+                ['participant_key' => $key],
+                ['organization_id' => null],
+            );
+
+            $conversation->participants()->syncWithoutDetaching([$actor->id, $recipient->id]);
+
+            return $conversation;
+        });
+
+        $this->sendMessage($actor, $conversation, $body);
+
+        return $conversation->fresh(['participants', 'messages']) ?? $conversation;
+    }
+
+    public function sendMessage(User $actor, Conversation $conversation, string $body): ConversationMessage
+    {
+        $conversation->loadMissing('participants');
+
+        if (! $conversation->hasParticipant($actor)) {
+            abort(403);
+        }
+
+        $recipient = $conversation->otherParticipant($actor);
+
+        if ($recipient === null || ! $recipient->canMessage()) {
+            throw ValidationException::withMessages([
+                'body' => __('This conversation is no longer available. Inactive accounts cannot receive messages.'),
+            ]);
+        }
+
+        $message = $conversation->messages()->create([
+            'sender_id' => $actor->id,
+            'body' => $body,
+        ]);
+
+        $conversation->participants()->updateExistingPivot($actor->id, [
+            'last_read_at' => now(),
+        ]);
+
+        $this->notifications->notify(
+            $recipient,
+            InAppNotificationType::Message,
+            $actor->name,
+            $this->preview($body),
+            'message:'.$message->id,
+            route('messages.show', $conversation),
+        );
+
+        return $message;
+    }
+
+    public function markRead(User $user, Conversation $conversation): void
+    {
+        $conversation->participants()->updateExistingPivot($user->id, [
+            'last_read_at' => now(),
+        ]);
+
+        $this->notifications->markUrlRead($user, route('messages.show', $conversation));
+    }
+
+    public function unreadCount(User $user): int
+    {
+        return (int) ConversationMessage::query()
+            ->join('conversation_participants as cp', function ($join) use ($user): void {
+                $join->on('cp.conversation_id', '=', 'conversation_messages.conversation_id')
+                    ->where('cp.user_id', '=', $user->id);
+            })
+            ->where('conversation_messages.sender_id', '!=', $user->id)
+            ->where(function ($query): void {
+                $query->whereNull('cp.last_read_at')
+                    ->orWhereColumn('conversation_messages.created_at', '>', 'cp.last_read_at');
+            })
+            ->count();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function conversationSummaries(User $user): array
+    {
+        $conversations = Conversation::query()
+            ->visibleTo($user)
+            ->with(['participants', 'messages' => fn ($query) => $query->latest('id')->limit(1)])
+            ->get()
+            ->sortByDesc(function (Conversation $conversation): string {
+                $latest = $conversation->messages->first();
+
+                return $latest?->created_at?->toIso8601String() ?? $conversation->created_at?->toIso8601String() ?? '';
+            })
+            ->values();
+
+        $unreadByConversation = ConversationMessage::query()
+            ->selectRaw('conversation_messages.conversation_id, count(*) as unread_count')
+            ->join('conversation_participants as cp', function ($join) use ($user): void {
+                $join->on('cp.conversation_id', '=', 'conversation_messages.conversation_id')
+                    ->where('cp.user_id', '=', $user->id);
+            })
+            ->where('conversation_messages.sender_id', '!=', $user->id)
+            ->where(function ($query): void {
+                $query->whereNull('cp.last_read_at')
+                    ->orWhereColumn('conversation_messages.created_at', '>', 'cp.last_read_at');
+            })
+            ->groupBy('conversation_messages.conversation_id')
+            ->pluck('unread_count', 'conversation_id');
+
+        return $this->values($conversations->map(function (Conversation $conversation) use ($user, $unreadByConversation): array {
+            $other = $conversation->otherParticipant($user);
+            $latest = $conversation->messages->first();
+
+            return [
+                'id' => $conversation->id,
+                'other_user' => $other === null ? null : $this->serializeUser($other),
+                'latest_message' => $latest === null ? null : $this->preview($latest->body),
+                'latest_at' => $latest?->created_at !== null
+                    ? $this->settings->formatDateTime($latest->created_at)
+                    : null,
+                'unread_count' => (int) ($unreadByConversation[$conversation->id] ?? 0),
+            ];
+        }));
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function messagesFor(Conversation $conversation): array
+    {
+        return $this->values($conversation->messages()
+            ->with('sender')
+            ->orderBy('id')
+            ->limit(200)
+            ->get()
+            ->map(fn (ConversationMessage $message): array => [
+                'id' => $message->id,
+                'body' => $message->body,
+                'sender_id' => $message->sender_id,
+                'sender_name' => $message->sender->name,
+                'created_at' => $message->created_at !== null
+                    ? $this->settings->formatDateTime($message->created_at)
+                    : null,
+            ]));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function serializeUser(User $user): array
+    {
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->role->value,
+            'can_message' => $user->canMessage(),
+        ];
+    }
+
+    public function preview(string $body, int $limit = 80): string
+    {
+        $normalized = trim(preg_replace('/\s+/', ' ', $body) ?? $body);
+
+        if (mb_strlen($normalized) <= $limit) {
+            return $normalized;
+        }
+
+        return mb_substr($normalized, 0, $limit - 1).'…';
+    }
+
+    private function assertCanMessage(User $actor, User $recipient): void
+    {
+        if ($actor->is($recipient)) {
+            throw ValidationException::withMessages([
+                'user_id' => __('You cannot start a conversation with yourself.'),
+            ]);
+        }
+
+        if (! $recipient->canMessage()) {
+            throw ValidationException::withMessages([
+                'user_id' => __('Inactive or terminated accounts cannot be messaged.'),
+            ]);
+        }
+    }
+
+    /**
+     * @template T
+     *
+     * @param  iterable<T>  $items
+     * @return list<T>
+     */
+    private function values(iterable $items): array
+    {
+        $list = [];
+
+        foreach ($items as $item) {
+            $list[] = $item;
+        }
+
+        return $list;
+    }
+}

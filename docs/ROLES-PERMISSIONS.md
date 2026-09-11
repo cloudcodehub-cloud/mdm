@@ -8,7 +8,7 @@ Roles live on `users.role` as a PHP backed enum (`App\Enums\Role`):
 - **SUPERVISOR** — assigned DSPs/clients, visits, attendance, exceptions, progress, handovers, operational issues
 - **DSP** — own schedule, assigned client selection, clock-in/out, care-plan tasks, notes/measurements, mandatory skip reasons, visit summary/handover
 
-This is the simplest Laravel approach for three application roles. Authorization is enforced with Policies (`EmployeePolicy`, `ClientPolicy`, `ClientDspAssignmentPolicy`, `EmployeeCredentialPolicy`, `EmployeeTrainingPolicy`, `ClientAuthorizationPolicy`, `ShiftTemplatePolicy`, `CarePlanPolicy`, `CarePlanTaskTemplatePolicy`, `ScheduledVisitPolicy`, `SkipReasonPolicy`, `VisitPolicy`, `VisitExceptionPolicy`, `AttendanceCorrectionPolicy`) and `User` helpers (`isAdmin()`, `isSupervisor()`, `isDsp()`). Never rely on UI hiding alone.
+This is the simplest Laravel approach for three application roles. Authorization is enforced with Policies (`EmployeePolicy`, `ClientPolicy`, `ClientDspAssignmentPolicy`, `EmployeeCredentialPolicy`, `EmployeeTrainingPolicy`, `ClientAuthorizationPolicy`, `ShiftTemplatePolicy`, `CarePlanPolicy`, `CarePlanTaskTemplatePolicy`, `ScheduledVisitPolicy`, `SkipReasonPolicy`, `VisitPolicy`, `VisitExceptionPolicy`, `AttendanceCorrectionPolicy`, `ConversationPolicy`, `AnnouncementPolicy`, `InAppNotificationPolicy`) and `User` helpers (`isAdmin()`, `isSupervisor()`, `isDsp()`). Never rely on UI hiding alone.
 
 ## Phase 1A policy scope
 
@@ -62,7 +62,11 @@ This is the simplest Laravel approach for three application roles. Authorization
 - Supervisor: reports for permitted caseload only. May view caseload work-hour totals. Cannot export payroll CSV.
 - DSP: no Reports module.
 
-Module-specific permissions for messaging will be added with that feature.
+## Phase 3E messaging, announcements, and notifications
+
+- Messages: ADMIN, SUPERVISOR, and DSP may open Messages, start 1-to-1 conversations with other active users, send/reply, and see unread state. Users cannot open conversations they are not in. Inactive/terminated accounts cannot be messaged.
+- Announcements: Admin may publish organization-wide to Everyone, Admins, Supervisors, or DSPs, and may deactivate any announcement. Supervisor may publish only to their DSP caseload. DSP cannot publish.
+- Notifications: each user may read only their own in-app notifications.
 
 ## Account provisioning note
 
