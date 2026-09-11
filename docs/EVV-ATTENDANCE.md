@@ -32,7 +32,7 @@ Admins and in-scope supervisors manage scheduled visits from the Scheduled Visit
 
 `visit_exceptions` is the structured exception foundation for this workflow (`gps_unavailable`, `client_refusal`, `critical_task_skipped`, `other_visit_exception`). Exception statuses are `open`, `reviewed`, and `resolved`. Supervisors and admins review and resolve in-scope exceptions without changing the original exception message, type, or context.
 
-Clock-out, skip-reason capture, handover notes, and exception creation are implemented for the DSP active-visit workflow. Payroll and messaging remain later work.
+Clock-out, skip-reason capture, handover notes, and exception creation are implemented for the DSP active-visit workflow. Messaging remains later work.
 
 `skip_reasons` is the lookup used when a DSP skips a care-plan task:
 
@@ -58,7 +58,6 @@ Attendance is derived from scheduled visits, visit clock records, visit exceptio
 
 ## Planned later
 
-- Payroll-hour exports
 - Messaging
 
 This application is standalone EVV-lite, not a Sandata connector.

@@ -2,10 +2,13 @@
 
 namespace App\Providers;
 
+use App\Policies\ReportPolicy;
 use App\Services\SettingsService;
+use App\Support\OperationalReport;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -25,6 +28,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+
+        Gate::policy(OperationalReport::class, ReportPolicy::class);
     }
 
     /**

@@ -102,6 +102,17 @@ class AttendanceStatusService
         ];
     }
 
+    public function workedMinutes(ScheduledVisit $scheduledVisit): ?int
+    {
+        $times = $this->effectiveTimes($scheduledVisit);
+
+        if ($times['start'] === null || $times['end'] === null) {
+            return null;
+        }
+
+        return max(0, (int) $times['start']->diffInMinutes($times['end']));
+    }
+
     public function hasGpsIssue(?Visit $visit): bool
     {
         if ($visit === null) {

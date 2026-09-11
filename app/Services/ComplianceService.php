@@ -22,13 +22,7 @@ class ComplianceService
      */
     public function forUser(User $user): array
     {
-        $employees = $this->workforceQuery($user)
-            ->with(['credentials', 'trainings'])
-            ->orderBy('last_name')
-            ->orderBy('first_name')
-            ->get();
-
-        $items = $this->items($employees);
+        $items = $this->records($user);
         $summary = $this->summary($items);
         $attention = $this->employeeAttention($items);
 
@@ -39,6 +33,20 @@ class ComplianceService
             'employees' => $attention,
             'items' => $items,
         ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function records(User $user): array
+    {
+        $employees = $this->workforceQuery($user)
+            ->with(['credentials', 'trainings'])
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get();
+
+        return $this->items($employees);
     }
 
     /**

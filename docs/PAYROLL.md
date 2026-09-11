@@ -2,12 +2,26 @@
 
 ## Purpose
 
-Support payroll-hour exports derived from attendance and visit activity.
+Support hours-only payroll exports derived from attendance and completed visit activity.
 
-## Planned concerns (placeholder)
+## Phase 3D-2 hours export
 
-- Hours from clock-in/out and completed visits
-- Export formats for payroll processing
-- Auditability of exported hours
+Admins select a pay-period date range on the Payroll Hours report. Rows include:
 
-Detailed export rules will be specified later. No payroll engine redesign in Phase 0.
+- Employee ID (`employee_number`)
+- Employee Name
+- Period Start
+- Period End
+- Completed Visit Count
+- Worked Hours (decimal hours)
+
+Worked hours use effective attendance:
+
+- original clock-in/out when no approved correction exists
+- approved adjusted times when an attendance correction exists
+
+Original EVV clock records on `visits` are never altered.
+
+This export does **not** include hourly rates, gross pay, taxes, deductions, overtime, or payroll processing.
+
+Supervisors may view caseload work-hour totals. Payroll CSV export is Admin-only.

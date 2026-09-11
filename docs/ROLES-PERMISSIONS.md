@@ -56,7 +56,13 @@ This is the simplest Laravel approach for three application roles. Authorization
 - Supervisor: view attendance and submit correction requests only for permitted caseload. Cannot approve corrections or change clock events. View compliance for assigned DSP reports.
 - DSP: view own attendance only. Cannot submit or review corrections. No Compliance module access; own credentials/training remain on the employee profile.
 
-Module-specific permissions for payroll and messaging will be added with those features.
+## Phase 3D-2 reports and payroll hours
+
+- Admin: organization-wide operational reports and CSV export, including payroll hours CSV. Payroll remains hours-only (no rates, pay, taxes, overtime, or processing).
+- Supervisor: reports for permitted caseload only. May view caseload work-hour totals. Cannot export payroll CSV.
+- DSP: no Reports module.
+
+Module-specific permissions for messaging will be added with that feature.
 
 ## Account provisioning note
 

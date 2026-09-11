@@ -8,6 +8,7 @@ use App\Http\Controllers\ComingSoonController;
 use App\Http\Controllers\ComplianceController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ScheduledVisitController;
 use App\Http\Controllers\SupervisorController;
 use App\Http\Controllers\SupervisorOperationsController;
@@ -61,7 +62,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('attendance/corrections/{attendance_correction}/reject', [AttendanceCorrectionController::class, 'reject'])
         ->name('attendance.corrections.reject');
     Route::get('compliance', ComplianceController::class)->name('compliance.index');
-    Route::get('reports', ComingSoonController::class)->name('reports.index');
+    Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('reports/{report}/download', [ReportController::class, 'download'])->name('reports.download');
+    Route::get('reports/{report}', [ReportController::class, 'show'])->name('reports.show');
     Route::get('messages', ComingSoonController::class)->name('messages.index');
 });
 

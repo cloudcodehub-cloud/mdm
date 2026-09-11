@@ -27,26 +27,7 @@ class AttendanceService
      */
     public function page(User $user, array $filters, int $page, string $url, array $query, int $perPage = 20): array
     {
-        $records = $this->query($user, $filters)
-            ->with([
-                'client',
-                'employee.supervisor',
-                'supervisor',
-                'shiftTemplate',
-                'visit.exceptions',
-                'attendanceCorrections.requestedBy',
-                'attendanceCorrections.reviewedBy',
-            ])
-            ->orderByDesc('service_date')
-            ->orderByDesc('id')
-            ->get()
-            ->map(fn (ScheduledVisit $visit): array => $this->serialize($visit, $user))
-            ->when(
-                ($status = AttendanceStatus::tryFrom($filters['status'])) !== null,
-                fn (Collection $items): Collection => $items->filter(
-                    fn (array $row): bool => $row['status'] === $status->value,
-                )->values(),
-            );
+        $records = $this->records($user, $filters);
 
         $page = max(1, $page);
         $total = $records->count();
@@ -119,9 +100,43 @@ class AttendanceService
 
     /**
      * @param  array{from: string, to: string, employee_id: string, client_id: string, supervisor_id: string, status: string}  $filters
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function records(User $user, array $filters): Collection
+    {
+        $status = AttendanceStatus::tryFrom($filters['status']);
+        $rows = [];
+
+        foreach ($this->query($user, $filters)
+            ->with([
+                'client',
+                'employee.supervisor',
+                'supervisor',
+                'shiftTemplate',
+                'visit.exceptions',
+                'attendanceCorrections.requestedBy',
+                'attendanceCorrections.reviewedBy',
+            ])
+            ->orderByDesc('service_date')
+            ->orderByDesc('id')
+            ->get() as $visit) {
+            $row = $this->serialize($visit, $user);
+
+            if ($status !== null && $row['status'] !== $status->value) {
+                continue;
+            }
+
+            $rows[] = $row;
+        }
+
+        return collect($rows);
+    }
+
+    /**
+     * @param  array{from: string, to: string, employee_id: string, client_id: string, supervisor_id: string, status: string}  $filters
      * @return Builder<ScheduledVisit>
      */
-    private function query(User $user, array $filters): Builder
+    public function query(User $user, array $filters): Builder
     {
         $from = $filters['from'] !== '' ? $filters['from'] : $this->settings->today();
         $to = $filters['to'] !== '' ? $filters['to'] : $from;
