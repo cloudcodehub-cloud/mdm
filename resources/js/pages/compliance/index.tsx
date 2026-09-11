@@ -1,6 +1,10 @@
 import { Head, Link } from '@inertiajs/react';
 import { StatusBadge } from '@/components/mdm/directory';
-import { EmptyState, Panel, StatCard } from '@/components/mdm/stat-card';
+import { EmptyState, Panel } from '@/components/mdm/stat-card';
+import {
+    ProgressRing,
+    SegmentedStatusBar,
+} from '@/components/mdm/visual-summaries';
 import { dashboard } from '@/routes';
 import { index as complianceIndex } from '@/routes/compliance';
 import { show as showEmployee } from '@/routes/employees';
@@ -22,6 +26,11 @@ export default function ComplianceIndex({
     employees: ComplianceEmployeeAttention[];
     items: ComplianceItem[];
 }) {
+    const tracked =
+        summary.valid + summary.expiring_soon + summary.expired;
+    const validPercent =
+        tracked === 0 ? 0 : Math.round((100 * summary.valid) / tracked);
+
     return (
         <>
             <Head title="Compliance" />
@@ -38,28 +47,52 @@ export default function ComplianceIndex({
                     </p>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <StatCard
-                        label="Valid"
-                        value={summary.valid}
-                        hint="Currently valid credentials and completed training"
-                    />
-                    <StatCard
-                        label="Expiring soon"
-                        value={summary.expiring_soon}
-                        hint={`Expires within ${expiring_soon_days} days`}
-                    />
-                    <StatCard
-                        label="Expired"
-                        value={summary.expired}
-                        hint="Past expiry date, regardless of stored label"
-                    />
-                    <StatCard
-                        label="Missing"
-                        value={summary.missing}
-                        hint="Not inferred without a required-item catalog"
-                    />
-                </div>
+                <Panel
+                    title="Compliance health"
+                    description={`Valid, expiring, and expired records using the ${expiring_soon_days}-day expiring-soon threshold. Missing is shown only when the current records can prove a requirement is absent.`}
+                >
+                    <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+                        <ProgressRing
+                            value={validPercent}
+                            label={`${validPercent}%`}
+                            detail="Currently valid"
+                        />
+                        <div className="min-w-0 flex-1">
+                            <SegmentedStatusBar
+                                segments={[
+                                    {
+                                        key: 'valid',
+                                        label: 'Valid',
+                                        value: summary.valid,
+                                        tone: 'success',
+                                    },
+                                    {
+                                        key: 'expiring',
+                                        label: 'Expiring soon',
+                                        value: summary.expiring_soon,
+                                        tone: 'warning',
+                                    },
+                                    {
+                                        key: 'expired',
+                                        label: 'Expired',
+                                        value: summary.expired,
+                                        tone: 'critical',
+                                    },
+                                    ...(summary.missing > 0
+                                        ? [
+                                              {
+                                                  key: 'missing',
+                                                  label: 'Missing',
+                                                  value: summary.missing,
+                                                  tone: 'neutral' as const,
+                                              },
+                                          ]
+                                        : []),
+                                ]}
+                            />
+                        </div>
+                    </div>
+                </Panel>
 
                 <Panel
                     title="Employees needing attention"

@@ -3,7 +3,15 @@
 namespace Tests\Feature;
 
 use App\Enums\Role;
+use App\Enums\ScheduledVisitStatus;
+use App\Enums\VisitStatus;
+use App\Enums\VisitTaskStatus;
+use App\Models\Client;
+use App\Models\Employee;
+use App\Models\ScheduledVisit;
 use App\Models\User;
+use App\Models\Visit;
+use App\Models\VisitTask;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -66,6 +74,9 @@ class DashboardTest extends TestCase
                 ->has('dashboard.upcoming_visits')
                 ->has('dashboard.attention_items')
                 ->has('dashboard.activity')
+                ->has('dashboard.today_visit_summary')
+                ->has('dashboard.visit_trend', 7)
+                ->has('dashboard.compliance_health')
             );
     }
 
@@ -91,6 +102,8 @@ class DashboardTest extends TestCase
                 ->has('dashboard.assigned_dsps', 2)
                 ->has('dashboard.assigned_clients', 3)
                 ->has('dashboard.today_visits', 1)
+                ->has('dashboard.today_visit_summary')
+                ->has('dashboard.open_exceptions')
             );
     }
 
@@ -116,6 +129,7 @@ class DashboardTest extends TestCase
                 ->where('dashboard.active_visit', null)
                 ->where('dashboard.clock_in_visit.client.name', 'Elena Marie Vasquez')
                 ->has('dashboard.assigned_clients', 2)
+                ->where('dashboard.compliance_health', null)
             );
     }
 
@@ -167,5 +181,42 @@ class DashboardTest extends TestCase
             ->get(route('clients.index'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page->component('clients/index'));
+    }
+
+    public function test_dsp_dashboard_includes_active_visit_task_progress(): void
+    {
+        Carbon::setTestNow('2026-09-11 14:00:00');
+
+        $dsp = Employee::factory()->dsp()->create();
+        $client = Client::factory()->create();
+        $scheduled = ScheduledVisit::factory()->forClient($client)->forDsp($dsp)->create([
+            'service_date' => '2026-09-11',
+            'status' => ScheduledVisitStatus::InProgress,
+        ]);
+        $visit = Visit::factory()->forScheduledVisit($scheduled)->create([
+            'status' => VisitStatus::InProgress,
+        ]);
+
+        VisitTask::factory()->for($visit)->count(3)->create([
+            'status' => VisitTaskStatus::Completed,
+        ]);
+        VisitTask::factory()->for($visit)->create([
+            'status' => VisitTaskStatus::Pending,
+        ]);
+        VisitTask::factory()->for($visit)->create([
+            'status' => VisitTaskStatus::Skipped,
+        ]);
+
+        $this->actingAs($dsp->user()->firstOrFail())
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('dashboard.active_visit.id', $visit->id)
+                ->where('dashboard.active_visit.task_progress.completed', 3)
+                ->where('dashboard.active_visit.task_progress.pending', 1)
+                ->where('dashboard.active_visit.task_progress.skipped', 1)
+                ->where('dashboard.active_visit.task_progress.total', 5)
+                ->where('dashboard.active_visit.task_progress.percent', 60)
+            );
     }
 }

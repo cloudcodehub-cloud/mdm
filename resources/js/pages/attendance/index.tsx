@@ -1,6 +1,7 @@
 import { Form, Head, Link, router } from '@inertiajs/react';
 import { Pagination, StatusBadge, controlClassName } from '@/components/mdm/directory';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
+import { SegmentedStatusBar } from '@/components/mdm/visual-summaries';
 import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
 import { index as attendanceIndex, show } from '@/routes/attendance';
@@ -11,6 +12,7 @@ import {
 import type {
     AttendanceCorrectionRecord,
     AttendanceRecord,
+    AttendanceStatusSummary,
 } from '@/types/attendance';
 import type { OptionItem, Paginated } from '@/types/directory';
 
@@ -24,7 +26,9 @@ export default function AttendanceIndex({
     statuses,
     can,
 }: {
-    records: Paginated<AttendanceRecord>;
+    records: Paginated<AttendanceRecord> & {
+        status_summary: AttendanceStatusSummary;
+    };
     filters: {
         from: string;
         to: string;
@@ -136,6 +140,61 @@ export default function AttendanceIndex({
                         </Button>
                     </Form>
                 </Panel>
+
+                {records.status_summary.total > 0 && (
+                    <Panel
+                        title="Attendance snapshot"
+                        description="Counts for the current date range and filters, before the status dropdown is applied."
+                    >
+                        <SegmentedStatusBar
+                            segments={[
+                                {
+                                    key: 'completed',
+                                    label: 'Completed',
+                                    value: records.status_summary.completed,
+                                    tone: 'success',
+                                },
+                                {
+                                    key: 'in_progress',
+                                    label: 'In progress',
+                                    value: records.status_summary.in_progress,
+                                    tone: 'brand',
+                                },
+                                {
+                                    key: 'late',
+                                    label: 'Late',
+                                    value: records.status_summary.late,
+                                    tone: 'warning',
+                                },
+                                {
+                                    key: 'missed',
+                                    label: 'Missed',
+                                    value: records.status_summary.missed,
+                                    tone: 'critical',
+                                },
+                                {
+                                    key: 'adjusted',
+                                    label: 'Adjusted',
+                                    value: records.status_summary
+                                        .manually_adjusted,
+                                    tone: 'info',
+                                },
+                                {
+                                    key: 'scheduled',
+                                    label: 'Scheduled',
+                                    value: records.status_summary.scheduled,
+                                    tone: 'neutral',
+                                },
+                                {
+                                    key: 'exception',
+                                    label: 'Exception',
+                                    value: records.status_summary.exception,
+                                    tone: 'warning',
+                                },
+                            ]}
+                        />
+                    </Panel>
+                )}
 
                 {can.review_corrections && pending_corrections.length > 0 && (
                     <Panel

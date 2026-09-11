@@ -29,7 +29,7 @@ export function AppSidebarHeader({
             : (breadcrumbs.at(-1)?.title ?? 'Dashboard');
 
     return (
-        <header className="border-sidebar-border/50 flex h-16 shrink-0 items-center gap-3 border-b bg-background/75 px-4 backdrop-blur-[12px] transition-[width,height] duration-200 ease-linear md:px-6">
+        <header className="flex h-16 shrink-0 items-center gap-3 border-b border-white/70 bg-card/88 px-4 shadow-[var(--shadow-soft)] backdrop-blur-[14px] transition-[width,height] duration-200 ease-linear dark:border-white/10 md:px-6">
             <div className="flex min-w-0 flex-1 items-center gap-3">
                 <BrandMark
                     variant="icon"

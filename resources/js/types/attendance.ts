@@ -24,6 +24,17 @@ export type AttendanceCorrectionRecord = {
     client_name?: string | null;
 };
 
+export type AttendanceStatusSummary = {
+    completed: number;
+    in_progress: number;
+    late: number;
+    missed: number;
+    manually_adjusted: number;
+    scheduled: number;
+    exception: number;
+    total: number;
+};
+
 export type AttendanceRecord = {
     id: number;
     visit_id: number | null;

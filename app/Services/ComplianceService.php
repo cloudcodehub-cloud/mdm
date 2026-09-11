@@ -36,6 +36,29 @@ class ComplianceService
     }
 
     /**
+     * @return array{valid: int, expiring_soon: int, expired: int, missing: int, tracked: int, valid_percent: int}
+     */
+    public function healthForUser(User $user): array
+    {
+        return $this->healthFromSummary($this->summary($this->records($user)));
+    }
+
+    /**
+     * @param  array{valid: int, expiring_soon: int, expired: int, missing: int}  $summary
+     * @return array{valid: int, expiring_soon: int, expired: int, missing: int, tracked: int, valid_percent: int}
+     */
+    public function healthFromSummary(array $summary): array
+    {
+        $tracked = $summary['valid'] + $summary['expiring_soon'] + $summary['expired'];
+
+        return [
+            ...$summary,
+            'tracked' => $tracked,
+            'valid_percent' => $tracked === 0 ? 0 : (int) round(100 * $summary['valid'] / $tracked),
+        ];
+    }
+
+    /**
      * @return list<array<string, mixed>>
      */
     public function records(User $user): array

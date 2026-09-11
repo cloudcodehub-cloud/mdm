@@ -23,11 +23,15 @@ class AttendanceService
     /**
      * @param  array{from: string, to: string, employee_id: string, client_id: string, supervisor_id: string, status: string}  $filters
      * @param  array<string, mixed>  $query
-     * @return array{data: list<array<string, mixed>>, meta: array{current_page: int, last_page: int, from: int|null, to: int|null, total: int}, links: array{prev: string|null, next: string|null}}
+     * @return array{data: list<array<string, mixed>>, meta: array{current_page: int, last_page: int, from: int|null, to: int|null, total: int}, links: array{prev: string|null, next: string|null}, status_summary: array{completed: int, in_progress: int, late: int, missed: int, manually_adjusted: int, scheduled: int, exception: int, total: int}}
      */
     public function page(User $user, array $filters, int $page, string $url, array $query, int $perPage = 20): array
     {
-        $records = $this->records($user, $filters);
+        $all = $this->records($user, array_merge($filters, ['status' => '']));
+        $status = AttendanceStatus::tryFrom($filters['status']);
+        $records = $status === null
+            ? $all
+            : $all->filter(fn (array $row): bool => $row['status'] === $status->value)->values();
 
         $page = max(1, $page);
         $total = $records->count();
@@ -56,7 +60,45 @@ class AttendanceService
                 'prev' => $page > 1 ? $this->pageUrl($url, $queryWithoutPage, $page - 1) : null,
                 'next' => $page < $lastPage ? $this->pageUrl($url, $queryWithoutPage, $page + 1) : null,
             ],
+            'status_summary' => $this->countByStatus($all),
         ];
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $records
+     * @return array{
+     *     completed: int,
+     *     in_progress: int,
+     *     late: int,
+     *     missed: int,
+     *     manually_adjusted: int,
+     *     scheduled: int,
+     *     exception: int,
+     *     total: int
+     * }
+     */
+    private function countByStatus(Collection $records): array
+    {
+        $counts = [
+            'completed' => 0,
+            'in_progress' => 0,
+            'late' => 0,
+            'missed' => 0,
+            'manually_adjusted' => 0,
+            'scheduled' => 0,
+            'exception' => 0,
+            'total' => $records->count(),
+        ];
+
+        foreach ($records as $record) {
+            $status = $record['status'];
+
+            if (array_key_exists($status, $counts)) {
+                $counts[$status]++;
+            }
+        }
+
+        return $counts;
     }
 
     /**

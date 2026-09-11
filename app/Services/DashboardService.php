@@ -8,6 +8,7 @@ use App\Enums\ComplianceDateStatus;
 use App\Enums\CredentialStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\JobType;
+use App\Enums\OperationalVisitStatus;
 use App\Enums\ScheduledVisitStatus;
 use App\Enums\TrainingStatus;
 use App\Models\Client;
@@ -18,8 +19,10 @@ use App\Models\EmployeeCredential;
 use App\Models\EmployeeTraining;
 use App\Models\ScheduledVisit;
 use App\Models\User;
+use App\Models\VisitException;
 use App\Support\DirectoryPresenter;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class DashboardService
@@ -29,6 +32,8 @@ class DashboardService
         private SettingsService $settings,
         private ComplianceStatusService $compliance,
         private AnnouncementService $announcements,
+        private VisitOperationsStatus $operations,
+        private ComplianceService $complianceCatalog,
     ) {}
 
     /**
@@ -38,6 +43,7 @@ class DashboardService
     {
         $today = $this->settings->today();
         $employee = $user->employee;
+        $todayOperational = $this->todayOperationalVisits($user, $today);
 
         return [
             'role' => $user->role->value,
@@ -46,13 +52,17 @@ class DashboardService
             'metrics' => $this->metrics($user, $employee, $today),
             'today_visits' => $this->serializeVisits($this->todayVisits($user, $today)),
             'upcoming_visits' => $this->serializeVisits($this->upcomingVisits($user, $today)),
-            'assigned_dsps' => $this->assignedDsps($user, $employee),
+            'assigned_dsps' => $this->assignedDsps($user, $employee, $todayOperational),
             'assigned_clients' => $this->assignedClients($user, $employee),
             'attention_items' => $this->attentionItems($user, $employee),
             'activity' => $this->activity($user),
             'active_visit' => $this->activeVisit($user, $employee),
             'clock_in_visit' => $this->clockInVisit($user, $employee),
             'announcements' => $this->announcements->serializeForUser($user, 5),
+            'today_visit_summary' => $this->todayVisitSummary($todayOperational),
+            'compliance_health' => $user->isDsp() ? null : $this->complianceCatalog->healthForUser($user),
+            'open_exceptions' => $this->openExceptionsCount($user),
+            'visit_trend' => $this->visitTrend($user, $today),
         ];
     }
 
@@ -177,12 +187,34 @@ class DashboardService
     }
 
     /**
+     * @param  Collection<int, ScheduledVisit>  $todayOperational
      * @return list<array<string, mixed>>
      */
-    private function assignedDsps(User $user, ?Employee $employee): array
+    private function assignedDsps(User $user, ?Employee $employee, Collection $todayOperational): array
     {
         if (! $user->isSupervisor()) {
             return [];
+        }
+
+        $activity = [];
+
+        foreach ($todayOperational as $visit) {
+            $id = $visit->employee_id;
+            $activity[$id] ??= ['visits_today' => 0, 'in_progress' => 0, 'attention' => 0];
+            $activity[$id]['visits_today']++;
+            $status = $this->operations->statusForScheduledVisit($visit);
+
+            if ($status === OperationalVisitStatus::InProgress) {
+                $activity[$id]['in_progress']++;
+            }
+
+            if (in_array($status, [
+                OperationalVisitStatus::Late,
+                OperationalVisitStatus::Attention,
+                OperationalVisitStatus::Exception,
+            ], true)) {
+                $activity[$id]['attention']++;
+            }
         }
 
         return $this->values($this->dspReportsQuery($employee)
@@ -194,6 +226,9 @@ class DashboardService
                 'name' => $dsp->full_name,
                 'employee_number' => $dsp->employee_number,
                 'job_title' => $dsp->job_title,
+                'visits_today' => $activity[$dsp->id]['visits_today'] ?? 0,
+                'in_progress' => $activity[$dsp->id]['in_progress'] ?? 0,
+                'attention' => $activity[$dsp->id]['attention'] ?? 0,
             ]));
     }
 
@@ -478,6 +513,94 @@ class DashboardService
                 AuthorizationStatus::Expired,
                 AuthorizationStatus::Exhausted,
             ]);
+    }
+
+    /**
+     * @return Collection<int, ScheduledVisit>
+     */
+    private function todayOperationalVisits(User $user, string $today): Collection
+    {
+        return $this->visitsQuery($user)
+            ->with(['visit.exceptions', 'employee', 'client', 'shiftTemplate'])
+            ->where('status', '!=', ScheduledVisitStatus::Cancelled)
+            ->whereDate('service_date', $today)
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
+     * @param  Collection<int, ScheduledVisit>  $visits
+     * @return array{scheduled: int, in_progress: int, completed: int, attention: int, total: int}
+     */
+    private function todayVisitSummary(Collection $visits): array
+    {
+        $summary = [
+            'scheduled' => 0,
+            'in_progress' => 0,
+            'completed' => 0,
+            'attention' => 0,
+            'total' => $visits->count(),
+        ];
+
+        foreach ($visits as $visit) {
+            $status = $this->operations->statusForScheduledVisit($visit);
+
+            match ($status) {
+                OperationalVisitStatus::Scheduled => $summary['scheduled']++,
+                OperationalVisitStatus::InProgress => $summary['in_progress']++,
+                OperationalVisitStatus::Completed => $summary['completed']++,
+                OperationalVisitStatus::Late,
+                OperationalVisitStatus::Attention,
+                OperationalVisitStatus::Exception => $summary['attention']++,
+                default => null,
+            };
+        }
+
+        return $summary;
+    }
+
+    private function openExceptionsCount(User $user): int
+    {
+        if ($user->isDsp()) {
+            return 0;
+        }
+
+        return VisitException::query()->visibleTo($user)->open()->count();
+    }
+
+    /**
+     * @return list<array{date: string, label: string, value: int}>
+     */
+    private function visitTrend(User $user, string $today): array
+    {
+        $start = Carbon::parse($today)->subDays(6)->toDateString();
+        $rows = $this->visitsQuery($user)
+            ->toBase()
+            ->where('status', '!=', ScheduledVisitStatus::Cancelled)
+            ->whereDate('service_date', '>=', $start)
+            ->whereDate('service_date', '<=', $today)
+            ->selectRaw('service_date as day, COUNT(*) as total')
+            ->groupBy('service_date')
+            ->get();
+
+        $counts = [];
+
+        foreach ($rows as $row) {
+            $counts[Carbon::parse((string) $row->day)->toDateString()] = (int) $row->total;
+        }
+
+        $points = [];
+
+        for ($offset = 6; $offset >= 0; $offset--) {
+            $day = Carbon::parse($today)->subDays($offset)->toDateString();
+            $points[] = [
+                'date' => $day,
+                'label' => Carbon::parse($day)->format('D'),
+                'value' => (int) ($counts[$day] ?? 0),
+            ];
+        }
+
+        return $points;
     }
 
     /**

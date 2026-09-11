@@ -414,6 +414,13 @@ final class DirectoryPresenter
      */
     public static function activeVisitSummary(Visit $visit): array
     {
+        $visit->loadMissing('tasks');
+        $tasks = $visit->tasks;
+        $completed = $tasks->where('status', VisitTaskStatus::Completed)->count();
+        $skipped = $tasks->where('status', VisitTaskStatus::Skipped)->count();
+        $pending = $tasks->where('status', VisitTaskStatus::Pending)->count();
+        $total = $tasks->count();
+
         return [
             'id' => $visit->id,
             'scheduled_visit_id' => $visit->scheduled_visit_id,
@@ -425,6 +432,13 @@ final class DirectoryPresenter
                 'id' => $visit->client->id,
                 'name' => $visit->client->full_name,
                 'client_number' => $visit->client->client_number,
+            ],
+            'task_progress' => [
+                'completed' => $completed,
+                'pending' => $pending,
+                'skipped' => $skipped,
+                'total' => $total,
+                'percent' => $total === 0 ? 0 : (int) round(($completed / $total) * 100),
             ],
         ];
     }

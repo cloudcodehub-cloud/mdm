@@ -5,6 +5,12 @@ import { ClockInAction } from '@/components/mdm/clock-in-action';
 import { ActivityList, PersonList } from '@/components/mdm/person-list';
 import { Panel, StatCard } from '@/components/mdm/stat-card';
 import { VisitList } from '@/components/mdm/visit-list';
+import {
+    MetricSummary,
+    MiniBarChart,
+    ProgressRing,
+    SegmentedStatusBar,
+} from '@/components/mdm/visual-summaries';
 import { dashboard } from '@/routes';
 import { index as operationsIndex } from '@/routes/operations';
 import type { DashboardPayload } from '@/types/dashboard';
@@ -63,15 +69,94 @@ function headline(role: DashboardPayload['role']): string {
     }
 
     if (role === 'SUPERVISOR') {
-        return 'Caseload operations';
+        return 'What is happening with your team right now';
     }
 
     return 'Operations overview';
 }
 
+function visitStatusSegments(data: DashboardPayload) {
+    return [
+        {
+            key: 'scheduled',
+            label: 'Scheduled',
+            value: data.today_visit_summary.scheduled,
+            tone: 'info' as const,
+        },
+        {
+            key: 'in_progress',
+            label: 'In progress',
+            value: data.today_visit_summary.in_progress,
+            tone: 'brand' as const,
+        },
+        {
+            key: 'completed',
+            label: 'Completed',
+            value: data.today_visit_summary.completed,
+            tone: 'success' as const,
+        },
+        {
+            key: 'attention',
+            label: 'Attention',
+            value: data.today_visit_summary.attention,
+            tone: 'warning' as const,
+        },
+    ];
+}
+
 function AdminDashboard({ data }: { data: DashboardPayload }) {
+    const health = data.compliance_health;
+
     return (
         <div className="grid gap-4 xl:grid-cols-3">
+            <Panel
+                title="Today's visits"
+                description="Operational status for today's scheduled work."
+            >
+                <SegmentedStatusBar segments={visitStatusSegments(data)} />
+            </Panel>
+            {health && (
+                <Panel
+                    title="Compliance health"
+                    description="Valid share of credentials and training with known expiry status."
+                >
+                    <ProgressRing
+                        value={health.valid_percent}
+                        label={`${health.valid_percent}%`}
+                        detail={`${health.valid} of ${health.tracked} currently valid`}
+                    />
+                    <div className="mt-4">
+                        <SegmentedStatusBar
+                            segments={[
+                                {
+                                    key: 'valid',
+                                    label: 'Valid',
+                                    value: health.valid,
+                                    tone: 'success',
+                                },
+                                {
+                                    key: 'expiring',
+                                    label: 'Expiring',
+                                    value: health.expiring_soon,
+                                    tone: 'warning',
+                                },
+                                {
+                                    key: 'expired',
+                                    label: 'Expired',
+                                    value: health.expired,
+                                    tone: 'critical',
+                                },
+                            ]}
+                        />
+                    </div>
+                </Panel>
+            )}
+            <Panel
+                title="Recent visit volume"
+                description="Non-cancelled visits in the last seven days."
+            >
+                <MiniBarChart points={data.visit_trend} />
+            </Panel>
             <Panel
                 title="Scheduled visits today"
                 description="Open visits across the agency."
@@ -115,6 +200,56 @@ function AdminDashboard({ data }: { data: DashboardPayload }) {
 function SupervisorDashboard({ data }: { data: DashboardPayload }) {
     return (
         <div className="grid gap-4 xl:grid-cols-3">
+            <Panel
+                title="Today's caseload visits"
+                description="Status of today's visits for assigned DSPs and clients."
+                className="xl:col-span-2"
+            >
+                <div className="mb-4 grid gap-4 sm:grid-cols-3">
+                    <MetricSummary
+                        label="In progress"
+                        value={data.today_visit_summary.in_progress}
+                    />
+                    <MetricSummary
+                        label="Completed"
+                        value={data.today_visit_summary.completed}
+                    />
+                    <MetricSummary
+                        label="Open exceptions"
+                        value={data.open_exceptions}
+                    />
+                </div>
+                <SegmentedStatusBar segments={visitStatusSegments(data)} />
+            </Panel>
+            <Panel
+                title="DSP activity today"
+                description="Visit counts from today's caseload records."
+            >
+                {data.assigned_dsps.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">
+                        No assigned DSPs.
+                    </p>
+                ) : (
+                    <ul className="space-y-3">
+                        {data.assigned_dsps.map((dsp) => (
+                            <li key={dsp.id} className="text-sm">
+                                <p className="font-medium">{dsp.name}</p>
+                                <p className="text-muted-foreground text-xs">
+                                    {dsp.visits_today ?? 0} visit
+                                    {(dsp.visits_today ?? 0) === 1 ? '' : 's'}{' '}
+                                    today
+                                    {(dsp.in_progress ?? 0) > 0
+                                        ? ` · ${dsp.in_progress} in progress`
+                                        : ''}
+                                    {(dsp.attention ?? 0) > 0
+                                        ? ` · ${dsp.attention} need attention`
+                                        : ''}
+                                </p>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </Panel>
             <Panel
                 title="Today's scheduled visits"
                 description="Open the operations board for live caseload monitoring."

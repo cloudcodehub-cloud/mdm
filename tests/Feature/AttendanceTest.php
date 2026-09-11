@@ -78,6 +78,8 @@ class AttendanceTest extends TestCase
                 ->component('attendance/index')
                 ->has('records.data', 1)
                 ->where('records.data.0.id', $scheduled->id)
+                ->where('records.status_summary.completed', 1)
+                ->where('records.status_summary.total', 1)
             );
 
         $this->actingAs($supervisor->user()->firstOrFail())

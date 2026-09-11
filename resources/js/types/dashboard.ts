@@ -19,6 +19,9 @@ export type DashboardEmployee = {
     name: string;
     employee_number?: string;
     job_title?: string | null;
+    visits_today?: number;
+    in_progress?: number;
+    attention?: number;
 };
 
 export type DashboardVisit = {
@@ -47,6 +50,14 @@ export type DashboardActivityItem = {
     occurred_on: string;
 };
 
+export type DashboardTaskProgress = {
+    completed: number;
+    pending: number;
+    skipped: number;
+    total: number;
+    percent: number;
+};
+
 export type DashboardActiveVisit = {
     id: number;
     scheduled_visit_id: number;
@@ -55,6 +66,7 @@ export type DashboardActiveVisit = {
     location_status: string;
     location_status_label: string;
     client: DashboardClient;
+    task_progress?: DashboardTaskProgress;
 };
 
 export type ClockInVisitSummary = {
@@ -63,6 +75,29 @@ export type ClockInVisitSummary = {
     service_type: string;
     time_label: string;
     client: DashboardClient;
+};
+
+export type TodayVisitSummary = {
+    scheduled: number;
+    in_progress: number;
+    completed: number;
+    attention: number;
+    total: number;
+};
+
+export type ComplianceHealth = {
+    valid: number;
+    expiring_soon: number;
+    expired: number;
+    missing: number;
+    tracked: number;
+    valid_percent: number;
+};
+
+export type VisitTrendPoint = {
+    date: string;
+    label: string;
+    value: number;
 };
 
 export type DashboardPayload = {
@@ -79,4 +114,8 @@ export type DashboardPayload = {
     active_visit: DashboardActiveVisit | null;
     clock_in_visit: ClockInVisitSummary | null;
     announcements: import('./messaging').AnnouncementRecord[];
+    today_visit_summary: TodayVisitSummary;
+    compliance_health: ComplianceHealth | null;
+    open_exceptions: number;
+    visit_trend: VisitTrendPoint[];
 };
