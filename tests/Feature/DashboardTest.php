@@ -14,6 +14,12 @@ class DashboardTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutVite();
+    }
+
     protected function tearDown(): void
     {
         Carbon::setTestNow();
@@ -132,9 +138,14 @@ class DashboardTest extends TestCase
             ->get(route('attendance.index'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('modules/coming-soon')
-                ->where('title', 'Attendance')
+                ->component('attendance/index')
+                ->has('records.data')
             );
+
+        $this->actingAs($admin)
+            ->get(route('compliance.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('compliance/index'));
 
         $this->actingAs($admin)
             ->get(route('scheduled-visits.index'))

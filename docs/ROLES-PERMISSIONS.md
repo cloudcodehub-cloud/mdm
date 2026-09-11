@@ -8,7 +8,7 @@ Roles live on `users.role` as a PHP backed enum (`App\Enums\Role`):
 - **SUPERVISOR** — assigned DSPs/clients, visits, attendance, exceptions, progress, handovers, operational issues
 - **DSP** — own schedule, assigned client selection, clock-in/out, care-plan tasks, notes/measurements, mandatory skip reasons, visit summary/handover
 
-This is the simplest Laravel approach for three application roles. Authorization is enforced with Policies (`EmployeePolicy`, `ClientPolicy`, `ClientDspAssignmentPolicy`, `EmployeeCredentialPolicy`, `EmployeeTrainingPolicy`, `ClientAuthorizationPolicy`, `ShiftTemplatePolicy`, `CarePlanPolicy`, `CarePlanTaskTemplatePolicy`, `ScheduledVisitPolicy`, `SkipReasonPolicy`, `VisitPolicy`, `VisitExceptionPolicy`) and `User` helpers (`isAdmin()`, `isSupervisor()`, `isDsp()`). Never rely on UI hiding alone.
+This is the simplest Laravel approach for three application roles. Authorization is enforced with Policies (`EmployeePolicy`, `ClientPolicy`, `ClientDspAssignmentPolicy`, `EmployeeCredentialPolicy`, `EmployeeTrainingPolicy`, `ClientAuthorizationPolicy`, `ShiftTemplatePolicy`, `CarePlanPolicy`, `CarePlanTaskTemplatePolicy`, `ScheduledVisitPolicy`, `SkipReasonPolicy`, `VisitPolicy`, `VisitExceptionPolicy`, `AttendanceCorrectionPolicy`) and `User` helpers (`isAdmin()`, `isSupervisor()`, `isDsp()`). Never rely on UI hiding alone.
 
 ## Phase 1A policy scope
 
@@ -49,6 +49,12 @@ This is the simplest Laravel approach for three application roles. Authorization
 - Admin: view the operations board; view and review/resolve any visit exception; view the supervisor directory and each supervisor's caseload board. Cannot alter DSP clock events.
 - Supervisor: view the operations board, visits, and exceptions only for their caseload (assigned DSPs, assigned clients, or supervisor of record). May mark in-scope exceptions reviewed or resolved. Cannot open another supervisor's caseload. Cannot clock in, complete tasks, or clock out.
 - DSP: cannot open operations, exception review, or the supervisor directory.
+
+## Phase 3D-1 attendance and compliance
+
+- Admin: view all attendance; approve/reject correction requests; apply corrections directly with a mandatory reason. Original visit clock timestamps are immutable. View all workforce credential/training compliance.
+- Supervisor: view attendance and submit correction requests only for permitted caseload. Cannot approve corrections or change clock events. View compliance for assigned DSP reports.
+- DSP: view own attendance only. Cannot submit or review corrections. No Compliance module access; own credentials/training remain on the employee profile.
 
 Module-specific permissions for payroll and messaging will be added with those features.
 

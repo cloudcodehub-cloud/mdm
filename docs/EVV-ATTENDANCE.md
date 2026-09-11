@@ -32,7 +32,7 @@ Admins and in-scope supervisors manage scheduled visits from the Scheduled Visit
 
 `visit_exceptions` is the structured exception foundation for this workflow (`gps_unavailable`, `client_refusal`, `critical_task_skipped`, `other_visit_exception`). Exception statuses are `open`, `reviewed`, and `resolved`. Supervisors and admins review and resolve in-scope exceptions without changing the original exception message, type, or context.
 
-Clock-out, skip-reason capture, handover notes, and exception creation are implemented for the DSP active-visit workflow. Attendance, payroll, and messaging remain later work.
+Clock-out, skip-reason capture, handover notes, and exception creation are implemented for the DSP active-visit workflow. Payroll and messaging remain later work.
 
 `skip_reasons` is the lookup used when a DSP skips a care-plan task:
 
@@ -46,9 +46,18 @@ Clock-out, skip-reason capture, handover notes, and exception creation are imple
 | Equipment or supply unavailable | `equipment_unavailable` | No |
 | Other | `other` | Yes (enforced with visit tasks) |
 
+## Phase 3D-1 attendance
+
+Attendance is derived from scheduled visits, visit clock records, visit exceptions, and approved corrections. It is not a Sandata export.
+
+- Admin sees all attendance. Supervisors see permitted caseload only. DSPs see their own records.
+- Times and late/missed status use the organization operational timezone from SettingsService. Stored UTC clock timestamps are not rewritten.
+- Statuses: Scheduled, In Progress, Completed, Late, Missed, Exception, Manually Adjusted. Late is past scheduled start without a visit and still within the window; Missed is past scheduled end without a visit. There is no grace-period engine.
+- Supervisors cannot edit clock-in/out. They may submit a correction request (corrected start and/or end, mandatory reason, optional note) for an in-scope visit.
+- Admin approves or rejects pending requests, or applies a correction directly with a mandatory reason. Original DSP clock events remain on the visit. Approved values are stored on `attendance_corrections` and used for effective duration.
+
 ## Planned later
 
-- Attendance
 - Payroll-hour exports
 - Messaging
 

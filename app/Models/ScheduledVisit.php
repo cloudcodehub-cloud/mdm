@@ -9,9 +9,11 @@ use Carbon\CarbonInterface;
 use Database\Factories\ScheduledVisitFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use RuntimeException;
@@ -36,6 +38,7 @@ use RuntimeException;
  * @property-read Employee|null $supervisor
  * @property-read ShiftTemplate|null $shiftTemplate
  * @property-read Visit|null $visit
+ * @property-read Collection<int, AttendanceCorrection> $attendanceCorrections
  *
  * @method static Builder<static> scheduled()
  * @method static Builder<static> open()
@@ -119,6 +122,14 @@ class ScheduledVisit extends Model
     public function visit(): HasOne
     {
         return $this->hasOne(Visit::class);
+    }
+
+    /**
+     * @return HasMany<AttendanceCorrection, $this>
+     */
+    public function attendanceCorrections(): HasMany
+    {
+        return $this->hasMany(AttendanceCorrection::class)->orderByDesc('id');
     }
 
     public function usesShiftTemplate(): bool

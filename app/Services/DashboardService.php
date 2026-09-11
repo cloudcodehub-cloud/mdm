@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\AuthorizationStatus;
 use App\Enums\ClientStatus;
+use App\Enums\ComplianceDateStatus;
 use App\Enums\CredentialStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\JobType;
@@ -19,7 +20,6 @@ use App\Models\ScheduledVisit;
 use App\Models\User;
 use App\Support\DirectoryPresenter;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class DashboardService
@@ -27,6 +27,7 @@ class DashboardService
     public function __construct(
         private VisitClockInService $clockIn,
         private SettingsService $settings,
+        private ComplianceStatusService $compliance,
     ) {}
 
     /**
@@ -62,8 +63,8 @@ class DashboardService
             return [
                 $this->metric('active_employees', 'Active employees', Employee::query()->where('employment_status', EmploymentStatus::Active)->count(), 'Currently employed workforce'),
                 $this->metric('active_clients', 'Active clients', Client::query()->where('status', ClientStatus::Active)->count(), 'Clients currently receiving services'),
-                $this->metric('visits_today', 'Scheduled visits today', $this->visitQuery($user)->whereDate('service_date', $today)->count(), 'Open scheduled visits for today'),
-                $this->metric('compliance_attention', 'Credential attention', $this->credentialAttentionQuery($user, $employee)->count() + $this->trainingAttentionQuery($user, $employee)->count(), 'Expired, pending, or in-progress items'),
+                $this->metric('visits_today', 'Scheduled visits today', $this->visitQuery($user)->whereDate('service_date', $today)->count(), 'Open scheduled visits for today', route('attendance.index', ['from' => $today, 'to' => $today])),
+                $this->metric('compliance_attention', 'Credential attention', $this->credentialAttentionQuery($user, $employee)->count() + $this->trainingAttentionQuery($user, $employee)->count(), 'Expired, pending, or in-progress items', route('compliance.index')),
             ];
         }
 
@@ -71,28 +72,29 @@ class DashboardService
             return [
                 $this->metric('assigned_dsps', 'Assigned DSPs', $this->dspReportsQuery($employee)->count(), 'Active DSP reports'),
                 $this->metric('assigned_clients', 'Assigned clients', $this->supervisedClientsQuery($employee)->count(), 'Active clients on this caseload'),
-                $this->metric('visits_today', "Today's scheduled visits", $this->visitQuery($user)->whereDate('service_date', $today)->count(), 'Visits for assigned DSPs or clients'),
+                $this->metric('visits_today', "Today's scheduled visits", $this->visitQuery($user)->whereDate('service_date', $today)->count(), 'Visits for assigned DSPs or clients', route('attendance.index', ['from' => $today, 'to' => $today])),
                 $this->metric('operational_attention', 'Attention items', count($this->attentionItems($user, $employee)), 'Compliance and schedule exceptions'),
             ];
         }
 
         return [
-            $this->metric('visits_today', "Today's visits", $this->visitQuery($user)->whereDate('service_date', $today)->count(), 'Your scheduled visits for today'),
+            $this->metric('visits_today', "Today's visits", $this->visitQuery($user)->whereDate('service_date', $today)->count(), 'Your scheduled visits for today', route('attendance.index', ['from' => $today, 'to' => $today])),
             $this->metric('upcoming_visits', 'Upcoming visits', $this->visitQuery($user)->whereDate('service_date', '>', $today)->count(), 'Later scheduled visits'),
             $this->metric('assigned_clients', 'Assigned clients', $employee === null ? 0 : $employee->clientAssignments()->active()->count(), 'Active client assignments'),
         ];
     }
 
     /**
-     * @return array{key: string, label: string, value: int, hint: string}
+     * @return array{key: string, label: string, value: int, hint: string, href: string|null}
      */
-    private function metric(string $key, string $label, int $value, string $hint): array
+    private function metric(string $key, string $label, int $value, string $hint, ?string $href = null): array
     {
         return [
             'key' => $key,
             'label' => $label,
             'value' => $value,
             'hint' => $hint,
+            'href' => $href,
         ];
     }
 
@@ -229,20 +231,24 @@ class DashboardService
         $items = [];
 
         foreach ($this->credentialAttentionQuery($user, $employee)->with('employee')->limit(8)->get() as $credential) {
+            $status = $this->compliance->forCredential($credential);
             $items[] = [
                 'id' => 'credential-'.$credential->id,
-                'tone' => $credential->status === CredentialStatus::Expired ? 'danger' : 'warning',
+                'tone' => $status === ComplianceDateStatus::Expired ? 'danger' : 'warning',
                 'title' => $credential->name,
-                'detail' => $credential->employee->full_name.' · '.$credential->status->value,
+                'detail' => $credential->employee->full_name.' · '.$status->label(),
+                'href' => route('employees.show', $credential->employee_id),
             ];
         }
 
         foreach ($this->trainingAttentionQuery($user, $employee)->with('employee')->limit(6)->get() as $training) {
+            $status = $this->compliance->forTraining($training);
             $items[] = [
                 'id' => 'training-'.$training->id,
-                'tone' => 'warning',
+                'tone' => $status === ComplianceDateStatus::Expired ? 'danger' : 'warning',
                 'title' => $training->title,
-                'detail' => $training->employee->full_name.' · '.$training->status->value,
+                'detail' => $training->employee->full_name.' · '.$status->label(),
+                'href' => route('employees.show', $training->employee_id),
             ];
         }
 
@@ -384,15 +390,28 @@ class DashboardService
                 }
             })
             ->where(function (Builder $builder): void {
-                $builder->whereIn('status', [
-                    CredentialStatus::Pending,
-                    CredentialStatus::Expired,
-                    CredentialStatus::Revoked,
-                ])->orWhere(function (Builder $inner): void {
-                    $inner->where('status', CredentialStatus::Active)
-                        ->whereNotNull('expires_on')
-                        ->whereDate('expires_on', '<=', Carbon::parse($this->settings->today())->addDays($this->settings->credentialExpiringSoonDays())->toDateString());
-                });
+                $today = $this->settings->today();
+                $soon = $this->settings->localNow()->addDays($this->settings->credentialExpiringSoonDays())->toDateString();
+
+                $builder->where('status', CredentialStatus::Revoked)
+                    ->orWhere('status', CredentialStatus::Pending)
+                    ->orWhere(function (Builder $expired): void {
+                        $expired->whereNotNull('expires_on')
+                            ->whereDate('expires_on', '<', $this->settings->today());
+                    })
+                    ->orWhere(function (Builder $storedExpired) use ($today): void {
+                        $storedExpired->where('status', CredentialStatus::Expired)
+                            ->where(function (Builder $inner) use ($today): void {
+                                $inner->whereNull('expires_on')
+                                    ->orWhereDate('expires_on', '<', $today);
+                            });
+                    })
+                    ->orWhere(function (Builder $soonQuery) use ($today, $soon): void {
+                        $soonQuery->where('status', CredentialStatus::Active)
+                            ->whereNotNull('expires_on')
+                            ->whereDate('expires_on', '>=', $today)
+                            ->whereDate('expires_on', '<=', $soon);
+                    });
             })
             ->orderBy('expires_on');
 
@@ -416,14 +435,24 @@ class DashboardService
                 }
             })
             ->where(function (Builder $builder): void {
-                $builder->whereIn('status', [
-                    TrainingStatus::InProgress,
-                    TrainingStatus::Expired,
-                ])->orWhere(function (Builder $inner): void {
-                    $inner->where('status', TrainingStatus::Completed)
-                        ->whereNotNull('expires_on')
-                        ->whereDate('expires_on', '<', $this->settings->today());
-                });
+                $today = $this->settings->today();
+                $soon = $this->settings->localNow()->addDays($this->settings->credentialExpiringSoonDays())->toDateString();
+
+                $builder->where('status', TrainingStatus::InProgress)
+                    ->orWhere(function (Builder $expired): void {
+                        $expired->whereNotNull('expires_on')
+                            ->whereDate('expires_on', '<', $this->settings->today());
+                    })
+                    ->orWhere(function (Builder $storedExpired): void {
+                        $storedExpired->where('status', TrainingStatus::Expired)
+                            ->whereNull('expires_on');
+                    })
+                    ->orWhere(function (Builder $soonQuery) use ($today, $soon): void {
+                        $soonQuery->where('status', TrainingStatus::Completed)
+                            ->whereNotNull('expires_on')
+                            ->whereDate('expires_on', '>=', $today)
+                            ->whereDate('expires_on', '<=', $soon);
+                    });
             });
     }
 

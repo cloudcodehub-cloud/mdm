@@ -5,6 +5,7 @@ export type DashboardMetric = {
     label: string;
     value: number;
     hint: string;
+    href?: string | null;
 };
 
 export type DashboardClient = {
@@ -36,6 +37,7 @@ export type DashboardAttentionItem = {
     tone: 'danger' | 'warning' | 'neutral';
     title: string;
     detail: string;
+    href?: string | null;
 };
 
 export type DashboardActivityItem = {

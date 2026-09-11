@@ -39,6 +39,7 @@ export default function Dashboard({
                             label={metric.label}
                             value={metric.value}
                             hint={metric.hint}
+                            href={metric.href}
                         />
                     ))}
                 </div>

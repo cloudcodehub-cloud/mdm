@@ -47,6 +47,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, VisitTask> $tasks
  * @property-read Collection<int, VisitTask> $visitTasks
  * @property-read Collection<int, VisitException> $exceptions
+ * @property-read Collection<int, AttendanceCorrection> $attendanceCorrections
  *
  * @method static Builder<static> inProgress()
  * @method static Builder<static> visibleTo(User $user)
@@ -143,6 +144,14 @@ class Visit extends Model
     public function exceptions(): HasMany
     {
         return $this->hasMany(VisitException::class)->orderBy('id');
+    }
+
+    /**
+     * @return HasMany<AttendanceCorrection, $this>
+     */
+    public function attendanceCorrections(): HasMany
+    {
+        return $this->hasMany(AttendanceCorrection::class)->orderByDesc('id');
     }
 
     public function isInProgress(): bool

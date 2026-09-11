@@ -1,16 +1,19 @@
+import { Link } from '@inertiajs/react';
 import { cn } from '@/lib/utils';
 
 export function StatCard({
     label,
     value,
     hint,
+    href,
 }: {
     label: string;
     value: number;
     hint: string;
+    href?: string | null;
 }) {
-    return (
-        <div className="surface-panel p-4 transition-colors duration-200">
+    const body = (
+        <>
             <p className="text-muted-foreground text-xs tracking-wide uppercase">
                 {label}
             </p>
@@ -18,6 +21,23 @@ export function StatCard({
                 {value}
             </p>
             <p className="text-muted-foreground mt-1 text-xs">{hint}</p>
+        </>
+    );
+
+    if (href) {
+        return (
+            <Link
+                href={href}
+                className="surface-panel hover:bg-muted/30 block p-4 transition-colors duration-200"
+            >
+                {body}
+            </Link>
+        );
+    }
+
+    return (
+        <div className="surface-panel p-4 transition-colors duration-200">
+            {body}
         </div>
     );
 }

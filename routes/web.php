@@ -1,8 +1,11 @@
 <?php
 
+use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\AttendanceCorrectionController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientDspAssignmentController;
 use App\Http\Controllers\ComingSoonController;
+use App\Http\Controllers\ComplianceController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\ScheduledVisitController;
@@ -49,8 +52,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('supervisors', [SupervisorController::class, 'index'])->name('supervisors.index');
     Route::get('supervisors/{employee}', [SupervisorController::class, 'show'])->name('supervisors.show');
-    Route::get('attendance', ComingSoonController::class)->name('attendance.index');
-    Route::get('compliance', ComingSoonController::class)->name('compliance.index');
+    Route::get('attendance', [AttendanceController::class, 'index'])->name('attendance.index');
+    Route::get('attendance/{scheduled_visit}', [AttendanceController::class, 'show'])->name('attendance.show');
+    Route::post('attendance/{scheduled_visit}/corrections', [AttendanceCorrectionController::class, 'store'])
+        ->name('attendance.corrections.store');
+    Route::patch('attendance/corrections/{attendance_correction}/approve', [AttendanceCorrectionController::class, 'approve'])
+        ->name('attendance.corrections.approve');
+    Route::patch('attendance/corrections/{attendance_correction}/reject', [AttendanceCorrectionController::class, 'reject'])
+        ->name('attendance.corrections.reject');
+    Route::get('compliance', ComplianceController::class)->name('compliance.index');
     Route::get('reports', ComingSoonController::class)->name('reports.index');
     Route::get('messages', ComingSoonController::class)->name('messages.index');
 });

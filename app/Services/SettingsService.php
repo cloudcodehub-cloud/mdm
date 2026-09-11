@@ -124,6 +124,37 @@ class SettingsService
             : $local->format('H:i');
     }
 
+    public function formatDateTime(CarbonInterface $value): string
+    {
+        return $this->formatDate($value).' '.$this->formatTime($value);
+    }
+
+    public function datetimeLocalValue(?CarbonInterface $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return $this->toLocal($value)->format('Y-m-d\TH:i');
+    }
+
+    public function parseLocalDateTime(?string $value): ?CarbonInterface
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        $normalized = str_replace('T', ' ', $value);
+
+        return Carbon::parse($normalized, $this->timezone())->utc()->toImmutable();
+    }
+
     public function updateAppearance(User $user, Appearance $appearance): User
     {
         $user->appearance = $appearance;
