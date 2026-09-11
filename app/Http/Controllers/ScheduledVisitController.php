@@ -3,15 +3,26 @@
 namespace App\Http\Controllers;
 
 use App\Enums\ScheduledVisitStatus;
+use App\Enums\SeriesEditScope;
+use App\Enums\VisitAssignmentKind;
+use App\Enums\VisitRecurrencePattern;
 use App\Enums\VisitStatus;
+use App\Http\Requests\DuplicateScheduledVisitRequest;
+use App\Http\Requests\ReplaceScheduledVisitRequest;
 use App\Http\Requests\ScheduledVisitRequest;
 use App\Models\CareService;
 use App\Models\Client;
+use App\Models\Employee;
 use App\Models\ScheduledVisit;
 use App\Models\User;
+use App\Services\ScheduleCalendarService;
 use App\Services\ScheduledVisitService;
+use App\Services\SchedulingMatchService;
+use App\Services\SchedulingNotificationService;
+use App\Services\VisitAssignmentService;
 use App\Services\VisitCarePreviewService;
 use App\Services\VisitClockInService;
+use App\Services\VisitSeriesService;
 use App\Support\CareServicePresenter;
 use App\Support\DirectoryPresenter;
 use Illuminate\Http\JsonResponse;
@@ -33,6 +44,8 @@ class ScheduledVisitController extends Controller
             'client_id' => $request->string('client_id')->value(),
             'employee_id' => $request->string('employee_id')->value(),
             'status' => $request->string('status')->value(),
+            'supervisor_id' => $request->string('supervisor_id')->value(),
+            'service_type' => $request->string('service_type')->value(),
         ];
 
         $visits = ScheduledVisit::query()
@@ -53,6 +66,14 @@ class ScheduledVisitController extends Controller
             ->when(
                 $filters['status'] !== '' && ScheduledVisitStatus::tryFrom($filters['status']),
                 fn ($query) => $query->where('status', $filters['status']),
+            )
+            ->when(
+                $filters['supervisor_id'] !== '' && ctype_digit($filters['supervisor_id']),
+                fn ($query) => $query->where('supervisor_id', (int) $filters['supervisor_id']),
+            )
+            ->when(
+                $filters['service_type'] !== '',
+                fn ($query) => $query->where('service_type', $filters['service_type']),
             )
             ->orderByDesc('service_date')
             ->orderByDesc('id')
@@ -80,11 +101,69 @@ class ScheduledVisitController extends Controller
             'filters' => $filters,
             'clients' => DirectoryPresenter::clientFilterOptions($user),
             'dsps' => DirectoryPresenter::dspFilterOptions($user),
+            'supervisors' => DirectoryPresenter::supervisorOptions(),
+            'can' => [
+                'create' => $user->can('create', ScheduledVisit::class),
+                'filter_dsps' => ! $user->isDsp(),
+            ],
+            'board_url' => route('scheduled-visits.calendar'),
+        ]);
+    }
+
+    public function calendar(Request $request, ScheduleCalendarService $calendar): Response
+    {
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+        $this->authorize('viewAny', ScheduledVisit::class);
+
+        $filters = [
+            'client_id' => $request->string('client_id')->value(),
+            'employee_id' => $request->string('employee_id')->value(),
+            'supervisor_id' => $request->string('supervisor_id')->value(),
+            'service_type' => $request->string('service_type')->value(),
+            'status' => $request->string('status')->value(),
+        ];
+
+        return Inertia::render('scheduled-visits/calendar', [
+            'board' => $calendar->view(
+                $user,
+                $request->string('view')->value() ?: 'week',
+                $request->string('group')->value() ?: 'dsp',
+                $request->string('date')->value(),
+                $filters,
+            ),
+            'filters' => $filters,
+            'clients' => DirectoryPresenter::clientFilterOptions($user),
+            'dsps' => DirectoryPresenter::dspFilterOptions($user),
+            'supervisors' => DirectoryPresenter::supervisorOptions(),
             'can' => [
                 'create' => $user->can('create', ScheduledVisit::class),
                 'filter_dsps' => ! $user->isDsp(),
             ],
         ]);
+    }
+
+    public function availabilityBoard(Request $request, SchedulingMatchService $matching): JsonResponse
+    {
+        $this->authorize('create', ScheduledVisit::class);
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+
+        $existing = null;
+        $existingId = (int) $request->integer('scheduled_visit_id');
+
+        if ($existingId > 0) {
+            $existing = ScheduledVisit::query()->find($existingId);
+        }
+
+        return response()->json($matching->board($user, [
+            'client_id' => $request->integer('client_id'),
+            'service_date' => $request->string('service_date')->value(),
+            'starts_at' => $request->string('starts_at')->value(),
+            'ends_at' => $request->string('ends_at')->value(),
+            'shift_template_id' => $request->input('shift_template_id'),
+            'service_type' => $request->string('service_type')->value(),
+        ], $existing));
     }
 
     public function create(Request $request): Response
@@ -123,9 +202,25 @@ class ScheduledVisitController extends Controller
         ]);
     }
 
-    public function store(ScheduledVisitRequest $request, ScheduledVisitService $visits): RedirectResponse
+    public function store(ScheduledVisitRequest $request, ScheduledVisitService $visits, VisitSeriesService $series): RedirectResponse
     {
-        $visit = $visits->create($request->validated());
+        $data = $request->validated();
+
+        if ($request->boolean('repeat')) {
+            $created = $series->createSeries($data, [
+                'pattern' => $data['repeat_pattern'] ?? VisitRecurrencePattern::Weekly->value,
+                'interval' => $data['repeat_interval'] ?? 1,
+                'ends_on' => $data['repeat_ends_on'] ?? null,
+                'occurrence_count' => $data['repeat_count'] ?? null,
+                'days_of_week' => $data['repeat_days'] ?? null,
+            ]);
+            $visit = $created[0] ?? $visits->create($data);
+            Inertia::flash('toast', ['type' => 'success', 'message' => __('Recurring visits scheduled.')]);
+
+            return redirect()->route('scheduled-visits.show', $visit);
+        }
+
+        $visit = $visits->create($data);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Scheduled visit created.')]);
 
@@ -142,6 +237,11 @@ class ScheduledVisitController extends Controller
             'supervisor',
             'shiftTemplate',
             'oneOffTasks',
+            'series',
+            'assignments.employee',
+            'assignments.assignedBy',
+            'createdBy',
+            'updatedBy',
             'visit.tasks.skipReason',
             'visit.exceptions.visitTask',
             'visit.client',
@@ -177,11 +277,14 @@ class ScheduledVisitController extends Controller
             ],
             'can' => [
                 'update' => $canUpdate,
+                'replace' => $canUpdate,
+                'duplicate' => $user?->can('create', ScheduledVisit::class) ?? false,
                 'clock_in' => ($user?->can('clockIn', $scheduledVisit) ?? false)
                     && $phase === 'eligible',
             ],
             'activeVisit' => $activeVisit,
             'clockInVisit' => $clockInVisit,
+            'dsps' => $user !== null ? DirectoryPresenter::schedulingDspOptions($user, $scheduledVisit->employee) : [],
         ]);
     }
 
@@ -200,13 +303,94 @@ class ScheduledVisitController extends Controller
         ]);
     }
 
-    public function update(ScheduledVisitRequest $request, ScheduledVisit $scheduledVisit, ScheduledVisitService $visits): RedirectResponse
-    {
-        $visits->update($scheduledVisit, $request->validated());
+    public function update(
+        ScheduledVisitRequest $request,
+        ScheduledVisit $scheduledVisit,
+        ScheduledVisitService $visits,
+        VisitSeriesService $series,
+    ): RedirectResponse {
+        $data = $request->validated();
+        $scope = SeriesEditScope::tryFrom((string) $request->input('series_scope', 'this')) ?? SeriesEditScope::This;
+
+        if ($data['status'] === ScheduledVisitStatus::Cancelled->value && $scheduledVisit->series_id !== null) {
+            $series->cancelWithScope(
+                $scheduledVisit,
+                $scope,
+                $data['cancellation_reason'] ?? null,
+                $request->user()?->id,
+            );
+        } elseif ($scheduledVisit->series_id !== null && $scope !== SeriesEditScope::This) {
+            $series->updateWithScope($scheduledVisit, $data, $scope);
+        } else {
+            $visits->update($scheduledVisit, $data);
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Scheduled visit updated.')]);
 
         return redirect()->route('scheduled-visits.show', $scheduledVisit);
+    }
+
+    public function duplicate(
+        DuplicateScheduledVisitRequest $request,
+        ScheduledVisit $scheduledVisit,
+        ScheduledVisitService $visits,
+    ): RedirectResponse {
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+
+        $date = match ($request->string('preset')->value()) {
+            'tomorrow' => $scheduledVisit->service_date->addDay()->toDateString(),
+            'next_week' => $scheduledVisit->service_date->addWeek()->toDateString(),
+            default => (string) $request->string('service_date')->value(),
+        };
+
+        $copy = $visits->duplicate($scheduledVisit, $date, $user);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Visit duplicated.')]);
+
+        return redirect()->route('scheduled-visits.show', $copy);
+    }
+
+    public function replace(
+        ReplaceScheduledVisitRequest $request,
+        ScheduledVisit $scheduledVisit,
+        VisitAssignmentService $assignments,
+        SchedulingNotificationService $notifications,
+        ScheduledVisitService $visits,
+    ): RedirectResponse {
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+
+        $replacement = Employee::query()->findOrFail((int) $request->integer('employee_id'));
+        $previous = $scheduledVisit->employee;
+        $payload = [
+            'client_id' => $scheduledVisit->client_id,
+            'employee_id' => $replacement->id,
+            'supervisor_id' => $scheduledVisit->supervisor_id,
+            'shift_template_id' => $scheduledVisit->shift_template_id,
+            'service_date' => $scheduledVisit->service_date->toDateString(),
+            'starts_at' => $scheduledVisit->starts_at,
+            'ends_at' => $scheduledVisit->ends_at,
+            'service_type' => $scheduledVisit->service_type,
+            'status' => $scheduledVisit->status->value,
+        ];
+
+        $visits->assertSchedulable($user, $payload, $scheduledVisit);
+
+        $visit = $assignments->reassign(
+            $scheduledVisit->loadMissing('shiftTemplate'),
+            $replacement,
+            $user,
+            $request->string('reason')->value(),
+            VisitAssignmentKind::Replacement,
+            $request->boolean('mark_call_off'),
+        );
+
+        $notifications->visitReassigned($visit, $previous);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('DSP replacement saved.')]);
+
+        return redirect()->route('scheduled-visits.show', $visit);
     }
 
     /**
@@ -223,6 +407,8 @@ class ScheduledVisitController extends Controller
                 CareService::query()->active()->orderBy('sort_order')->orderBy('name')->get()
             ),
             'care_preview_url' => route('scheduled-visits.care-preview'),
+            'availability_board_url' => route('scheduled-visits.availability-board'),
+            'is_admin' => $user->isAdmin(),
         ];
     }
 

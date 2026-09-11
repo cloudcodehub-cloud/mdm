@@ -1,7 +1,9 @@
 import {
     CalendarClock,
+    CalendarDays,
     ChartColumn,
     ClipboardCheck,
+    Clock3,
     HeartHandshake,
     LayoutDashboard,
     ListChecks,
@@ -51,6 +53,18 @@ export const mainNavigation: RoleNavItem[] = [
         href: scheduledVisits(),
         icon: CalendarClock,
         roles: ['ADMIN', 'SUPERVISOR', 'DSP'],
+    },
+    {
+        title: 'My Availability',
+        href: '/my-availability',
+        icon: Clock3,
+        roles: ['DSP'],
+    },
+    {
+        title: 'Availability Requests',
+        href: '/availability-requests',
+        icon: CalendarDays,
+        roles: ['ADMIN', 'SUPERVISOR'],
     },
     {
         title: 'Operations',

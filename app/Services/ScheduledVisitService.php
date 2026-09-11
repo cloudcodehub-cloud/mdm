@@ -5,12 +5,14 @@ namespace App\Services;
 use App\Enums\ClientStatus;
 use App\Enums\JobType;
 use App\Enums\ScheduledVisitStatus;
+use App\Enums\VisitAssignmentKind;
 use App\Models\Client;
 use App\Models\Employee;
 use App\Models\ScheduledVisit;
 use App\Models\ScheduledVisitOneOffTask;
 use App\Models\ShiftTemplate;
 use App\Models\User;
+use App\Support\ClockMinutes;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +20,12 @@ use Illuminate\Validation\ValidationException;
 
 class ScheduledVisitService
 {
+    public function __construct(
+        private SchedulingMatchService $matching,
+        private DspAvailabilityService $availability,
+        private VisitAssignmentService $assignments,
+        private SchedulingNotificationService $notifications,
+    ) {}
     /**
      * @param  array<string, mixed>  $data
      */
@@ -26,6 +34,16 @@ class ScheduledVisitService
         return DB::transaction(function () use ($data): ScheduledVisit {
             $visit = ScheduledVisit::query()->create($this->persistable($data));
             $this->syncOneOffs($visit, is_array($data['one_off_tasks'] ?? null) ? $data['one_off_tasks'] : []);
+
+            $actor = $this->actor($data);
+
+            if ($actor !== null) {
+                $this->assignments->recordInitial($visit, $actor);
+
+                if (($data['notify'] ?? true) !== false) {
+                    $this->notifications->visitAssigned($visit);
+                }
+            }
 
             return $visit->fresh(['oneOffTasks']) ?? $visit;
         });
@@ -41,13 +59,25 @@ class ScheduledVisitService
                 $data['status'] = ScheduledVisitStatus::InProgress->value;
             }
 
+            $before = [
+                'employee_id' => $visit->employee_id,
+                'service_date' => $visit->service_date->toDateString(),
+                'starts_at' => $visit->starts_at,
+                'ends_at' => $visit->ends_at,
+                'shift_template_id' => $visit->shift_template_id,
+                'status' => $visit->status,
+            ];
+
             $visit->update($this->persistable($data));
 
             if ($visit->visit === null && array_key_exists('one_off_tasks', $data)) {
                 $this->syncOneOffs($visit, is_array($data['one_off_tasks']) ? $data['one_off_tasks'] : []);
             }
 
-            return $visit->fresh(['oneOffTasks']) ?? $visit;
+            $visit = $visit->fresh(['oneOffTasks', 'employee', 'client', 'shiftTemplate']) ?? $visit;
+            $this->afterUpdate($visit, $before, $data);
+
+            return $visit;
         });
     }
 
@@ -135,6 +165,31 @@ class ScheduledVisitService
         }
 
         $this->assertNoOverlap($data, $existing);
+
+        if ($status === ScheduledVisitStatus::Scheduled) {
+            $requested = $this->matching->requestedWindow($data);
+
+            if ($requested !== null) {
+                $block = $this->availability->hardBlockReason(
+                    $dsp,
+                    (string) $data['service_date'],
+                    $requested,
+                    $existing?->id,
+                );
+
+                if ($block !== null) {
+                    throw ValidationException::withMessages([
+                        'employee_id' => $block,
+                    ]);
+                }
+            }
+
+            if (! $user->isAdmin() && ! $this->matching->dspIsEligible($user, $client, $dsp)) {
+                throw ValidationException::withMessages([
+                    'employee_id' => 'This DSP is not in the eligible pool for the client’s assigned supervisor.',
+                ]);
+            }
+        }
     }
 
     /**
@@ -201,7 +256,7 @@ class ScheduledVisitService
     {
         $shiftTemplateId = filled($data['shift_template_id'] ?? null) ? (int) $data['shift_template_id'] : null;
 
-        return [
+        $payload = [
             'client_id' => (int) $data['client_id'],
             'employee_id' => (int) $data['employee_id'],
             'supervisor_id' => filled($data['supervisor_id'] ?? null) ? (int) $data['supervisor_id'] : null,
@@ -213,6 +268,24 @@ class ScheduledVisitService
             'status' => $data['status'],
             'notes' => $data['notes'] ?? null,
         ];
+
+        if (array_key_exists('series_id', $data)) {
+            $payload['series_id'] = filled($data['series_id']) ? (int) $data['series_id'] : null;
+        }
+
+        if (filled($data['created_by_user_id'] ?? null)) {
+            $payload['created_by_user_id'] = (int) $data['created_by_user_id'];
+        }
+
+        if (filled($data['updated_by_user_id'] ?? null)) {
+            $payload['updated_by_user_id'] = (int) $data['updated_by_user_id'];
+        }
+
+        if (array_key_exists('cancellation_reason', $data)) {
+            $payload['cancellation_reason'] = $data['cancellation_reason'];
+        }
+
+        return $payload;
     }
 
     /**
@@ -318,5 +391,97 @@ class ScheduledVisitService
         }
 
         return substr($time, 0, 8);
+    }
+
+    public function duplicate(ScheduledVisit $source, string $serviceDate, User $actor): ScheduledVisit
+    {
+        $source->loadMissing('oneOffTasks');
+
+        $payload = [
+            'client_id' => $source->client_id,
+            'employee_id' => $source->employee_id,
+            'supervisor_id' => $source->supervisor_id,
+            'shift_template_id' => $source->shift_template_id,
+            'service_date' => $serviceDate,
+            'starts_at' => $source->starts_at,
+            'ends_at' => $source->ends_at,
+            'service_type' => $source->service_type,
+            'status' => ScheduledVisitStatus::Scheduled->value,
+            'notes' => $source->notes,
+            'one_off_tasks' => $source->oneOffTasks->map(fn ($task): array => [
+                'title' => $task->title,
+                'instructions' => $task->instructions,
+                'note_required' => $task->note_required,
+                'is_required' => $task->is_required,
+            ])->all(),
+            'created_by_user_id' => $actor->id,
+            'updated_by_user_id' => $actor->id,
+        ];
+
+        $this->assertSchedulable($actor, $payload);
+
+        return $this->create($payload);
+    }
+
+    /**
+     * @param  array<string, mixed>  $before
+     * @param  array<string, mixed>  $data
+     */
+    private function afterUpdate(ScheduledVisit $visit, array $before, array $data): void
+    {
+        $actor = $this->actor($data);
+
+        if ((int) $before['employee_id'] !== $visit->employee_id && $actor !== null) {
+            $previous = Employee::query()->find((int) $before['employee_id']);
+            $current = $visit->assignments()->whereNull('ended_at')->first();
+
+            if ($current !== null) {
+                $current->forceFill(['ended_at' => now()])->save();
+            }
+
+            \App\Models\ScheduledVisitAssignment::query()->create([
+                'scheduled_visit_id' => $visit->id,
+                'employee_id' => $visit->employee_id,
+                'assigned_by_user_id' => $actor->id,
+                'kind' => VisitAssignmentKind::Reassigned,
+                'reason' => (string) ($data['replacement_reason'] ?? 'DSP changed on edit'),
+                'assigned_at' => now(),
+            ]);
+
+            if ($previous !== null) {
+                $this->notifications->visitReassigned($visit, $previous);
+            }
+        }
+
+        if ($visit->status === ScheduledVisitStatus::Cancelled && $before['status'] !== ScheduledVisitStatus::Cancelled) {
+            $visit->forceFill([
+                'cancelled_at' => $visit->cancelled_at ?? now(),
+                'cancelled_by_user_id' => $data['cancelled_by_user_id'] ?? $data['updated_by_user_id'] ?? null,
+            ])->save();
+            $this->notifications->visitCancelled($visit);
+        }
+
+        $timeChanged = $before['service_date'] !== $visit->service_date->toDateString()
+            || $before['starts_at'] !== $visit->starts_at
+            || $before['ends_at'] !== $visit->ends_at
+            || $before['shift_template_id'] !== $visit->shift_template_id;
+
+        if ($timeChanged && $visit->status === ScheduledVisitStatus::Scheduled) {
+            $this->notifications->visitTimeChanged($visit);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function actor(array $data): ?User
+    {
+        $id = $data['created_by_user_id'] ?? $data['updated_by_user_id'] ?? null;
+
+        if (! is_numeric($id)) {
+            return null;
+        }
+
+        return User::query()->find((int) $id);
     }
 }

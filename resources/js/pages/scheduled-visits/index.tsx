@@ -43,8 +43,22 @@ export default function ScheduledVisitsIndex({
                         </p>
                     </div>
                     {can.create && (
-                        <Button asChild>
-                            <Link href={create()}>Add Scheduled Visit</Link>
+                        <div className="flex gap-2">
+                            <Button asChild variant="secondary">
+                                <Link href="/scheduled-visits/calendar">
+                                    Calendar / Schedule Board
+                                </Link>
+                            </Button>
+                            <Button asChild>
+                                <Link href={create()}>Add Scheduled Visit</Link>
+                            </Button>
+                        </div>
+                    )}
+                    {!can.create && (
+                        <Button asChild variant="secondary">
+                            <Link href="/scheduled-visits/calendar">
+                                Calendar / Schedule Board
+                            </Link>
                         </Button>
                     )}
                 </div>

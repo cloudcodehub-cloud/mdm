@@ -3,6 +3,7 @@
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AttendanceCorrectionController;
+use App\Http\Controllers\AvailabilityRequestController;
 use App\Http\Controllers\CarePlanController;
 use App\Http\Controllers\CareServiceController;
 use App\Http\Controllers\ClientCareSetupController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientDspAssignmentController;
 use App\Http\Controllers\ComplianceController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DspAvailabilityController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
@@ -56,7 +58,29 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('scheduled-visits/care-preview', [ScheduledVisitController::class, 'carePreview'])
         ->name('scheduled-visits.care-preview');
+    Route::get('scheduled-visits/availability-board', [ScheduledVisitController::class, 'availabilityBoard'])
+        ->name('scheduled-visits.availability-board');
+    Route::get('scheduled-visits/calendar', [ScheduledVisitController::class, 'calendar'])
+        ->name('scheduled-visits.calendar');
     Route::resource('scheduled-visits', ScheduledVisitController::class)->except(['destroy']);
+    Route::post('scheduled-visits/{scheduled_visit}/duplicate', [ScheduledVisitController::class, 'duplicate'])
+        ->name('scheduled-visits.duplicate');
+    Route::post('scheduled-visits/{scheduled_visit}/replace', [ScheduledVisitController::class, 'replace'])
+        ->name('scheduled-visits.replace');
+
+    Route::get('my-availability', [DspAvailabilityController::class, 'index'])->name('my-availability.index');
+    Route::post('my-availability/requests', [DspAvailabilityController::class, 'store'])->name('my-availability.store');
+    Route::post('my-availability/time-off', [DspAvailabilityController::class, 'storeTimeOff'])->name('my-availability.time-off');
+    Route::post('availability/override-weekly', [DspAvailabilityController::class, 'overrideWeekly'])->name('availability.override-weekly');
+    Route::get('availability-requests', [AvailabilityRequestController::class, 'index'])->name('availability-requests.index');
+    Route::patch('availability-requests/{availability_request}/approve', [AvailabilityRequestController::class, 'approve'])
+        ->name('availability-requests.approve');
+    Route::patch('availability-requests/{availability_request}/reject', [AvailabilityRequestController::class, 'reject'])
+        ->name('availability-requests.reject');
+    Route::patch('time-off/{time_off}/approve', [AvailabilityRequestController::class, 'approveTimeOff'])
+        ->name('time-off.approve');
+    Route::patch('time-off/{time_off}/reject', [AvailabilityRequestController::class, 'rejectTimeOff'])
+        ->name('time-off.reject');
     Route::post('scheduled-visits/{scheduled_visit}/clock-in', [VisitClockInController::class, 'store'])
         ->name('scheduled-visits.clock-in');
     Route::get('visits/{visit}', [VisitController::class, 'show'])->name('visits.show');

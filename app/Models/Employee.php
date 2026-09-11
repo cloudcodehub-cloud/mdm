@@ -54,6 +54,10 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, ScheduledVisit> $scheduledVisits
  * @property-read Collection<int, Visit> $visits
  * @property-read Collection<int, ScheduledVisit> $supervisedVisits
+ * @property-read Collection<int, DspWeeklyAvailability> $weeklyAvailabilities
+ * @property-read Collection<int, DspAvailabilityException> $availabilityExceptions
+ * @property-read Collection<int, DspAvailabilityRequest> $availabilityRequests
+ * @property-read Collection<int, EmployeeTimeOff> $timeOff
  *
  * @method static Builder<static> visibleTo(User $user)
  * @method static Builder<static> search(?string $term)
@@ -194,6 +198,38 @@ class Employee extends Model
     public function supervisedVisits(): HasMany
     {
         return $this->hasMany(ScheduledVisit::class, 'supervisor_id');
+    }
+
+    /**
+     * @return HasMany<DspWeeklyAvailability, $this>
+     */
+    public function weeklyAvailabilities(): HasMany
+    {
+        return $this->hasMany(DspWeeklyAvailability::class)->orderBy('weekday');
+    }
+
+    /**
+     * @return HasMany<DspAvailabilityException, $this>
+     */
+    public function availabilityExceptions(): HasMany
+    {
+        return $this->hasMany(DspAvailabilityException::class)->orderByDesc('exception_date');
+    }
+
+    /**
+     * @return HasMany<DspAvailabilityRequest, $this>
+     */
+    public function availabilityRequests(): HasMany
+    {
+        return $this->hasMany(DspAvailabilityRequest::class)->orderByDesc('submitted_at');
+    }
+
+    /**
+     * @return HasMany<EmployeeTimeOff, $this>
+     */
+    public function timeOff(): HasMany
+    {
+        return $this->hasMany(EmployeeTimeOff::class)->orderByDesc('starts_on');
     }
 
     /**

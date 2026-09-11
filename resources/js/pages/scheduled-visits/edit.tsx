@@ -23,6 +23,8 @@ export default function ScheduledVisitsEdit({
     shiftTemplates,
     catalog_services = [],
     care_preview_url,
+    availability_board_url,
+    is_admin = false,
 }: {
     visit: VisitRecord;
     clients: ClientScheduleOption[];
@@ -31,6 +33,8 @@ export default function ScheduledVisitsEdit({
     shiftTemplates: ShiftTemplateOption[];
     catalog_services?: OptionItem[];
     care_preview_url?: string;
+    availability_board_url?: string;
+    is_admin?: boolean;
 }) {
     return (
         <>
@@ -59,6 +63,8 @@ export default function ScheduledVisitsEdit({
                     shiftTemplates={shiftTemplates}
                     catalogServices={catalog_services}
                     carePreviewUrl={care_preview_url}
+                    availabilityBoardUrl={availability_board_url}
+                    isAdmin={is_admin}
                     submitLabel="Save changes"
                 />
             </div>

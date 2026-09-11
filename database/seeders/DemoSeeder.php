@@ -20,6 +20,7 @@ use App\Models\CareService;
 use App\Models\Client;
 use App\Models\ClientAuthorization;
 use App\Models\ClientDspAssignment;
+use App\Models\DspWeeklyAvailability;
 use App\Models\Employee;
 use App\Models\EmployeeCredential;
 use App\Models\EmployeeTraining;
@@ -280,6 +281,7 @@ class DemoSeeder extends Seeder
         $this->seedAuthorizations($elena, $theo, $harper, $malik, $ruby, $ian);
         $this->seedClientServices($elena, $theo, $harper, $malik, $ruby);
         $this->seedCarePlans($elena, $theo, $harper, $malik, $ruby, $ian);
+        $this->seedDspAvailability($maya, $luis, $nina, $owen);
         $this->seedScheduledVisits($jordan, $priya, $maya, $luis, $nina, $elena, $theo, $harper, $malik, $ruby);
 
         if ($admin->employee()->exists()) {
@@ -601,6 +603,31 @@ class DemoSeeder extends Seeder
         $ianPlan = $this->createCarePlan($ian, 'Ian Brooks Closed Care Plan', '2024-01-01', '2025-06-30', CarePlanStatus::Inactive, 'Historical plan retained with inactive client.');
         $this->createTask($ianPlan, 'Personal care support', TaskRecurrence::Daily, 1);
         $this->createTask($ianPlan, 'Weekly wellness walk', TaskRecurrence::Weekly, 2);
+    }
+
+    private function seedDspAvailability(Employee $maya, Employee $luis, Employee $nina, Employee $owen): void
+    {
+        foreach ([$maya, $luis, $nina] as $dsp) {
+            for ($weekday = 0; $weekday <= 6; $weekday++) {
+                $closed = $dsp->is($nina) && $weekday === 3;
+                DspWeeklyAvailability::query()->create([
+                    'employee_id' => $dsp->id,
+                    'weekday' => $weekday,
+                    'is_available' => ! $closed,
+                    'starts_at' => $closed ? null : '00:00:00',
+                    'ends_at' => $closed ? null : '00:00:00',
+                    'preferred_daypart' => $dsp->is($luis) ? 'evening' : 'morning',
+                ]);
+            }
+        }
+
+        DspWeeklyAvailability::query()->create([
+            'employee_id' => $owen->id,
+            'weekday' => 1,
+            'is_available' => true,
+            'starts_at' => '07:00:00',
+            'ends_at' => '15:00:00',
+        ]);
     }
 
     private function seedScheduledVisits(

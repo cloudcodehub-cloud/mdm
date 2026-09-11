@@ -1,5 +1,16 @@
 # Upgrade notes
 
+## Phase 5B — Scheduling and workforce orchestration
+
+- Scheduling is workforce/date/time driven. Client → assigned service → date and requested window → the client’s assigned Supervisor → eligible DSP availability and workload.
+- Supervisor normally comes from the client profile. Admin may override only as an exception.
+- Availability and leave/time off are separate. Approved leave makes a DSP unavailable on the board without payroll or accrual logic.
+- DSP availability changes require approval. Approved changes that collide with scheduled visits flag those visits; they do not silently reassign anyone.
+- Task recurrence and visit recurrence are separate engines. Care-plan preview never creates `visit_tasks` and never decides who can work a shift.
+- Recurring series keep historical integrity: completed and in-progress visits are not rewritten. Series edits support this visit, this and future, or the entire remaining series.
+- Reassignment preserves original assignment history, including call-off/replacement reason.
+- Calendar/Schedule Board supports day/week/month and DSP vs client coverage views. Drag-and-drop is deferred until base scheduling is stable.
+
 ## Phase 5A — Care workflow and task catalog
 
 - Service is a care/program umbrella. Task is the actual DSP work. Services do not own recurrence or visit schedules.

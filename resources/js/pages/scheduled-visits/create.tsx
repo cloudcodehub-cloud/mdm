@@ -20,6 +20,8 @@ export default function ScheduledVisitsCreate({
     shiftTemplates,
     catalog_services = [],
     care_preview_url,
+    availability_board_url,
+    is_admin = false,
 }: {
     clients: ClientScheduleOption[];
     dsps: DspScheduleOption[];
@@ -27,6 +29,8 @@ export default function ScheduledVisitsCreate({
     shiftTemplates: ShiftTemplateOption[];
     catalog_services?: OptionItem[];
     care_preview_url?: string;
+    availability_board_url?: string;
+    is_admin?: boolean;
 }) {
     return (
         <>
@@ -54,6 +58,8 @@ export default function ScheduledVisitsCreate({
                     shiftTemplates={shiftTemplates}
                     catalogServices={catalog_services}
                     carePreviewUrl={care_preview_url}
+                    availabilityBoardUrl={availability_board_url}
+                    isAdmin={is_admin}
                     submitLabel="Create scheduled visit"
                 />
             </div>

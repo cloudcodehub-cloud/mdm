@@ -317,6 +317,9 @@ final class DirectoryPresenter
             'employee_id' => $visit->employee_id,
             'shift_name' => $visit->shiftTemplate?->name,
             'supervisor_name' => $visit->supervisor?->full_name,
+            'needs_attention' => $visit->needs_attention,
+            'attention_reason' => $visit->attention_reason,
+            'series_id' => $visit->series_id,
         ];
     }
 
@@ -360,6 +363,27 @@ final class DirectoryPresenter
                     'is_required' => $task->is_required,
                 ]))
                 : [],
+            'series' => $visit->series === null ? null : [
+                'id' => $visit->series->id,
+                'pattern' => $visit->series->pattern->value,
+                'starts_on' => self::date($visit->series->starts_on),
+                'ends_on' => self::date($visit->series->ends_on),
+            ],
+            'assignments' => $visit->relationLoaded('assignments')
+                ? self::values($visit->assignments->map(fn ($row): array => [
+                    'id' => $row->id,
+                    'employee_name' => $row->employee->full_name,
+                    'kind' => $row->kind->value,
+                    'reason' => $row->reason,
+                    'assigned_at' => $row->assigned_at->toDateTimeString(),
+                    'ended_at' => $row->ended_at?->toDateTimeString(),
+                    'assigned_by' => $row->assignedBy?->name,
+                ]))
+                : [],
+            'created_by_name' => $visit->createdBy?->name,
+            'updated_by_name' => $visit->updatedBy?->name,
+            'cancellation_reason' => $visit->cancellation_reason,
+            'replacement_reason' => $visit->replacement_reason,
         ];
     }
 
@@ -693,7 +717,7 @@ final class DirectoryPresenter
     public static function schedulingClientOptions(User $user): array
     {
         return self::values(Client::query()
-            ->with(['careServices' => fn ($query) => $query->active()])
+            ->with(['supervisor', 'careServices' => fn ($query) => $query->active()])
             ->visibleTo($user)
             ->where('status', ClientStatus::Active)
             ->orderBy('last_name')
@@ -704,6 +728,7 @@ final class DirectoryPresenter
                 'name' => $client->full_name,
                 'client_number' => $client->client_number,
                 'supervisor_id' => $client->supervisor_id,
+                'supervisor_name' => $client->supervisor?->full_name,
                 'services' => CareServicePresenter::options($client->careServices),
             ]));
     }

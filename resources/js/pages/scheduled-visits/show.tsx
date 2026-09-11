@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Form, Head, Link, usePage } from '@inertiajs/react';
 import { ClockInAction } from '@/components/mdm/clock-in-action';
-import { StatusBadge } from '@/components/mdm/directory';
+import { StatusBadge, controlClassName } from '@/components/mdm/directory';
 import { IdentityHeader } from '@/components/mdm/identity-header';
 import { Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
@@ -15,18 +15,20 @@ import {
 } from '@/routes/scheduled-visits';
 import { show as showVisit } from '@/routes/visits';
 import type { ClockInVisitSummary, DashboardActiveVisit } from '@/types/dashboard';
-import type { VisitRecord } from '@/types/directory';
+import type { DspScheduleOption, VisitRecord } from '@/types/directory';
 
 export default function ScheduledVisitsShow({
     visit,
     can,
     activeVisit,
     clockInVisit,
+    dsps = [],
 }: {
     visit: VisitRecord;
-    can: { update: boolean; clock_in: boolean };
+    can: { update: boolean; clock_in: boolean; duplicate?: boolean; replace?: boolean };
     activeVisit: DashboardActiveVisit | null;
     clockInVisit: ClockInVisitSummary | null;
+    dsps?: DspScheduleOption[];
 }) {
     const role = usePage().props.auth.user.role;
     const canOpenDirectories = role === 'ADMIN' || role === 'SUPERVISOR';
@@ -58,12 +60,23 @@ export default function ScheduledVisitsShow({
                         </>
                     }
                     actions={
-                        can.update || visit.recorded_visit ? (
+                        can.update || can.duplicate || visit.recorded_visit ? (
                             <>
                                 {can.update && (
                                     <Button asChild variant="secondary">
                                         <Link href={edit(visit.id)}>Edit</Link>
                                     </Button>
+                                )}
+                                {can.duplicate && (
+                                    <Form
+                                        action={`/scheduled-visits/${visit.id}/duplicate`}
+                                        method="post"
+                                    >
+                                        <input type="hidden" name="preset" value="next_week" />
+                                        <Button type="submit" variant="outline">
+                                            Same day next week
+                                        </Button>
+                                    </Form>
                                 )}
                                 {visit.visit_phase === 'completed' &&
                                     visit.recorded_visit && (
@@ -94,6 +107,12 @@ export default function ScheduledVisitsShow({
                         ) : undefined
                     }
                 />
+
+                {visit.needs_attention && (
+                    <p className="border-warning/40 bg-warning/10 rounded-md border px-3 py-2 text-sm">
+                        {visit.attention_reason ?? 'This visit needs staffing attention.'}
+                    </p>
+                )}
 
                 {role === 'DSP' && visit.visit_phase !== 'completed' && (
                     <ClockInAction
@@ -271,6 +290,62 @@ export default function ScheduledVisitsShow({
                         )}
                     </Panel>
                 </div>
+
+                {can.replace && (
+                    <Panel title="Replace DSP">
+                        <Form
+                            action={`/scheduled-visits/${visit.id}/replace`}
+                            method="post"
+                            className="grid gap-3 md:grid-cols-2"
+                        >
+                            <select
+                                name="employee_id"
+                                required
+                                className={controlClassName}
+                                defaultValue=""
+                            >
+                                <option value="">Select replacement DSP</option>
+                                {dsps
+                                    .filter((dsp) => dsp.id !== visit.employee_id)
+                                    .map((dsp) => (
+                                        <option key={dsp.id} value={dsp.id}>
+                                            {dsp.name}
+                                        </option>
+                                    ))}
+                            </select>
+                            <input
+                                name="reason"
+                                placeholder="Call-off / replacement reason"
+                                required
+                                className={controlClassName}
+                            />
+                            <label className="flex items-center gap-2 text-sm">
+                                <input type="checkbox" name="mark_call_off" value="1" />
+                                Mark original DSP unavailable for this window
+                            </label>
+                            <Button type="submit">Assign replacement</Button>
+                        </Form>
+                        <p className="text-muted-foreground mt-2 text-xs">
+                            Original assignment history is kept. Use the
+                            availability board when creating a new visit if you
+                            need a visual comparison.
+                        </p>
+                    </Panel>
+                )}
+
+                {(visit.assignments?.length ?? 0) > 0 && (
+                    <Panel title="Assignment history">
+                        <ul className="space-y-2 text-sm">
+                            {visit.assignments?.map((row) => (
+                                <li key={row.id}>
+                                    {row.employee_name} · {row.kind}
+                                    {row.reason ? ` · ${row.reason}` : ''}
+                                    {row.ended_at ? ' (ended)' : ''}
+                                </li>
+                            ))}
+                        </ul>
+                    </Panel>
+                )}
             </div>
         </>
     );

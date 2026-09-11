@@ -30,6 +30,15 @@ use RuntimeException;
  * @property string $service_type
  * @property ScheduledVisitStatus $status
  * @property string|null $notes
+ * @property int|null $series_id
+ * @property int|null $created_by_user_id
+ * @property int|null $updated_by_user_id
+ * @property bool $needs_attention
+ * @property string|null $attention_reason
+ * @property Carbon|null $cancelled_at
+ * @property int|null $cancelled_by_user_id
+ * @property string|null $cancellation_reason
+ * @property string|null $replacement_reason
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Client $client
@@ -37,8 +46,10 @@ use RuntimeException;
  * @property-read Employee $dsp
  * @property-read Employee|null $supervisor
  * @property-read ShiftTemplate|null $shiftTemplate
+ * @property-read ScheduledVisitSeries|null $series
  * @property-read Collection<int, ScheduledVisitOneOffTask> $oneOffTasks
  * @property-read Collection<int, AttendanceCorrection> $attendanceCorrections
+ * @property-read Collection<int, ScheduledVisitAssignment> $assignments
  *
  * @method static Builder<static> scheduled()
  * @method static Builder<static> open()
@@ -55,6 +66,15 @@ use RuntimeException;
     'service_type',
     'status',
     'notes',
+    'series_id',
+    'created_by_user_id',
+    'updated_by_user_id',
+    'needs_attention',
+    'attention_reason',
+    'cancelled_at',
+    'cancelled_by_user_id',
+    'cancellation_reason',
+    'replacement_reason',
 ])]
 class ScheduledVisit extends Model
 {
@@ -69,6 +89,8 @@ class ScheduledVisit extends Model
         return [
             'service_date' => 'date',
             'status' => ScheduledVisitStatus::class,
+            'needs_attention' => 'boolean',
+            'cancelled_at' => 'datetime',
         ];
     }
 
@@ -122,6 +144,41 @@ class ScheduledVisit extends Model
     public function visit(): HasOne
     {
         return $this->hasOne(Visit::class);
+    }
+
+    /**
+     * @return HasMany<ScheduledVisitOneOffTask, $this>
+     */
+    /**
+     * @return BelongsTo<ScheduledVisitSeries, $this>
+     */
+    public function series(): BelongsTo
+    {
+        return $this->belongsTo(ScheduledVisitSeries::class, 'series_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function updatedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by_user_id');
+    }
+
+    /**
+     * @return HasMany<ScheduledVisitAssignment, $this>
+     */
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(ScheduledVisitAssignment::class)->orderByDesc('assigned_at')->orderByDesc('id');
     }
 
     /**
@@ -188,6 +245,18 @@ class ScheduledVisit extends Model
         }
 
         throw new RuntimeException('Scheduled visit is missing both explicit end time and a shift template.');
+    }
+
+    public function isHistorical(): bool
+    {
+        return $this->status === ScheduledVisitStatus::Completed
+            || $this->status === ScheduledVisitStatus::InProgress
+            || $this->visit !== null;
+    }
+
+    public function durationMinutes(): int
+    {
+        return (int) $this->startsAtOn()->diffInMinutes($this->endsAtOn());
     }
 
     public function isEligibleToStart(?CarbonInterface $now = null): bool

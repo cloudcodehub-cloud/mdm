@@ -3,6 +3,9 @@
 namespace App\Http\Requests;
 
 use App\Enums\ScheduledVisitStatus;
+use App\Enums\SeriesEditScope;
+use App\Enums\VisitRecurrencePattern;
+use App\Models\Client;
 use App\Models\ScheduledVisit;
 use App\Services\ScheduledVisitService;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -44,13 +47,34 @@ class ScheduledVisitRequest extends FormRequest
             $endsAt = null;
         }
 
-        $this->merge([
-            'supervisor_id' => $this->blankToNull($this->input('supervisor_id')),
+        $supervisorId = $this->blankToNull($this->input('supervisor_id'));
+        $clientId = $this->input('client_id');
+
+        if (is_numeric($clientId)) {
+            $client = Client::query()->find((int) $clientId);
+            $user = $this->user();
+
+            if ($client !== null && ($user === null || ! $user->isAdmin() || $supervisorId === null)) {
+                $supervisorId = $client->supervisor_id;
+            }
+        }
+
+        $merge = [
+            'supervisor_id' => $supervisorId,
             'shift_template_id' => $shiftTemplateId,
             'starts_at' => $this->normalizeTime($startsAt),
             'ends_at' => $this->normalizeTime($endsAt),
             'notes' => $this->blankToNull($this->input('notes')),
-        ]);
+            'cancellation_reason' => $this->blankToNull($this->input('cancellation_reason')),
+            'updated_by_user_id' => $this->user()?->id,
+            'repeat' => filter_var($this->input('repeat'), FILTER_VALIDATE_BOOLEAN),
+        ];
+
+        if ($this->isMethod('post')) {
+            $merge['created_by_user_id'] = $this->user()?->id;
+        }
+
+        $this->merge($merge);
     }
 
     /**
@@ -73,6 +97,17 @@ class ScheduledVisitRequest extends FormRequest
                 ScheduledVisitStatus::Completed,
             ])],
             'notes' => ['nullable', 'string'],
+            'cancellation_reason' => ['nullable', 'string'],
+            'series_scope' => ['nullable', Rule::enum(SeriesEditScope::class)],
+            'repeat' => ['sometimes', 'boolean'],
+            'repeat_pattern' => ['nullable', Rule::enum(VisitRecurrencePattern::class)],
+            'repeat_interval' => ['nullable', 'integer', 'min:1', 'max:8'],
+            'repeat_ends_on' => ['nullable', 'date', 'after_or_equal:service_date'],
+            'repeat_count' => ['nullable', 'integer', 'min:2', 'max:26'],
+            'repeat_days' => ['nullable', 'array'],
+            'repeat_days.*' => ['integer', 'min:0', 'max:6'],
+            'created_by_user_id' => ['nullable', 'integer'],
+            'updated_by_user_id' => ['nullable', 'integer'],
             'one_off_tasks' => ['sometimes', 'array'],
             'one_off_tasks.*.id' => ['nullable', 'integer'],
             'one_off_tasks.*.title' => ['nullable', 'string', 'max:255'],

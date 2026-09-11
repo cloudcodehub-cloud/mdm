@@ -213,6 +213,17 @@ export type VisitRecord = {
     active_visit_id?: number | null;
     visit_phase?: 'upcoming' | 'eligible' | 'active' | 'completed' | 'cancelled';
     start_unavailable_reason?: string | null;
+    needs_attention?: boolean;
+    attention_reason?: string | null;
+    series_id?: number | null;
+    assignments?: Array<{
+        id: number;
+        employee_name: string;
+        kind: string;
+        reason: string | null;
+        assigned_at?: string | null;
+        ended_at?: string | null;
+    }>;
     one_off_tasks?: Array<{
         id?: number;
         title: string;
@@ -252,6 +263,7 @@ export type DspScheduleOption = OptionItem & {
 export type ClientScheduleOption = OptionItem & {
     client_number: string;
     supervisor_id?: number | null;
+    supervisor_name?: string | null;
     services?: Array<{ id: number; name: string; slug: string }>;
 };
 
