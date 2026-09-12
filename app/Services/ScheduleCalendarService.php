@@ -6,6 +6,7 @@ use App\Enums\ScheduledVisitStatus;
 use App\Models\ScheduledVisit;
 use App\Models\User;
 use App\Support\DirectoryPresenter;
+use App\Support\WeekBoundary;
 use Illuminate\Support\Carbon;
 
 class ScheduleCalendarService
@@ -16,12 +17,15 @@ class ScheduleCalendarService
      */
     public function view(User $user, string $view, string $group, string $anchor, array $filters): array
     {
-        $day = Carbon::parse($anchor !== '' ? $anchor : app(SettingsService::class)->today())->startOfDay();
+        $settings = app(SettingsService::class);
+        $day = Carbon::parse($anchor !== '' ? $anchor : $settings->today())->startOfDay();
+        $resolvedView = in_array($view, ['day', 'week', 'month'], true) ? $view : 'week';
+        $firstDay = WeekBoundary::normalize((int) $settings->current()->first_day_of_week);
 
-        [$start, $end] = match ($view) {
-            'day' => [$day, $day],
+        [$start, $end] = match ($resolvedView) {
+            'day' => [$day, $day->copy()],
             'month' => [$day->copy()->startOfMonth(), $day->copy()->endOfMonth()],
-            default => [$day->copy()->startOfWeek(Carbon::SUNDAY), $day->copy()->endOfWeek(Carbon::SATURDAY)],
+            default => WeekBoundary::containing($day, $firstDay),
         };
 
         $visits = ScheduledVisit::query()
@@ -76,11 +80,19 @@ class ScheduleCalendarService
         }
 
         return [
-            'view' => in_array($view, ['day', 'week', 'month'], true) ? $view : 'week',
+            'view' => $resolvedView,
             'group' => $group === 'client' ? 'client' : 'dsp',
             'anchor' => $day->toDateString(),
             'start' => $start->toDateString(),
             'end' => $end->toDateString(),
+            'days' => WeekBoundary::dates($start, $end),
+            'first_day_of_week' => $firstDay,
+            'weekday_labels' => WeekBoundary::weekdayLabels($firstDay),
+            'leading_blanks' => $resolvedView === 'month'
+                ? WeekBoundary::leadingBlanks($start, $firstDay)
+                : 0,
+            'prev_date' => WeekBoundary::shift($resolvedView, $day, -1, $firstDay)->toDateString(),
+            'next_date' => WeekBoundary::shift($resolvedView, $day, 1, $firstDay)->toDateString(),
             'rows' => array_values($rows),
         ];
     }

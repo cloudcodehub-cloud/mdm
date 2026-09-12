@@ -81,6 +81,7 @@ export function DspAvailabilityBoard({
                     <DspCard
                         key={row.id}
                         row={row}
+                        board={board}
                         selected={String(row.id) === employeeId}
                         expanded={selected?.id === row.id}
                         onSelect={() => onSelect(String(row.id))}
@@ -113,11 +114,13 @@ export function DspAvailabilityBoard({
 
 function DspCard({
     row,
+    board,
     selected,
     expanded,
     onSelect,
 }: {
     row: AvailabilityDspRow;
+    board: AvailabilityBoard;
     selected: boolean;
     expanded: boolean;
     onSelect: () => void;
@@ -163,7 +166,11 @@ function DspCard({
                 ))}
             </div>
             <div className="mt-2">
-                <AvailabilityStrip compact={!expanded} segments={row.timeline} />
+                <AvailabilityStrip
+                    compact={!expanded}
+                    segments={row.timeline}
+                    requested={board.requested}
+                />
             </div>
             {expanded && row.warnings.length > 0 && (
                 <ul className="text-warning mt-2 space-y-0.5 text-xs">

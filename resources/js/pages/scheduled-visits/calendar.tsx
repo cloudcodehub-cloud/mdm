@@ -30,11 +30,16 @@ type CalendarRow = {
 
 function datesInRange(start: string, end: string): string[] {
     const days: string[] = [];
-    const cursor = new Date(`${start}T00:00:00`);
-    const last = new Date(`${end}T00:00:00`);
+    const [startYear, startMonth, startDay] = start.split('-').map(Number);
+    const [endYear, endMonth, endDay] = end.split('-').map(Number);
+    const cursor = new Date(startYear, startMonth - 1, startDay);
+    const last = new Date(endYear, endMonth - 1, endDay);
 
     while (cursor <= last) {
-        days.push(cursor.toISOString().slice(0, 10));
+        const year = cursor.getFullYear();
+        const month = String(cursor.getMonth() + 1).padStart(2, '0');
+        const day = String(cursor.getDate()).padStart(2, '0');
+        days.push(`${year}-${month}-${day}`);
         cursor.setDate(cursor.getDate() + 1);
     }
 
@@ -260,20 +265,20 @@ function HourRow({
 }
 
 function MonthGrid({
-    start,
-    end,
+    days,
+    leadingBlanks,
+    weekdayLabels,
     rows,
     group,
 }: {
-    start: string;
-    end: string;
+    days: string[];
+    leadingBlanks: number;
+    weekdayLabels: string[];
     rows: CalendarRow[];
     group: string;
 }) {
-    const days = datesInRange(start, end);
-    const lead = new Date(`${start}T12:00:00`).getDay();
     const cells: Array<string | null> = [
-        ...Array.from({ length: lead }, () => null),
+        ...Array.from({ length: leadingBlanks }, () => null),
         ...days,
     ];
 
@@ -293,7 +298,7 @@ function MonthGrid({
 
     return (
         <div className="grid grid-cols-7 gap-px overflow-hidden rounded-lg border">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label) => (
+            {weekdayLabels.map((label) => (
                 <div
                     key={label}
                     className="bg-muted/40 p-2 text-center text-xs font-medium"
@@ -352,6 +357,12 @@ export default function ScheduledVisitsCalendar({
         anchor: string;
         start: string;
         end: string;
+        days?: string[];
+        first_day_of_week?: number;
+        weekday_labels?: string[];
+        leading_blanks?: number;
+        prev_date?: string;
+        next_date?: string;
         rows: CalendarRow[];
     };
     filters: Record<string, string>;
@@ -360,7 +371,18 @@ export default function ScheduledVisitsCalendar({
     supervisors: OptionItem[];
     can: { create: boolean; filter_dsps?: boolean };
 }) {
-    const days = datesInRange(board.start, board.end);
+    const days = board.days ?? datesInRange(board.start, board.end);
+    const weekdayLabels = board.weekday_labels ?? [
+        'Sun',
+        'Mon',
+        'Tue',
+        'Wed',
+        'Thu',
+        'Fri',
+        'Sat',
+    ];
+    const query = new URLSearchParams(filters).toString();
+    const navSuffix = query === '' ? '' : `&${query}`;
 
     return (
         <>
@@ -377,6 +399,24 @@ export default function ScheduledVisitsCalendar({
                         </p>
                     </div>
                     <div className="flex gap-2">
+                        {board.prev_date && board.next_date && (
+                            <>
+                                <Button asChild variant="outline">
+                                    <Link
+                                        href={`/scheduled-visits/calendar?view=${board.view}&group=${board.group}&date=${board.prev_date}${navSuffix}`}
+                                    >
+                                        Previous
+                                    </Link>
+                                </Button>
+                                <Button asChild variant="outline">
+                                    <Link
+                                        href={`/scheduled-visits/calendar?view=${board.view}&group=${board.group}&date=${board.next_date}${navSuffix}`}
+                                    >
+                                        Next
+                                    </Link>
+                                </Button>
+                            </>
+                        )}
                         <Button asChild variant="secondary">
                             <Link href={visitsIndex()}>List</Link>
                         </Button>
@@ -491,8 +531,9 @@ export default function ScheduledVisitsCalendar({
                     <DayTimetable rows={board.rows} group={board.group} />
                 ) : board.view === 'month' ? (
                     <MonthGrid
-                        start={board.start}
-                        end={board.end}
+                        days={days}
+                        leadingBlanks={board.leading_blanks ?? 0}
+                        weekdayLabels={weekdayLabels}
                         rows={board.rows}
                         group={board.group}
                     />

@@ -1,5 +1,12 @@
 # Upgrade notes
 
+## Phase 5B — Scheduling experience polish
+
+- Care Plan and Scheduled Visit builders expose a persistent live summary.
+- Mobile uses compact Review summary instead of fixed side panel.
+- Multi-service task groups remain visibly tied to Services.
+- Week calendar range and columns use one shared week-boundary rule.
+
 ## Phase 5B — Scheduling workspace refinement
 
 - A visit may contain multiple client-assigned Services. Each selected service is stored on the visit; list labels may join names for display only.

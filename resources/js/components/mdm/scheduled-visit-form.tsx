@@ -3,12 +3,24 @@ import { useEffect, useMemo, useState } from 'react';
 import { DspAvailabilityBoard } from '@/components/mdm/dsp-availability-board';
 import { Field, controlClassName } from '@/components/mdm/directory';
 import {
+    LiveBuildSummary,
+    SummaryChips,
+    SummaryFact,
+    WorkspaceWithSummary,
+} from '@/components/mdm/live-build-summary';
+import {
     VisitCarePlanEditor,
     type OneOffDraft,
     type VisitCareTask,
     type VisitCatalogOption,
 } from '@/components/mdm/visit-care-plan-editor';
 import { Input } from '@/components/ui/input';
+import {
+    compactWindow,
+    focusElement,
+    formatClock,
+    formatShortDate,
+} from '@/lib/schedule-display';
 import type {
     ClientScheduleOption,
     DspScheduleOption,
@@ -249,11 +261,143 @@ export function ScheduledVisitForm({
         setEmployeeId('');
     };
 
+    const selectedServices = clientServices.filter((service) =>
+        serviceIds.includes(service.id),
+    );
+    const includedCount = preview.filter((task) => task.included).length;
+    const excludedCount = preview.filter((task) => !task.included).length;
+    const selectedDsp = board?.dsps.find((row) => String(row.id) === employeeId);
+    const coverageLabel = coverageState(selectedDsp, board);
+    const authorizationItems =
+        board?.authorization?.items ??
+        (board?.authorization
+            ? [{ service: '', message: board.authorization.message }]
+            : []);
+    const compactLine = [
+        selectedServices.length > 0
+            ? `${selectedServices.length} service${selectedServices.length === 1 ? '' : 's'}`
+            : null,
+        `${includedCount + oneOffs.filter((task) => task.title.trim() !== '').length} tasks`,
+        selectedDspName ?? null,
+        requestTimes.starts && requestTimes.ends
+            ? compactWindow(requestTimes.starts, requestTimes.ends)
+            : null,
+    ]
+        .filter(Boolean)
+        .join(' · ') || 'Build this visit';
+
+    const submitActions = (processing: boolean) => (
+        <>
+            <button
+                type="submit"
+                disabled={processing}
+                className="bg-primary text-primary-foreground inline-flex h-9 items-center justify-center rounded-md px-4 text-sm font-medium shadow-xs disabled:opacity-50"
+                onClick={() => setRepeat(false)}
+            >
+                {submitLabel}
+            </button>
+            {method === 'post' && (
+                <button
+                    type="submit"
+                    disabled={processing}
+                    className="border-border inline-flex h-9 items-center justify-center rounded-md border px-4 text-sm font-medium disabled:opacity-50"
+                    onClick={() => setRepeat(true)}
+                >
+                    Schedule & Repeat
+                </button>
+            )}
+        </>
+    );
+
     return (
-        <Form action={action} method={method} className="space-y-4">
+        <Form action={action} method={method}>
             {({ processing, errors }) => (
-                <>
-                    <section className="surface-panel grid gap-3 p-4 md:grid-cols-2 md:p-5">
+                <WorkspaceWithSummary
+                    summary={
+                        <LiveBuildSummary
+                            title="Visit Summary"
+                            compactLine={compactLine}
+                            actions={submitActions(processing)}
+                        >
+                            <SummaryFact
+                                label="Client"
+                                value={selectedClient?.name}
+                                onClick={() => focusElement('client_id')}
+                            />
+                            <SummaryFact
+                                label="Supervisor"
+                                value={supervisorName ?? 'Not assigned'}
+                            />
+                            <SummaryFact
+                                label="Date"
+                                value={formatShortDate(serviceDate)}
+                                onClick={() => focusElement('service_date')}
+                            />
+                            <SummaryFact
+                                label="Window"
+                                value={
+                                    requestTimes.starts && requestTimes.ends
+                                        ? `${formatClock(requestTimes.starts)}–${formatClock(requestTimes.ends)}`
+                                        : '—'
+                                }
+                            />
+                            <div>
+                                <p className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+                                    Services
+                                </p>
+                                <div className="mt-1">
+                                    <SummaryChips
+                                        items={selectedServices.map(
+                                            (service) => service.name,
+                                        )}
+                                        empty="No services selected"
+                                        onSelect={() =>
+                                            focusElement('client_id')
+                                        }
+                                    />
+                                </div>
+                            </div>
+                            <SummaryFact
+                                label="DSP"
+                                value={selectedDspName}
+                            />
+                            <dl className="grid grid-cols-3 gap-2 text-center">
+                                <CountStat
+                                    label="Included"
+                                    value={includedCount}
+                                />
+                                <CountStat
+                                    label="Excluded"
+                                    value={excludedCount}
+                                />
+                                <CountStat
+                                    label="One-off"
+                                    value={oneOffs.filter((task) => task.title.trim() !== '').length}
+                                />
+                            </dl>
+                            <SummaryFact
+                                label="Coverage"
+                                value={coverageLabel}
+                            />
+                            {authorizationItems.length > 0 && (
+                                <div>
+                                    <p className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+                                        Authorization
+                                    </p>
+                                    <ul className="text-warning mt-1 space-y-1 text-xs">
+                                        {authorizationItems.map((item) => (
+                                            <li key={item.message}>
+                                                {item.message}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                        </LiveBuildSummary>
+                    }
+                    main={
+                        <>
+                    <section id="visit-client" className="surface-panel grid gap-3 p-4 md:grid-cols-2 md:p-5">
                         <div className="md:col-span-2">
                             <p className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
                                 1 · Client & Services
@@ -573,10 +717,12 @@ export function ScheduledVisitForm({
                         />
                     )}
 
-                    {board?.authorization && (
-                        <p className="border-warning/40 bg-warning/10 rounded-md border px-3 py-2 text-sm">
-                            {board.authorization.message}
-                        </p>
+                    {authorizationItems.length > 0 && (
+                        <ul className="border-warning/40 bg-warning/10 space-y-1 rounded-md border px-3 py-2 text-sm">
+                            {authorizationItems.map((item) => (
+                                <li key={item.message}>{item.message}</li>
+                            ))}
+                        </ul>
                     )}
 
                     {board && (
@@ -693,36 +839,35 @@ export function ScheduledVisitForm({
                         <p className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
                             6 · Review / Schedule
                         </p>
-                        <dl className="grid gap-1 text-sm md:grid-cols-2">
-                            <div>
-                                <dt className="text-muted-foreground text-xs">
-                                    Client
-                                </dt>
-                                <dd>{selectedClient?.name ?? '—'}</dd>
-                            </div>
-                            <div>
-                                <dt className="text-muted-foreground text-xs">
-                                    Services
-                                </dt>
-                                <dd>{serviceTypeLabel || '—'}</dd>
-                            </div>
-                            <div>
-                                <dt className="text-muted-foreground text-xs">
-                                    Window
-                                </dt>
-                                <dd>
-                                    {serviceDate || '—'} ·{' '}
-                                    {requestTimes.starts || '—'}–
-                                    {requestTimes.ends || '—'}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt className="text-muted-foreground text-xs">
-                                    DSP
-                                </dt>
-                                <dd>{selectedDspName ?? '—'}</dd>
-                            </div>
-                        </dl>
+                        <p className="text-sm font-semibold">
+                            {selectedClient?.name ?? 'Select a client'}
+                        </p>
+                        <p className="text-sm">
+                            {formatShortDate(serviceDate)}
+                            {requestTimes.starts && requestTimes.ends
+                                ? ` · ${formatClock(requestTimes.starts)}–${formatClock(requestTimes.ends)}`
+                                : ''}
+                        </p>
+                        <p className="text-sm">{selectedDspName ?? 'DSP not selected'}</p>
+                        <p className="text-muted-foreground text-sm">
+                            {selectedServices.length} Service
+                            {selectedServices.length === 1 ? '' : 's'} ·{' '}
+                            {includedCount} Tasks Included · {excludedCount}{' '}
+                            Excluded ·{' '}
+                            {
+                                oneOffs.filter((task) => task.title.trim() !== '')
+                                    .length
+                            }{' '}
+                            One-off
+                        </p>
+                        <p className="text-sm">
+                            Authorization:{' '}
+                            {authorizationItems.length === 0
+                                ? 'Clear'
+                                : `${authorizationItems.length} Warning${authorizationItems.length === 1 ? '' : 's'}`}
+                            {' · '}
+                            Coverage: {coverageLabel}
+                        </p>
                     </section>
 
                     {visit && oneOffs.length === 0 && (
@@ -732,29 +877,50 @@ export function ScheduledVisitForm({
                             value=""
                         />
                     )}
-
-                    <div className="sticky-form-actions flex flex-wrap gap-2">
-                        <button
-                            type="submit"
-                            disabled={processing}
-                            className="bg-primary text-primary-foreground inline-flex h-9 items-center rounded-md px-4 text-sm font-medium shadow-xs disabled:opacity-50"
-                            onClick={() => setRepeat(false)}
-                        >
-                            {submitLabel}
-                        </button>
-                        {method === 'post' && (
-                            <button
-                                type="submit"
-                                disabled={processing}
-                                className="border-border inline-flex h-9 items-center rounded-md border px-4 text-sm font-medium disabled:opacity-50"
-                                onClick={() => setRepeat(true)}
-                            >
-                                Schedule & Repeat
-                            </button>
-                        )}
-                    </div>
-                </>
+                        </>
+                    }
+                />
             )}
         </Form>
     );
+}
+
+function CountStat({ label, value }: { label: string; value: number }) {
+    return (
+        <div className="bg-muted/40 rounded-md px-2 py-1.5">
+            <p className="text-sm font-semibold">{value}</p>
+            <p className="text-muted-foreground text-[10px]">{label}</p>
+        </div>
+    );
+}
+
+function coverageState(
+    selected:
+        | {
+              fully_available: boolean;
+              hard_blocked: boolean;
+              availability_confirmed?: boolean;
+          }
+        | undefined,
+    board: AvailabilityBoard | null,
+): string {
+    if (!board) {
+        return 'Awaiting date and time';
+    }
+
+    if (selected?.hard_blocked) {
+        return 'Conflict';
+    }
+
+    if (selected?.fully_available) {
+        return selected.availability_confirmed === false
+            ? 'Unconfirmed'
+            : 'Full';
+    }
+
+    if (board.coverage) {
+        return 'Gap';
+    }
+
+    return selected ? 'Partial' : 'Not selected';
 }

@@ -5,10 +5,12 @@ namespace App\Services;
 use App\Enums\EmploymentStatus;
 use App\Enums\JobType;
 use App\Enums\PreferredDaypart;
+use App\Enums\ScheduledVisitStatus;
 use App\Models\Client;
 use App\Models\ClientDspAssignment;
 use App\Models\Employee;
 use App\Models\ScheduledVisit;
+use App\Models\ShiftTemplate;
 use App\Models\User;
 use App\Support\ClockMinutes;
 use Illuminate\Support\Carbon;
@@ -132,7 +134,7 @@ class SchedulingMatchService
         $ends = $data['ends_at'] ?? null;
 
         if (filled($data['shift_template_id'] ?? null)) {
-            $template = \App\Models\ShiftTemplate::query()->find((int) $data['shift_template_id']);
+            $template = ShiftTemplate::query()->find((int) $data['shift_template_id']);
 
             if ($template === null) {
                 return null;
@@ -158,7 +160,7 @@ class SchedulingMatchService
         $historyCount = ScheduledVisit::query()
             ->where('employee_id', $dsp->id)
             ->where('client_id', $client->id)
-            ->where('status', '!=', \App\Enums\ScheduledVisitStatus::Cancelled)
+            ->where('status', '!=', ScheduledVisitStatus::Cancelled)
             ->count();
         $workload = $this->workload($dsp, $serviceDate);
         $block = $this->availability->hardBlockReason($dsp, $serviceDate, $requested, $exceptVisitId);
@@ -342,7 +344,7 @@ class SchedulingMatchService
     }
 
     /**
-     * @return array{level: string, message: string}|null
+     * @return array{level: string, message: string, items: list<array{level: string, service: string, message: string}>}|null
      */
     public function authorizationWarning(Client $client, string $serviceType, string $serviceDate): ?array
     {
@@ -351,7 +353,7 @@ class SchedulingMatchService
         }
 
         $names = preg_split('/\s*[·,;|]\s*/u', $serviceType) ?: [$serviceType];
-        $messages = [];
+        $items = [];
 
         foreach ($names as $name) {
             $name = trim((string) $name);
@@ -363,38 +365,40 @@ class SchedulingMatchService
             $warning = $this->authorizationWarningForName($client, $name, $serviceDate);
 
             if ($warning !== null) {
-                $messages[] = $warning['message'];
+                $items[$name] = $warning;
             }
         }
 
-        if ($messages === []) {
+        if ($items === []) {
             return null;
         }
 
+        $list = array_values($items);
+
         return [
             'level' => 'warning',
-            'message' => implode(' ', array_unique($messages)),
+            'message' => implode(' ', array_column($list, 'message')),
+            'items' => $list,
         ];
     }
 
     /**
-     * @return array{level: string, message: string}|null
+     * @return array{level: string, service: string, message: string}|null
      */
     private function authorizationWarningForName(Client $client, string $serviceType, string $serviceDate): ?array
     {
         $day = Carbon::parse($serviceDate)->startOfDay();
+        $dateLabel = $day->format('M j');
+        $message = $serviceType.' — no active authorization for '.$dateLabel.'.';
         $matches = $client->authorizations()
             ->whereRaw('lower(service_type) = ?', [mb_strtolower($serviceType)])
             ->get();
 
         if ($matches->isEmpty()) {
-            $any = $client->authorizations()->currentlyActive()->exists();
-
             return [
                 'level' => 'warning',
-                'message' => $any
-                    ? 'No client authorization matches this service on the selected date.'
-                    : 'This client has no matching authorization for the selected service and date.',
+                'service' => $serviceType,
+                'message' => $message,
             ];
         }
 
@@ -406,7 +410,8 @@ class SchedulingMatchService
 
         return [
             'level' => 'warning',
-            'message' => 'The selected service is outside a valid authorization period for this date.',
+            'service' => $serviceType,
+            'message' => $message,
         ];
     }
 

@@ -1,5 +1,11 @@
 import { Form, Head, Link, router, usePage } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
+import {
+    LiveBuildSummary,
+    SummaryChips,
+    SummaryFact,
+    WorkspaceWithSummary,
+} from '@/components/mdm/live-build-summary';
 import { CareMessageDrawer } from '@/components/mdm/care-message-drawer';
 import { CareOverviewPanels } from '@/components/mdm/care-overview';
 import { ConfirmAction } from '@/components/mdm/confirm-action';
@@ -14,6 +20,7 @@ import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { TaskCatalogBuilder } from '@/components/mdm/task-catalog-builder';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { focusElement, recurrenceBreakdown } from '@/lib/schedule-display';
 import { dashboard } from '@/routes';
 import { deactivate } from '@/routes/assignments';
 import {
@@ -494,6 +501,110 @@ function CarePlanTab({
                 </p>
             )}
             {canManage && catalog && (
+                <WorkspaceWithSummary
+                    summary={
+                        <LiveBuildSummary
+                            title="Care Plan Summary"
+                            compactLine={`${selected.length} tasks · ${selected.filter((task) => task.is_required).length} required`}
+                            actions={
+                                <Button
+                                    type="button"
+                                    onClick={save}
+                                    disabled={saving}
+                                >
+                                    Save care-plan tasks
+                                </Button>
+                            }
+                            compactActions={
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={save}
+                                    disabled={saving}
+                                >
+                                    Save
+                                </Button>
+                            }
+                        >
+                            <SummaryFact
+                                label="Client"
+                                value={`${client.name} · ${client.client_number}`}
+                            />
+                            <SummaryFact
+                                label="Supervisor"
+                                value={client.supervisor_name ?? 'Not assigned'}
+                            />
+                            <div>
+                                <p className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+                                    Services
+                                </p>
+                                <div className="mt-1">
+                                    <SummaryChips
+                                        items={(client.care_services ?? []).map(
+                                            (service) => service.name,
+                                        )}
+                                        empty="No assigned services"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+                                    Tasks
+                                </p>
+                                <div className="mt-1">
+                                    <SummaryChips
+                                        items={selected.map((task) => task.title)}
+                                        empty="No tasks selected"
+                                        onSelect={(index) =>
+                                            focusElement(`care-plan-task-${index}`)
+                                        }
+                                    />
+                                </div>
+                            </div>
+                            <dl className="grid grid-cols-3 gap-2 text-center">
+                                <div className="bg-muted/40 rounded-md px-2 py-1.5">
+                                    <p className="text-sm font-semibold">
+                                        {selected.length}
+                                    </p>
+                                    <p className="text-muted-foreground text-[10px]">
+                                        Tasks
+                                    </p>
+                                </div>
+                                <div className="bg-muted/40 rounded-md px-2 py-1.5">
+                                    <p className="text-sm font-semibold">
+                                        {
+                                            selected.filter(
+                                                (task) => task.is_required,
+                                            ).length
+                                        }
+                                    </p>
+                                    <p className="text-muted-foreground text-[10px]">
+                                        Required
+                                    </p>
+                                </div>
+                                <div className="bg-muted/40 rounded-md px-2 py-1.5">
+                                    <p className="text-sm font-semibold">
+                                        {
+                                            selected.filter(
+                                                (task) => task.is_critical,
+                                            ).length
+                                        }
+                                    </p>
+                                    <p className="text-muted-foreground text-[10px]">
+                                        Critical
+                                    </p>
+                                </div>
+                            </dl>
+                            <p className="text-muted-foreground text-xs">
+                                {recurrenceBreakdown(
+                                    selected.map((task) => task.recurrence),
+                                )
+                                    .map((item) => `${item.count} ${item.label}`)
+                                    .join(' · ') || 'No recurrence yet'}
+                            </p>
+                        </LiveBuildSummary>
+                    }
+                    main={
                 <Panel
                     title="Quick setup / Task Catalog"
                     description="Services stay on authorizations. These tasks are the DSP visit checklist."
@@ -502,13 +613,11 @@ function CarePlanTab({
                         catalog={catalog}
                         selected={selected}
                         onChange={setSelected}
+                        stacked
                     />
-                    <div className="mt-4">
-                        <Button type="button" onClick={save} disabled={saving}>
-                            Save care-plan tasks
-                        </Button>
-                    </div>
                 </Panel>
+                    }
+                />
             )}
             {!isDsp &&
                 carePlans.map((plan) => (

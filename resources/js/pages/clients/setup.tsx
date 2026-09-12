@@ -1,9 +1,16 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
+import {
+    LiveBuildSummary,
+    SummaryChips,
+    SummaryFact,
+    WorkspaceWithSummary,
+} from '@/components/mdm/live-build-summary';
 import { OnboardingStepper } from '@/components/mdm/onboarding-stepper';
 import { TaskCatalogBuilder } from '@/components/mdm/task-catalog-builder';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { focusElement, recurrenceBreakdown } from '@/lib/schedule-display';
 import { dashboard } from '@/routes';
 import { index as clientsIndex, show } from '@/routes/clients';
 import type {
@@ -110,6 +117,89 @@ export default function ClientSetup({
         );
     };
 
+    const requiredCount = tasks.filter((task) => task.is_required).length;
+    const criticalCount = tasks.filter((task) => task.is_critical).length;
+    const recurrence = recurrenceBreakdown(tasks.map((task) => task.recurrence));
+    const compactLine = [
+        `${selectedServices.length} service${selectedServices.length === 1 ? '' : 's'}`,
+        `${tasks.length} tasks`,
+        client.name,
+    ].join(' · ');
+
+    const carePlanSummary = (
+        <LiveBuildSummary
+            title="Care Plan Summary"
+            compactLine={compactLine}
+            actions={
+                <>
+                    <Button type="button" onClick={() => setStep(3)}>
+                        Continue to review
+                    </Button>
+                    <Button type="button" variant="secondary" asChild>
+                        <Link href={show(client.id)}>Skip for now</Link>
+                    </Button>
+                </>
+            }
+            compactActions={
+                <Button type="button" size="sm" onClick={() => setStep(3)}>
+                    Continue
+                </Button>
+            }
+        >
+            <SummaryFact label="Client" value={`${client.name} · ${client.client_number}`} />
+            <SummaryFact
+                label="Supervisor"
+                value={client.supervisor_name ?? 'Not assigned'}
+            />
+            <div>
+                <p className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+                    Services
+                </p>
+                <div className="mt-1">
+                    <SummaryChips
+                        items={selectedServices.map((service) => service.name)}
+                        empty="No services selected"
+                    />
+                </div>
+            </div>
+            <div>
+                <p className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+                    Tasks
+                </p>
+                <div className="mt-1">
+                    <SummaryChips
+                        items={tasks.map((task) => task.title)}
+                        empty="No tasks selected"
+                        onSelect={(index) =>
+                            focusElement(`care-plan-task-${index}`)
+                        }
+                    />
+                </div>
+            </div>
+            <dl className="grid grid-cols-3 gap-2 text-center">
+                <div className="bg-muted/40 rounded-md px-2 py-1.5">
+                    <p className="text-sm font-semibold">{tasks.length}</p>
+                    <p className="text-muted-foreground text-[10px]">Tasks</p>
+                </div>
+                <div className="bg-muted/40 rounded-md px-2 py-1.5">
+                    <p className="text-sm font-semibold">{requiredCount}</p>
+                    <p className="text-muted-foreground text-[10px]">Required</p>
+                </div>
+                <div className="bg-muted/40 rounded-md px-2 py-1.5">
+                    <p className="text-sm font-semibold">{criticalCount}</p>
+                    <p className="text-muted-foreground text-[10px]">Critical</p>
+                </div>
+            </dl>
+            {recurrence.length > 0 && (
+                <p className="text-muted-foreground text-xs">
+                    {recurrence
+                        .map((item) => `${item.count} ${item.label}`)
+                        .join(' · ')}
+                </p>
+            )}
+        </LiveBuildSummary>
+    );
+
     return (
         <>
             <Head title={`Set up care · ${client.name}`} />
@@ -135,6 +225,9 @@ export default function ClientSetup({
                 <OnboardingStepper currentStep={step} />
 
                 {step === 2 && (
+                    <WorkspaceWithSummary
+                        summary={carePlanSummary}
+                        main={
                     <div className="space-y-4">
                         <section className="surface-panel p-4 md:p-5">
                             <h2 className="text-sm font-semibold">Services</h2>
@@ -197,26 +290,12 @@ export default function ClientSetup({
                                 relevantItemIds={relevantItemIds}
                                 filterByServices
                                 servicesSelected={serviceIds.length > 0}
+                                stacked
                             />
                         </section>
-                        <div className="sticky-form-actions flex flex-wrap gap-2">
-                            <Button
-                                type="button"
-                                onClick={() => setStep(3)}
-                            >
-                                Continue to review
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                asChild
-                            >
-                                <Link href={show(client.id)}>
-                                    Skip for now
-                                </Link>
-                            </Button>
-                        </div>
                     </div>
+                        }
+                    />
                 )}
 
                 {step === 3 && (

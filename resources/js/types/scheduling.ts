@@ -38,5 +38,9 @@ export type AvailabilityBoard = {
         message: string;
         options: Array<{ employee_id: number; name: string; label: string }>;
     } | null;
-    authorization: { level: string; message: string } | null;
+    authorization: {
+        level: string;
+        message: string;
+        items?: Array<{ service: string; message: string }>;
+    } | null;
 };

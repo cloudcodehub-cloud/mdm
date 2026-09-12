@@ -24,9 +24,11 @@ export const availabilityLegend = [
 export function AvailabilityStrip({
     segments,
     compact = false,
+    requested = null,
 }: {
     segments: TimelineSegment[];
     compact?: boolean;
+    requested?: { start: number; end: number } | null;
 }) {
     const summary = segments
         .map((segment) =>
@@ -35,6 +37,9 @@ export function AvailabilityStrip({
                 : segment.state,
         )
         .join('; ');
+    const windowEnd = requested
+        ? Math.min(1440, requested.end)
+        : null;
 
     return (
         <div
@@ -61,8 +66,19 @@ export function AvailabilityStrip({
                     }}
                 />
             ))}
+            {requested && windowEnd !== null && windowEnd > requested.start && (
+                <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute top-0 z-10 h-full rounded-[3px] border-2 border-teal-500 shadow-[inset_0_0_0_1px_rgba(13,148,136,0.35)]"
+                    style={{
+                        left: `${(requested.start / 1440) * 100}%`,
+                        width: `${((windowEnd - requested.start) / 1440) * 100}%`,
+                    }}
+                    title="Requested visit window"
+                />
+            )}
             {!compact && (
-                <div className="text-muted-foreground pointer-events-none absolute inset-x-0 bottom-0 flex justify-between px-1 text-[10px]">
+                <div className="text-muted-foreground pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-between px-1 text-[10px]">
                     <span>12a</span>
                     <span>6a</span>
                     <span>12p</span>

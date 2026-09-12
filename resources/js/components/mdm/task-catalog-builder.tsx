@@ -44,6 +44,7 @@ export function TaskCatalogBuilder({
     relevantItemIds,
     filterByServices = false,
     servicesSelected = true,
+    stacked = false,
 }: {
     catalog: TaskCatalogPayload;
     selected: CarePlanTaskDraft[];
@@ -52,6 +53,7 @@ export function TaskCatalogBuilder({
     relevantItemIds?: number[];
     filterByServices?: boolean;
     servicesSelected?: boolean;
+    stacked?: boolean;
 }) {
     const [query, setQuery] = useState('');
     const [category, setCategory] = useState<string>('all');
@@ -139,7 +141,14 @@ export function TaskCatalogBuilder({
     };
 
     return (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">
+        <div
+            className={cn(
+                'grid gap-4',
+                stacked
+                    ? 'grid-cols-1'
+                    : 'xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]',
+            )}
+        >
             <div className="space-y-4">
                 {filterByServices && (
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -292,10 +301,11 @@ export function TaskCatalogBuilder({
                             const key = selectedKey(task, index);
                             const open = editingKey === key;
                             return (
-                                <li
-                                    key={key}
-                                    className="border-border/70 rounded-xl border p-3"
-                                >
+                                    <li
+                                        key={key}
+                                        id={`care-plan-task-${index}`}
+                                        className="border-border/70 rounded-xl border p-3"
+                                    >
                                     <div className="flex items-start justify-between gap-2">
                                         <div>
                                             <p className="text-sm font-medium">
