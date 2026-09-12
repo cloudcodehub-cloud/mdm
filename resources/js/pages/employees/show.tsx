@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { ConfirmAction } from '@/components/mdm/confirm-action';
 import { ModuleTabs, StatusBadge } from '@/components/mdm/directory';
 import { IdentityHeader } from '@/components/mdm/identity-header';
+import { ProfileCompletionMeter } from '@/components/mdm/profile-completion-meter';
+import { ProfilePhoto } from '@/components/mdm/profile-photo';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
@@ -16,6 +18,7 @@ import type {
     ActivityRecord,
     CredentialRecord,
     EmployeeDetail,
+    ProfileCompletion,
     TrainingRecord,
 } from '@/types/directory';
 
@@ -24,21 +27,36 @@ export default function EmployeesShow({
     credentials,
     trainings,
     activity,
+    profile_completion,
     can,
 }: {
     employee: EmployeeDetail;
     credentials: CredentialRecord[];
     trainings: TrainingRecord[];
     activity: ActivityRecord[];
-    can: { update: boolean };
+    profile_completion: ProfileCompletion;
+    can: { update: boolean; view_sensitive: boolean };
 }) {
     const [tab, setTab] = useState('profile');
+    const expiredCredentials = credentials.filter(
+        (item) => item.status === 'expired' || item.status === 'revoked',
+    ).length;
+    const complianceLabel =
+        expiredCredentials > 0 ? 'Attention required' : 'Tracked separately';
 
     return (
         <>
             <Head title={employee.name} />
             <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
                 <IdentityHeader
+                    leading={
+                        <ProfilePhoto
+                            name={employee.name}
+                            photoUrl={employee.photo_url}
+                            initials={employee.initials}
+                            size="lg"
+                        />
+                    }
                     eyebrow={employee.employee_number}
                     title={employee.name}
                     meta={
@@ -50,10 +68,18 @@ export default function EmployeesShow({
                             <span className="text-muted-foreground text-sm">
                                 {employee.job_title ?? employee.job_type_label}
                             </span>
+                            <span className="text-muted-foreground text-sm">
+                                Role: {employee.job_type_label}
+                            </span>
                         </>
                     }
                     actions={
-                        can.update ? (
+                        <>
+                            <ProfileCompletionMeter
+                                completion={profile_completion}
+                                complianceLabel={complianceLabel}
+                            />
+                            {can.update ? (
                             <>
                                 <Button asChild variant="secondary">
                                     <Link href={edit(employee.id)}>Edit</Link>
@@ -84,22 +110,31 @@ export default function EmployeesShow({
                                     />
                                 )}
                             </>
-                        ) : undefined
+                            ) : null}
+                        </>
                     }
                 />
 
                 <ModuleTabs
                     tabs={[
                         { id: 'profile', label: 'Profile' },
+                        { id: 'background', label: 'Background' },
                         { id: 'credentials', label: 'Credentials' },
                         { id: 'training', label: 'Training' },
                         { id: 'activity', label: 'Activity' },
+                        ...(can.view_sensitive
+                            ? [{ id: 'security', label: 'Security' }]
+                            : []),
                     ]}
                     value={tab}
                     onChange={setTab}
                 />
 
                 {tab === 'profile' && <ProfileTab employee={employee} />}
+                {tab === 'background' && <BackgroundTab employee={employee} />}
+                {tab === 'security' && can.view_sensitive && (
+                    <SecurityTab employee={employee} />
+                )}
                 {tab === 'credentials' && (
                     <Panel title="Credentials">
                         {credentials.length === 0 ? (
@@ -212,6 +247,98 @@ function ProfileTab({ employee }: { employee: EmployeeDetail }) {
                 </dl>
             </Panel>
         </div>
+    );
+}
+
+function BackgroundTab({ employee }: { employee: EmployeeDetail }) {
+    return (
+        <div className="grid gap-4 lg:grid-cols-2">
+            <Panel title="Education">
+                {(employee.educations ?? []).length === 0 ? (
+                    <EmptyState message="No education records." />
+                ) : (
+                    <ul className="space-y-2 text-sm">
+                        {(employee.educations ?? []).map((row, index) => (
+                            <li key={index}>
+                                <p className="font-medium">
+                                    {row.institution_name || 'School'}
+                                </p>
+                                <p className="text-muted-foreground text-xs">
+                                    {row.level === 'college' ? 'College' : 'High School'}
+                                    {row.degree ? ` · ${row.degree}` : ''}
+                                </p>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </Panel>
+            <Panel title="References">
+                {(employee.references ?? []).length === 0 ? (
+                    <EmptyState message="No references on file." />
+                ) : (
+                    <ul className="space-y-2 text-sm">
+                        {(employee.references ?? []).map((row, index) => (
+                            <li key={index}>
+                                <p className="font-medium">{row.name}</p>
+                                <p className="text-muted-foreground text-xs">
+                                    {row.relationship} · {row.home_phone}
+                                </p>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </Panel>
+            <Panel title="Work history" className="lg:col-span-2">
+                {(employee.work_histories ?? []).length === 0 ? (
+                    <EmptyState message="No work history on file." />
+                ) : (
+                    <ul className="space-y-2 text-sm">
+                        {(employee.work_histories ?? []).map((row, index) => (
+                            <li key={index}>
+                                <p className="font-medium">
+                                    {row.job_title} · {row.employer}
+                                </p>
+                                <p className="text-muted-foreground text-xs">
+                                    {row.started_on} – {row.ended_on ?? 'Present'}
+                                </p>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </Panel>
+        </div>
+    );
+}
+
+function SecurityTab({ employee }: { employee: EmployeeDetail }) {
+    return (
+        <Panel title="Security / background">
+            <dl className="grid gap-3 text-sm md:grid-cols-2">
+                <Item
+                    label="Ohio resident 5 years"
+                    value={
+                        employee.ohio_resident_5_years === null
+                            ? null
+                            : employee.ohio_resident_5_years
+                              ? 'Yes'
+                              : 'No'
+                    }
+                />
+                <Item label="Residence history" value={employee.residence_history} />
+                <Item label="SSN" value={employee.ssn_masked} />
+                <Item
+                    label="Conviction disclosure"
+                    value={
+                        employee.has_conviction === null
+                            ? null
+                            : employee.has_conviction
+                              ? 'Yes'
+                              : 'No'
+                    }
+                />
+                <Item label="Comments" value={employee.security_comments} />
+            </dl>
+        </Panel>
     );
 }
 

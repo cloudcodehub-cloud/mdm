@@ -24,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $expires_on
  * @property CredentialStatus $status
  * @property string|null $notes
+ * @property string|null $document_path
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Employee $employee
@@ -40,6 +41,7 @@ use Illuminate\Support\Carbon;
     'expires_on',
     'status',
     'notes',
+    'document_path',
 ])]
 class EmployeeCredential extends Model
 {

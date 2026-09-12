@@ -1,20 +1,44 @@
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const STEPS = [
+export type OnboardingStep = {
+    id: number;
+    label: string;
+    shortLabel: string;
+};
+
+const CLIENT_STEPS: OnboardingStep[] = [
     { id: 1, label: 'Profile', shortLabel: 'Profile' },
     { id: 2, label: 'Services & Care Plan', shortLabel: 'Services' },
     { id: 3, label: 'Review', shortLabel: 'Review' },
-] as const;
+];
 
-export function OnboardingStepper({ currentStep }: { currentStep: 1 | 2 | 3 }) {
+export const EMPLOYEE_ONBOARDING_STEPS: OnboardingStep[] = [
+    { id: 1, label: 'Role & Profile', shortLabel: 'Role' },
+    { id: 2, label: 'Contact & Address', shortLabel: 'Contact' },
+    { id: 3, label: 'Availability', shortLabel: 'Avail.' },
+    { id: 4, label: 'Education & Credentials', shortLabel: 'Creds' },
+    { id: 5, label: 'References & History', shortLabel: 'Refs' },
+    { id: 6, label: 'Security & Compliance', shortLabel: 'Secure' },
+    { id: 7, label: 'Account & Review', shortLabel: 'Review' },
+];
+
+export function OnboardingStepper({
+    currentStep,
+    steps = CLIENT_STEPS,
+    ariaLabel = 'Client onboarding progress',
+}: {
+    currentStep: number;
+    steps?: readonly OnboardingStep[];
+    ariaLabel?: string;
+}) {
     return (
-        <nav aria-label="Client onboarding progress">
-            <ol className="flex w-full items-center">
-                {STEPS.map((step, index) => {
+        <nav aria-label={ariaLabel}>
+            <ol className="flex w-full items-center overflow-x-auto pb-1">
+                {steps.map((step, index) => {
                     const complete = step.id < currentStep;
                     const current = step.id === currentStep;
-                    const last = index === STEPS.length - 1;
+                    const last = index === steps.length - 1;
 
                     return (
                         <li
@@ -68,7 +92,7 @@ export function OnboardingStepper({ currentStep }: { currentStep: 1 | 2 | 3 }) {
                             {!last && (
                                 <span
                                     className={cn(
-                                        'mx-2 h-px min-w-4 flex-1 sm:mx-3',
+                                        'mx-1.5 h-px min-w-3 flex-1 sm:mx-3',
                                         step.id < currentStep
                                             ? 'bg-primary/50'
                                             : 'bg-border',

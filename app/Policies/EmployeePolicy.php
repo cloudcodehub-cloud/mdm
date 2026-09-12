@@ -44,6 +44,19 @@ class EmployeePolicy
         return $user->isAdmin();
     }
 
+    public function viewSensitive(User $user, Employee $employee): bool
+    {
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        if ($user->isSupervisor() && $user->employee) {
+            return $employee->supervisor_id === $user->employee->id;
+        }
+
+        return false;
+    }
+
     /**
      * Employees are retained for history and must not be hard-deleted.
      */

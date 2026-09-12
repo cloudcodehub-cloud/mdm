@@ -1,5 +1,6 @@
 import { Form, Head, Link, router } from '@inertiajs/react';
 import { Pagination, StatusBadge, controlClassName } from '@/components/mdm/directory';
+import { ProfilePhoto } from '@/components/mdm/profile-photo';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -96,11 +97,18 @@ export default function ClientsIndex({
                                     className="surface-panel hover:bg-muted/30 p-4 text-left transition-colors"
                                 >
                                     <div className="flex items-start justify-between gap-3">
-                                        <div>
-                                            <p className="font-semibold">{client.name}</p>
-                                            <p className="text-muted-foreground text-xs">
-                                                {client.client_number}
-                                            </p>
+                                        <div className="flex min-w-0 items-start gap-3">
+                                            <ProfilePhoto
+                                                name={client.name}
+                                                photoUrl={client.photo_url}
+                                                initials={client.initials}
+                                            />
+                                            <div>
+                                                <p className="font-semibold">{client.name}</p>
+                                                <p className="text-muted-foreground text-xs">
+                                                    {client.client_number}
+                                                </p>
+                                            </div>
                                         </div>
                                         <StatusBadge
                                             status={client.status}

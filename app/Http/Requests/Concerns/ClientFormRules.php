@@ -42,13 +42,21 @@ trait ClientFormRules
                 Rule::exists('employees', 'id')->where(fn ($query) => $query->where('job_type', JobType::Supervisor->value)),
             ],
             'notes' => ['nullable', 'string'],
+            'profile_photo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'remove_photo' => ['sometimes', 'boolean'],
         ];
     }
 
     protected function prepareClientPayload(): void
     {
-        $this->merge([
+        $merge = [
             'supervisor_id' => $this->filled('supervisor_id') ? $this->input('supervisor_id') : null,
-        ]);
+        ];
+
+        if ($this->exists('remove_photo')) {
+            $merge['remove_photo'] = $this->boolean('remove_photo');
+        }
+
+        $this->merge($merge);
     }
 }

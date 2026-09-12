@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { EmployeeForm } from '@/components/mdm/employee-form';
+import { EmployeeOnboardingForm } from '@/components/mdm/employee-onboarding-form';
 import { dashboard } from '@/routes';
 import { create, index as employeesIndex, store } from '@/routes/employees';
 import type { OptionItem } from '@/types/directory';
@@ -25,7 +25,7 @@ export default function EmployeesCreate({
                         Add Employee
                     </h1>
                 </div>
-                <EmployeeForm
+                <EmployeeOnboardingForm
                     action={store.url()}
                     method="post"
                     supervisors={supervisors}

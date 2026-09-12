@@ -12,6 +12,8 @@ export type DashboardClient = {
     id: number;
     name: string;
     client_number: string;
+    photo_url?: string | null;
+    initials?: string;
 };
 
 export type DashboardEmployee = {
@@ -22,6 +24,8 @@ export type DashboardEmployee = {
     visits_today?: number;
     in_progress?: number;
     attention?: number;
+    photo_url?: string | null;
+    initials?: string;
 };
 
 export type DashboardVisit = {
@@ -119,4 +123,14 @@ export type DashboardPayload = {
     open_exceptions: number;
     visit_trend: VisitTrendPoint[];
     work_items?: import('./care').DspWorkItem[];
+    profiles_needing_attention?: Array<{
+        id: string;
+        kind: 'employee' | 'client';
+        name: string;
+        percent: number;
+        summary: string;
+        href: string;
+        photo_url?: string | null;
+        initials?: string;
+    }>;
 };

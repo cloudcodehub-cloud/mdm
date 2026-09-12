@@ -6,6 +6,8 @@
 - Auth-related tables from the Laravel starter (users, cache, jobs, passkeys, two-factor columns)
 - Domain tables: `employees`, `clients`, `client_dsp_assignments`, `employee_credentials`, `employee_trainings`, `client_authorizations`, `shift_templates`, `care_plans`, `care_plan_task_templates`, `scheduled_visits`, `skip_reasons`, `visits`, `visit_tasks`, `visit_exceptions`, `visit_exceptions`
 - `users.role` stores `ADMIN`, `SUPERVISOR`, or `DSP`
+- Profile photos: `employees.profile_photo_path`, `clients.profile_photo_path` (private disk files)
+- Repeatable onboarding: `employee_educations`, `employee_references`, `employee_work_histories`, `employee_security_incidents`
 
 ## Conventions
 

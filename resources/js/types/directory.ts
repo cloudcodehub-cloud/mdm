@@ -34,6 +34,71 @@ export type EmployeeSummary = {
     employment_status_label: string;
     supervisor_name: string | null;
     has_login: boolean;
+    photo_url?: string | null;
+    initials?: string;
+};
+
+export type ProfileCompletionItem = {
+    key: string;
+    label: string;
+    category: string;
+    complete: boolean;
+    severity: 'critical' | 'attention';
+    href: string | null;
+};
+
+export type ProfileCompletion = {
+    percent: number;
+    completed: number;
+    missing: number;
+    total: number;
+    critical_missing: number;
+    items: ProfileCompletionItem[];
+    summary: string;
+};
+
+export type EducationRecord = {
+    level: string;
+    institution_name: string | null;
+    city: string | null;
+    state: string | null;
+    country: string | null;
+    graduated: boolean | null;
+    years_completed: number | null;
+    degree: string | null;
+};
+
+export type ReferenceRecord = {
+    name: string | null;
+    address: string | null;
+    home_phone: string | null;
+    work_phone: string | null;
+    relationship: string | null;
+};
+
+export type WorkHistoryRecord = {
+    started_on: string | null;
+    ended_on: string | null;
+    job_title: string | null;
+    employer: string | null;
+    employer_phone: string | null;
+    employer_address: string | null;
+    reason_for_leaving: string | null;
+    job_duties: string | null;
+};
+
+export type SecurityIncidentRecord = {
+    incident: string | null;
+    city_state: string | null;
+    charge: string | null;
+};
+
+export type AvailabilityDayRecord = {
+    weekday: number;
+    is_available: boolean;
+    starts_at: string | null;
+    ends_at: string | null;
+    preferred_daypart: string | null;
 };
 
 export type EmployeeDetail = EmployeeSummary & {
@@ -41,16 +106,57 @@ export type EmployeeDetail = EmployeeSummary & {
     middle_name: string | null;
     last_name: string;
     date_of_birth: string | null;
+    home_phone?: string | null;
+    cell_phone?: string | null;
+    alternate_phone?: string | null;
     address_line_1: string | null;
     address_line_2: string | null;
     city: string | null;
     state: string | null;
     postal_code: string | null;
+    previous_address_line_1?: string | null;
+    previous_city?: string | null;
+    previous_state?: string | null;
+    previous_postal_code?: string | null;
     emergency_contact_name: string | null;
     emergency_contact_relationship: string | null;
     emergency_contact_phone: string | null;
     hired_on: string | null;
     terminated_on: string | null;
+    employment_type?: string | null;
+    preferred_shift_type?: string | null;
+    desired_hours_per_week?: number | null;
+    willing_long_term?: boolean | null;
+    willing_short_term?: boolean | null;
+    willing_pets?: boolean | null;
+    willing_smoke?: boolean | null;
+    how_heard?: string | null;
+    employment_interest?: string | null;
+    has_drivers_license?: boolean | null;
+    license_state?: string | null;
+    license_number?: string | null;
+    vehicle_make_year?: string | null;
+    insurance_company?: string | null;
+    insurance_policy_number?: string | null;
+    has_moving_violations?: boolean | null;
+    moving_violations_description?: string | null;
+    license_ever_suspended?: boolean | null;
+    license_suspension_explanation?: string | null;
+    may_contact_current_employer?: boolean | null;
+    ohio_resident_5_years?: boolean | null;
+    residence_history?: string | null;
+    used_other_names?: boolean | null;
+    other_names?: string | null;
+    ssn_masked?: string | null;
+    has_ssn?: boolean;
+    alternate_ssn_masked?: string | null;
+    has_conviction?: boolean | null;
+    security_comments?: string | null;
+    incidents?: SecurityIncidentRecord[];
+    educations?: EducationRecord[];
+    references?: ReferenceRecord[];
+    work_histories?: WorkHistoryRecord[];
+    availability_days?: AvailabilityDayRecord[];
     supervisor_id: number | null;
     notes: string | null;
     user_id: number | null;
@@ -69,6 +175,7 @@ export type CredentialRecord = {
     status: string;
     status_label: string;
     notes: string | null;
+    has_document?: boolean;
 };
 
 export type TrainingRecord = {
@@ -102,6 +209,8 @@ export type ClientSummary = {
     status_label: string;
     supervisor_name: string | null;
     active_dsp_count: number;
+    photo_url?: string | null;
+    initials?: string;
 };
 
 export type ClientDetail = ClientSummary & {

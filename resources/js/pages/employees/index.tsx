@@ -1,5 +1,6 @@
 import { Form, Head, Link, router } from '@inertiajs/react';
 import { Pagination, StatusBadge, controlClassName } from '@/components/mdm/directory';
+import { ProfilePhoto } from '@/components/mdm/profile-photo';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,6 +64,7 @@ export default function EmployeesIndex({
                             <option value="">All job types</option>
                             <option value="dsp">DSP</option>
                             <option value="supervisor">Supervisor</option>
+                            <option value="admin">Admin</option>
                             <option value="other">Other</option>
                         </select>
                         <select
@@ -106,11 +108,21 @@ export default function EmployeesIndex({
                                                 }
                                             >
                                                 <td className="py-3">
-                                                    <p className="font-medium">{employee.name}</p>
-                                                    <p className="text-muted-foreground text-xs">
-                                                        {employee.employee_number}
-                                                        {employee.email ? ` · ${employee.email}` : ''}
-                                                    </p>
+                                                    <div className="flex items-center gap-2">
+                                                        <ProfilePhoto
+                                                            name={employee.name}
+                                                            photoUrl={employee.photo_url}
+                                                            initials={employee.initials}
+                                                            size="sm"
+                                                        />
+                                                        <div>
+                                                            <p className="font-medium">{employee.name}</p>
+                                                            <p className="text-muted-foreground text-xs">
+                                                                {employee.employee_number}
+                                                                {employee.email ? ` · ${employee.email}` : ''}
+                                                            </p>
+                                                        </div>
+                                                    </div>
                                                 </td>
                                                 <td className="py-3">
                                                     {employee.job_title ?? employee.job_type_label}

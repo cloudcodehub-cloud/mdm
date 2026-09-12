@@ -3,6 +3,7 @@ import { AttentionList } from '@/components/mdm/attention-list';
 import { AnnouncementList } from '@/components/mdm/announcement-list';
 import { ClockInAction } from '@/components/mdm/clock-in-action';
 import { ActivityList, PersonList } from '@/components/mdm/person-list';
+import { ProfilePhoto } from '@/components/mdm/profile-photo';
 import { Panel, StatCard } from '@/components/mdm/stat-card';
 import { VisitList } from '@/components/mdm/visit-list';
 import {
@@ -235,6 +236,34 @@ function AdminDashboard({ data }: { data: DashboardPayload }) {
                 />
             </Panel>
             <Panel
+                title="Profiles needing attention"
+                description="Aggregated missing profile items. Not the same as credential compliance."
+            >
+                {(data.profiles_needing_attention ?? []).length === 0 ? (
+                    <p className="text-muted-foreground text-sm">
+                        No incomplete profiles in scope.
+                    </p>
+                ) : (
+                    <ul className="space-y-3">
+                        {(data.profiles_needing_attention ?? []).map((item) => (
+                            <li key={item.id}>
+                                <Link href={item.href} className="hover:bg-muted/40 -mx-1 flex items-center gap-3 rounded-md px-1 py-1">
+                                    <ProfilePhoto name={item.name} photoUrl={item.photo_url} initials={item.initials} size="sm" />
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-medium">
+                                            {item.name} — {item.percent}%
+                                        </p>
+                                        <p className="text-muted-foreground truncate text-xs">
+                                            {item.summary || 'Details remaining'}
+                                        </p>
+                                    </div>
+                                </Link>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </Panel>
+            <Panel
                 title="Operational attention"
                 description="Credentials, training, authorizations, and cancelled visits."
             >
@@ -338,6 +367,34 @@ function SupervisorDashboard({ data }: { data: DashboardPayload }) {
             <Panel title="Operational attention">
                 <AttentionList items={data.attention_items} />
             </Panel>
+            <Panel
+                title="Profiles needing attention"
+                description="Aggregated missing profile items. Not the same as credential compliance."
+            >
+                {(data.profiles_needing_attention ?? []).length === 0 ? (
+                    <p className="text-muted-foreground text-sm">
+                        No incomplete profiles in scope.
+                    </p>
+                ) : (
+                    <ul className="space-y-3">
+                        {(data.profiles_needing_attention ?? []).map((item) => (
+                            <li key={item.id}>
+                                <Link href={item.href} className="hover:bg-muted/40 -mx-1 flex items-center gap-3 rounded-md px-1 py-1">
+                                    <ProfilePhoto name={item.name} photoUrl={item.photo_url} initials={item.initials} size="sm" />
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-medium">
+                                            {item.name} — {item.percent}%
+                                        </p>
+                                        <p className="text-muted-foreground truncate text-xs">
+                                            {item.summary || 'Details remaining'}
+                                        </p>
+                                    </div>
+                                </Link>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </Panel>
             <Panel title="Assigned DSPs">
                 <PersonList
                     people={data.assigned_dsps.map((dsp) => ({
@@ -345,6 +402,8 @@ function SupervisorDashboard({ data }: { data: DashboardPayload }) {
                         name: dsp.name,
                         detail: dsp.employee_number,
                         href: showEmployee.url(dsp.id),
+                        photo_url: dsp.photo_url,
+                        initials: dsp.initials,
                     }))}
                     empty="No assigned DSPs."
                 />
@@ -356,6 +415,8 @@ function SupervisorDashboard({ data }: { data: DashboardPayload }) {
                         name: client.name,
                         detail: client.client_number,
                         href: showClient.url(client.id),
+                        photo_url: client.photo_url,
+                        initials: client.initials,
                     }))}
                     empty="No assigned clients."
                 />

@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { EmployeeForm } from '@/components/mdm/employee-form';
+import { EmployeeOnboardingForm } from '@/components/mdm/employee-onboarding-form';
 import { dashboard } from '@/routes';
 import { edit, index as employeesIndex, show, update } from '@/routes/employees';
 import type { EmployeeDetail, OptionItem } from '@/types/directory';
@@ -27,7 +27,7 @@ export default function EmployeesEdit({
                         Edit employee
                     </h1>
                 </div>
-                <EmployeeForm
+                <EmployeeOnboardingForm
                     action={update.url(employee.id)}
                     method="put"
                     employee={employee}

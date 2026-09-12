@@ -48,7 +48,7 @@ export type AnnouncementRecord = {
 
 export type InboxNotification = {
     id: number;
-    type: 'message' | 'announcement';
+    type: 'message' | 'announcement' | 'schedule' | 'availability' | 'profile';
     title: string;
     body: string;
     url: string | null;

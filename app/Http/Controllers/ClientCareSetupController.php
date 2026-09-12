@@ -6,6 +6,7 @@ use App\Http\Requests\ClientCareSetupRequest;
 use App\Models\CarePlan;
 use App\Models\Client;
 use App\Services\CarePlanSetupService;
+use App\Services\ProfileAttentionService;
 use App\Support\CareServicePresenter;
 use App\Support\DirectoryPresenter;
 use App\Support\TaskCatalogPresenter;
@@ -34,6 +35,7 @@ class ClientCareSetupController extends Controller
     public function update(ClientCareSetupRequest $request, Client $client, CarePlanSetupService $setup): RedirectResponse
     {
         $setup->completeSetup($client, $request->validated());
+        app(ProfileAttentionService::class)->syncClient($client->fresh() ?? $client);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Care plan saved.')]);
 

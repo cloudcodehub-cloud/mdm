@@ -1,4 +1,5 @@
 import { AvailabilityLegend, AvailabilityStrip } from '@/components/mdm/availability-strip';
+import { ProfilePhoto } from '@/components/mdm/profile-photo';
 import { cn } from '@/lib/utils';
 import type { AvailabilityBoard, AvailabilityDspRow } from '@/types/scheduling';
 
@@ -140,11 +141,19 @@ function DspCard({
             )}
         >
             <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                    <p className="text-sm font-semibold">{row.name}</p>
-                    <p className="text-muted-foreground text-xs">
-                        {row.reason_label}
-                    </p>
+                <div className="flex min-w-0 items-start gap-2">
+                    <ProfilePhoto
+                        name={row.name}
+                        photoUrl={row.photo_url}
+                        initials={row.initials}
+                        size="sm"
+                    />
+                    <div>
+                        <p className="text-sm font-semibold">{row.name}</p>
+                        <p className="text-muted-foreground text-xs">
+                            {row.reason_label}
+                        </p>
+                    </div>
                 </div>
                 <p className="text-muted-foreground text-[11px]">
                     Today {row.workload.day_hours}h · Week{' '}

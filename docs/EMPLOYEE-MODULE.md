@@ -4,7 +4,11 @@
 
 Manage workforce employees who may serve as DSPs or other staff roles within MDM.
 
-A **User** is a login account. An **Employee** is the HR/workforce profile. Supervisor and DSP users may link to one employee. Admins do not have to have an employee profile.
+A **User** is a login account. An **Employee** is the HR/workforce profile. Supervisor, DSP, and Admin users may link to one employee. Admins do not have to have an employee profile.
+
+System Role (`job_type`: dsp, supervisor, admin) is separate from Job Title.
+
+Employee onboarding is staged. Repeatable education, references, work history, and security incidents are stored in related tables. Driving/application fields live on `employees`. Weekly availability reuses `dsp_weekly_availabilities`. Credentials and training remain on the existing compliance tables.
 
 ## Phase 1A foundation
 

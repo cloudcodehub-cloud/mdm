@@ -37,6 +37,7 @@ use Illuminate\Support\Carbon;
  * @property ClientStatus $status
  * @property int|null $supervisor_id
  * @property string|null $notes
+ * @property string|null $profile_photo_path
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
@@ -70,6 +71,7 @@ use Illuminate\Support\Carbon;
     'status',
     'supervisor_id',
     'notes',
+    'profile_photo_path',
 ])]
 class Client extends Model
 {
@@ -165,6 +167,19 @@ class Client extends Model
             $this->middle_name,
             $this->last_name,
         ])->filter()->implode(' '));
+    }
+
+    public function hasPhoto(): bool
+    {
+        return filled($this->profile_photo_path);
+    }
+
+    public function initials(): string
+    {
+        $first = mb_substr((string) $this->first_name, 0, 1);
+        $last = mb_substr((string) $this->last_name, 0, 1);
+
+        return mb_strtoupper($first.$last);
     }
 
     public static function nextClientNumber(): string

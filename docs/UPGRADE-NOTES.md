@@ -1,5 +1,15 @@
 # Upgrade notes
 
+## Phase 5C — Employee onboarding and profile completion
+
+- System Role and Job Title are separate. System Role (DSP, Supervisor, Admin) drives login permissions and role-aware profile completion; Job Title is the employment label.
+- Employee onboarding is a staged stepper. Initial DSP availability uses the Phase 5B weekly availability model; later DSP changes still require supervisor approval.
+- Licenses, TB, and physician good-health records reuse the existing credential/compliance architecture.
+- Employee and Client photos use shared profile-photo handling (stored files, not base64) with initials fallback.
+- Profile Completion is separate from Compliance / credential readiness.
+- Completion requirements are role- and context-aware. Missing non-critical items are aggregated for Supervisor/Admin attention, not one notification per field.
+- Sensitive employment/background data (including encrypted SSN) is restricted to Admin and assigned Supervisors and never appears in notification copy.
+
 ## Phase 5B — Scheduling experience polish
 
 - Care Plan and Scheduled Visit builders expose a persistent live summary.

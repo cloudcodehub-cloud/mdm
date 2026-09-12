@@ -28,6 +28,8 @@ export type AvailabilityDspRow = {
     partial: { start: number; end: number } | null;
     timeline: TimelineSegment[];
     history_count: number;
+    photo_url?: string | null;
+    initials?: string;
 };
 
 export type AvailabilityBoard = {

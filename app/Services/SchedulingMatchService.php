@@ -229,6 +229,8 @@ class SchedulingMatchService
             'id' => $dsp->id,
             'name' => $dsp->full_name,
             'employee_number' => $dsp->employee_number,
+            'photo_url' => app(ProfilePhotoService::class)->employeeUrl($dsp),
+            'initials' => $dsp->initials(),
             'assigned_to_client' => $assigned,
             'fully_available' => $covers,
             'availability_confirmed' => $confirmed,

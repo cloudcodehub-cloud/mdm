@@ -14,7 +14,11 @@ use App\Models\ClientAuthorization;
 use App\Models\ClientDspAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeCredential;
+use App\Models\EmployeeEducation;
+use App\Models\EmployeeReference;
+use App\Models\EmployeeSecurityIncident;
 use App\Models\EmployeeTraining;
+use App\Models\EmployeeWorkHistory;
 use App\Models\ScheduledVisit;
 use App\Models\ShiftTemplate;
 use App\Models\SkipReason;
@@ -22,6 +26,7 @@ use App\Models\User;
 use App\Models\Visit;
 use App\Models\VisitException;
 use App\Models\VisitTask;
+use App\Services\ProfilePhotoService;
 use App\Services\SettingsService;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -32,51 +37,123 @@ final class DirectoryPresenter
     /**
      * @return array<string, mixed>
      */
-    public static function employeeSummary(Employee $employee): array
+    public static function employeeSummary(Employee $employee, ?ProfilePhotoService $photos = null): array
     {
+        $photos ??= app(ProfilePhotoService::class);
+
         return [
             'id' => $employee->id,
             'employee_number' => $employee->employee_number,
             'name' => $employee->full_name,
             'email' => $employee->email,
-            'phone' => $employee->phone,
+            'phone' => $employee->primaryPhone(),
             'job_title' => $employee->job_title,
             'job_type' => $employee->job_type->value,
-            'job_type_label' => Str::headline($employee->job_type->value),
+            'job_type_label' => $employee->job_type->label(),
             'employment_status' => $employee->employment_status->value,
             'employment_status_label' => Str::headline($employee->employment_status->value),
             'supervisor_name' => $employee->supervisor?->full_name,
             'has_login' => $employee->user_id !== null,
+            'photo_url' => $photos->employeeUrl($employee),
+            'initials' => $employee->initials(),
         ];
     }
 
     /**
      * @return array<string, mixed>
      */
-    public static function employeeDetail(Employee $employee): array
+    public static function employeeDetail(Employee $employee, bool $includeSensitive = false, ?ProfilePhotoService $photos = null): array
     {
-        return [
-            ...self::employeeSummary($employee),
+        $photos ??= app(ProfilePhotoService::class);
+
+        $detail = [
+            ...self::employeeSummary($employee, $photos),
             'first_name' => $employee->first_name,
             'middle_name' => $employee->middle_name,
             'last_name' => $employee->last_name,
             'date_of_birth' => self::date($employee->date_of_birth),
+            'home_phone' => $employee->home_phone,
+            'cell_phone' => $employee->cell_phone ?: $employee->phone,
+            'alternate_phone' => $employee->alternate_phone,
             'address_line_1' => $employee->address_line_1,
             'address_line_2' => $employee->address_line_2,
             'city' => $employee->city,
             'state' => $employee->state,
             'postal_code' => $employee->postal_code,
+            'previous_address_line_1' => $employee->previous_address_line_1,
+            'previous_city' => $employee->previous_city,
+            'previous_state' => $employee->previous_state,
+            'previous_postal_code' => $employee->previous_postal_code,
             'emergency_contact_name' => $employee->emergency_contact_name,
             'emergency_contact_relationship' => $employee->emergency_contact_relationship,
             'emergency_contact_phone' => $employee->emergency_contact_phone,
             'hired_on' => self::date($employee->hired_on),
             'terminated_on' => self::date($employee->terminated_on),
+            'employment_type' => $employee->employment_type?->value,
+            'preferred_shift_type' => $employee->preferred_shift_type,
+            'desired_hours_per_week' => $employee->desired_hours_per_week,
+            'willing_long_term' => $employee->willing_long_term,
+            'willing_short_term' => $employee->willing_short_term,
+            'willing_pets' => $employee->willing_pets,
+            'willing_smoke' => $employee->willing_smoke,
+            'how_heard' => $employee->how_heard,
+            'employment_interest' => $employee->employment_interest,
+            'has_drivers_license' => $employee->has_drivers_license,
+            'license_state' => $employee->license_state,
+            'license_number' => $employee->license_number,
+            'vehicle_make_year' => $employee->vehicle_make_year,
+            'insurance_company' => $employee->insurance_company,
+            'insurance_policy_number' => $employee->insurance_policy_number,
+            'has_moving_violations' => $employee->has_moving_violations,
+            'moving_violations_description' => $employee->moving_violations_description,
+            'license_ever_suspended' => $employee->license_ever_suspended,
+            'license_suspension_explanation' => $employee->license_suspension_explanation,
+            'may_contact_current_employer' => $employee->may_contact_current_employer,
             'supervisor_id' => $employee->supervisor_id,
             'notes' => $employee->notes,
             'user_id' => $employee->user_id,
             'login_email' => $employee->user?->email,
             'login_role' => $employee->user?->role->value,
+            'educations' => $employee->relationLoaded('educations')
+                ? self::educations($employee)
+                : [],
+            'references' => $employee->relationLoaded('personalReferences')
+                ? self::references($employee)
+                : [],
+            'work_histories' => $employee->relationLoaded('workHistories')
+                ? self::workHistories($employee)
+                : [],
+            'availability_days' => $employee->relationLoaded('weeklyAvailabilities')
+                ? self::values($employee->weeklyAvailabilities->map(fn ($day): array => [
+                    'weekday' => $day->weekday,
+                    'is_available' => $day->is_available,
+                    'starts_at' => self::inputTime($day->starts_at),
+                    'ends_at' => self::inputTime($day->ends_at),
+                    'preferred_daypart' => $day->preferred_daypart?->value,
+                ]))
+                : [],
         ];
+
+        if ($includeSensitive) {
+            $detail['ohio_resident_5_years'] = $employee->ohio_resident_5_years;
+            $detail['residence_history'] = $employee->residence_history;
+            $detail['used_other_names'] = $employee->used_other_names;
+            $detail['other_names'] = $employee->other_names;
+            $detail['ssn_masked'] = SensitiveValue::maskSsn($employee->ssn);
+            $detail['has_ssn'] = filled($employee->ssn);
+            $detail['alternate_ssn_masked'] = SensitiveValue::maskSsn($employee->alternate_ssn);
+            $detail['has_conviction'] = $employee->has_conviction;
+            $detail['security_comments'] = $employee->security_comments;
+            $detail['incidents'] = $employee->relationLoaded('securityIncidents')
+                ? self::values($employee->securityIncidents->map(fn (EmployeeSecurityIncident $incident): array => [
+                    'incident' => $incident->incident,
+                    'city_state' => $incident->city_state,
+                    'charge' => $incident->charge,
+                ]))
+                : [];
+        }
+
+        return $detail;
     }
 
     /**
@@ -96,6 +173,7 @@ final class DirectoryPresenter
             'status' => $credential->status->value,
             'status_label' => Str::headline($credential->status->value),
             'notes' => $credential->notes,
+            'has_document' => filled($credential->document_path),
         ]));
     }
 
@@ -167,8 +245,10 @@ final class DirectoryPresenter
     /**
      * @return array<string, mixed>
      */
-    public static function clientSummary(Client $client): array
+    public static function clientSummary(Client $client, ?ProfilePhotoService $photos = null): array
     {
+        $photos ??= app(ProfilePhotoService::class);
+
         return [
             'id' => $client->id,
             'client_number' => $client->client_number,
@@ -183,6 +263,8 @@ final class DirectoryPresenter
             'active_dsp_count' => $client->relationLoaded('dspAssignments')
                 ? $client->dspAssignments->filter(fn (ClientDspAssignment $assignment): bool => $assignment->isActive())->count()
                 : $client->dspAssignments()->active()->count(),
+            'photo_url' => $photos->clientUrl($client),
+            'initials' => $client->initials(),
         ];
     }
 
@@ -782,9 +864,11 @@ final class DirectoryPresenter
 
             return [
                 'id' => $employee->id,
-                'name' => $employee->full_name,
-                'employee_number' => $employee->employee_number,
-                'assigned_client_ids' => $assignedClientIds,
+            'name' => $employee->full_name,
+            'employee_number' => $employee->employee_number,
+            'assigned_client_ids' => $assignedClientIds,
+            'photo_url' => app(ProfilePhotoService::class)->employeeUrl($employee),
+            'initials' => $employee->initials(),
             ];
         }));
     }
@@ -819,7 +903,7 @@ final class DirectoryPresenter
     {
         return self::values(User::query()
             ->whereDoesntHave('employee')
-            ->whereIn('role', [Role::Supervisor, Role::Dsp])
+            ->whereIn('role', [Role::Supervisor, Role::Dsp, Role::Admin])
             ->orderBy('name')
             ->get()
             ->map(fn (User $user): array => [
@@ -828,6 +912,54 @@ final class DirectoryPresenter
                 'email' => $user->email,
                 'role' => $user->role->value,
             ]));
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private static function educations(Employee $employee): array
+    {
+        return self::values($employee->educations->map(fn (EmployeeEducation $row): array => [
+            'level' => $row->level->value,
+            'institution_name' => $row->institution_name,
+            'city' => $row->city,
+            'state' => $row->state,
+            'country' => $row->country,
+            'graduated' => $row->graduated,
+            'years_completed' => $row->years_completed,
+            'degree' => $row->degree,
+        ]));
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private static function references(Employee $employee): array
+    {
+        return self::values($employee->personalReferences->map(fn (EmployeeReference $row): array => [
+            'name' => $row->name,
+            'address' => $row->address,
+            'home_phone' => $row->home_phone,
+            'work_phone' => $row->work_phone,
+            'relationship' => $row->relationship,
+        ]));
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private static function workHistories(Employee $employee): array
+    {
+        return self::values($employee->workHistories->map(fn (EmployeeWorkHistory $row): array => [
+            'started_on' => self::date($row->started_on),
+            'ended_on' => self::date($row->ended_on),
+            'job_title' => $row->job_title,
+            'employer' => $row->employer,
+            'employer_phone' => $row->employer_phone,
+            'employer_address' => $row->employer_address,
+            'reason_for_leaving' => $row->reason_for_leaving,
+            'job_duties' => $row->job_duties,
+        ]));
     }
 
     private static function visitDurationLabel(Visit $visit): ?string

@@ -9,6 +9,8 @@ use App\Http\Requests\UpdateEmployeeRequest;
 use App\Http\Requests\UpdateEmployeeStatusRequest;
 use App\Models\Employee;
 use App\Services\EmployeeManagementService;
+use App\Services\ProfileCompletionService;
+use App\Services\ProfilePhotoService;
 use App\Support\DirectoryPresenter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,7 +19,7 @@ use Inertia\Response;
 
 class EmployeeController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request, ProfilePhotoService $photos): Response
     {
         $user = $request->user();
         abort_unless($user !== null, 401);
@@ -49,7 +51,7 @@ class EmployeeController extends Controller
         return Inertia::render('employees/index', [
             'employees' => [
                 'data' => $employees->getCollection()
-                    ->map(fn (Employee $employee): array => DirectoryPresenter::employeeSummary($employee))
+                    ->map(fn (Employee $employee): array => DirectoryPresenter::employeeSummary($employee, $photos))
                     ->values()
                     ->all(),
                 'meta' => [
@@ -90,36 +92,60 @@ class EmployeeController extends Controller
         return redirect()->route('employees.show', $employee);
     }
 
-    public function show(Request $request, Employee $employee): Response
-    {
+    public function show(
+        Request $request,
+        Employee $employee,
+        ProfileCompletionService $completion,
+        ProfilePhotoService $photos,
+    ): Response {
         $this->authorize('view', $employee);
+
+        $user = $request->user();
+        $includeSensitive = $user?->can('viewSensitive', $employee) ?? false;
 
         $employee->load([
             'supervisor',
             'user',
             'credentials' => fn ($query) => $query->orderByDesc('expires_on')->orderBy('name'),
             'trainings' => fn ($query) => $query->orderByDesc('completed_on')->orderBy('title'),
+            'educations',
+            'personalReferences',
+            'workHistories',
+            'weeklyAvailabilities',
+            'securityIncidents' => fn ($query) => $includeSensitive ? $query : $query->whereRaw('1 = 0'),
         ]);
 
         return Inertia::render('employees/show', [
-            'employee' => DirectoryPresenter::employeeDetail($employee),
+            'employee' => DirectoryPresenter::employeeDetail($employee, $includeSensitive, $photos),
             'credentials' => DirectoryPresenter::credentials($employee->credentials),
             'trainings' => DirectoryPresenter::trainings($employee->trainings),
             'activity' => DirectoryPresenter::employeeActivity($employee),
+            'profile_completion' => $completion->forEmployee($employee),
             'can' => [
-                'update' => $request->user()?->can('update', $employee) ?? false,
+                'update' => $user?->can('update', $employee) ?? false,
+                'view_sensitive' => $includeSensitive,
             ],
         ]);
     }
 
-    public function edit(Employee $employee): Response
+    public function edit(Employee $employee, ProfilePhotoService $photos): Response
     {
         $this->authorize('update', $employee);
 
-        $employee->load(['supervisor', 'user']);
+        $includeSensitive = request()->user()?->can('viewSensitive', $employee) ?? false;
+
+        $employee->load([
+            'supervisor',
+            'user',
+            'educations',
+            'personalReferences',
+            'workHistories',
+            'weeklyAvailabilities',
+            'securityIncidents',
+        ]);
 
         return Inertia::render('employees/edit', [
-            'employee' => DirectoryPresenter::employeeDetail($employee),
+            'employee' => DirectoryPresenter::employeeDetail($employee, $includeSensitive, $photos),
             'supervisors' => DirectoryPresenter::supervisorOptions(),
             'linkableUsers' => DirectoryPresenter::linkableUsers(),
         ]);
@@ -127,7 +153,7 @@ class EmployeeController extends Controller
 
     public function update(UpdateEmployeeRequest $request, Employee $employee, EmployeeManagementService $employees): RedirectResponse
     {
-        $employees->update($employee, $request->validated());
+        $employees->update($employee, $request->validated(), array_keys($request->all()));
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Employee updated.')]);
 

@@ -66,6 +66,7 @@ class DashboardService
             'open_exceptions' => $this->openExceptionsCount($user),
             'visit_trend' => $this->visitTrend($user, $today),
             'work_items' => $this->dspWorkItems($user, $employee, $today),
+            'profiles_needing_attention' => app(ProfileAttentionService::class)->dashboardItems($user),
         ];
     }
 
@@ -378,6 +379,8 @@ class DashboardService
                 'visits_today' => $activity[$dsp->id]['visits_today'] ?? 0,
                 'in_progress' => $activity[$dsp->id]['in_progress'] ?? 0,
                 'attention' => $activity[$dsp->id]['attention'] ?? 0,
+                'photo_url' => app(ProfilePhotoService::class)->employeeUrl($dsp),
+                'initials' => $dsp->initials(),
             ]));
     }
 

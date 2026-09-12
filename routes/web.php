@@ -15,6 +15,7 @@ use App\Http\Controllers\DspAvailabilityController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ProfilePhotoController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ScheduledVisitController;
 use App\Http\Controllers\SupervisorController;
@@ -41,8 +42,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::resource('employees', EmployeeController::class)->except(['destroy']);
     Route::patch('employees/{employee}/status', [EmployeeController::class, 'updateStatus'])->name('employees.status');
+    Route::get('employees/{employee}/photo', [ProfilePhotoController::class, 'employee'])->name('employees.photo');
+    Route::delete('employees/{employee}/photo', [ProfilePhotoController::class, 'destroyEmployee'])->name('employees.photo.destroy');
 
     Route::resource('clients', ClientController::class)->except(['destroy']);
+    Route::get('clients/{client}/photo', [ProfilePhotoController::class, 'client'])->name('clients.photo');
+    Route::delete('clients/{client}/photo', [ProfilePhotoController::class, 'destroyClient'])->name('clients.photo.destroy');
     Route::get('clients/{client}/setup', [ClientCareSetupController::class, 'edit'])->name('clients.setup.edit');
     Route::post('clients/{client}/setup', [ClientCareSetupController::class, 'update'])->name('clients.setup.update');
     Route::post('clients/{client}/care-plans', [CarePlanController::class, 'store'])->name('clients.care-plans.store');

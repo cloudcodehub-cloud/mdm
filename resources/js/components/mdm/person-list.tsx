@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import { ProfilePhoto } from '@/components/mdm/profile-photo';
 import { EmptyState } from '@/components/mdm/stat-card';
 
 export function PersonList({
@@ -10,6 +11,8 @@ export function PersonList({
         name: string;
         detail?: string;
         href?: string;
+        photo_url?: string | null;
+        initials?: string;
     }>;
     empty: string;
 }) {
@@ -24,18 +27,26 @@ export function PersonList({
                     key={person.id}
                     className="flex items-center justify-between gap-3 rounded-lg px-1 py-1.5"
                 >
-                    {person.href ? (
-                        <Link
-                            href={person.href}
-                            className="hover:text-primary truncate text-sm font-medium underline-offset-4 hover:underline"
-                        >
-                            {person.name}
-                        </Link>
-                    ) : (
-                        <span className="truncate text-sm font-medium">
-                            {person.name}
-                        </span>
-                    )}
+                    <div className="flex min-w-0 items-center gap-2">
+                        <ProfilePhoto
+                            name={person.name}
+                            photoUrl={person.photo_url}
+                            initials={person.initials}
+                            size="sm"
+                        />
+                        {person.href ? (
+                            <Link
+                                href={person.href}
+                                className="hover:text-primary truncate text-sm font-medium underline-offset-4 hover:underline"
+                            >
+                                {person.name}
+                            </Link>
+                        ) : (
+                            <span className="truncate text-sm font-medium">
+                                {person.name}
+                            </span>
+                        )}
+                    </div>
                     {person.detail && (
                         <span className="text-muted-foreground shrink-0 text-xs">
                             {person.detail}

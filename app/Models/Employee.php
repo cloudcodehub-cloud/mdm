@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\EmploymentStatus;
+use App\Enums\EmploymentType;
 use App\Enums\JobType;
 use App\Support\PrefixedNumber;
 use Database\Factories\EmployeeFactory;
@@ -27,12 +28,19 @@ use Illuminate\Support\Carbon;
  * @property string $last_name
  * @property string|null $email
  * @property string|null $phone
+ * @property string|null $home_phone
+ * @property string|null $cell_phone
+ * @property string|null $alternate_phone
  * @property Carbon|null $date_of_birth
  * @property string|null $address_line_1
  * @property string|null $address_line_2
  * @property string|null $city
  * @property string|null $state
  * @property string|null $postal_code
+ * @property string|null $previous_address_line_1
+ * @property string|null $previous_city
+ * @property string|null $previous_state
+ * @property string|null $previous_postal_code
  * @property string|null $emergency_contact_name
  * @property string|null $emergency_contact_relationship
  * @property string|null $emergency_contact_phone
@@ -40,9 +48,38 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $terminated_on
  * @property EmploymentStatus $employment_status
  * @property string|null $job_title
+ * @property EmploymentType|null $employment_type
+ * @property string|null $preferred_shift_type
+ * @property int|null $desired_hours_per_week
+ * @property bool|null $willing_long_term
+ * @property bool|null $willing_short_term
+ * @property bool|null $willing_pets
+ * @property bool|null $willing_smoke
+ * @property string|null $how_heard
+ * @property string|null $employment_interest
+ * @property bool|null $has_drivers_license
+ * @property string|null $license_state
+ * @property string|null $license_number
+ * @property string|null $vehicle_make_year
+ * @property string|null $insurance_company
+ * @property string|null $insurance_policy_number
+ * @property bool|null $has_moving_violations
+ * @property string|null $moving_violations_description
+ * @property bool|null $license_ever_suspended
+ * @property string|null $license_suspension_explanation
+ * @property bool|null $may_contact_current_employer
+ * @property bool|null $ohio_resident_5_years
+ * @property string|null $residence_history
+ * @property bool|null $used_other_names
+ * @property string|null $other_names
+ * @property string|null $ssn
+ * @property string|null $alternate_ssn
+ * @property bool|null $has_conviction
+ * @property string|null $security_comments
  * @property JobType $job_type
  * @property int|null $supervisor_id
  * @property string|null $notes
+ * @property string|null $profile_photo_path
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
@@ -57,6 +94,10 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, DspWeeklyAvailability> $weeklyAvailabilities
  * @property-read Collection<int, DspAvailabilityException> $availabilityExceptions
  * @property-read Collection<int, DspAvailabilityRequest> $availabilityRequests
+ * @property-read Collection<int, EmployeeEducation> $educations
+ * @property-read Collection<int, EmployeeReference> $personalReferences
+ * @property-read Collection<int, EmployeeWorkHistory> $workHistories
+ * @property-read Collection<int, EmployeeSecurityIncident> $securityIncidents
  * @property-read Collection<int, EmployeeTimeOff> $timeOff
  *
  * @method static Builder<static> visibleTo(User $user)
@@ -70,12 +111,19 @@ use Illuminate\Support\Carbon;
     'last_name',
     'email',
     'phone',
+    'home_phone',
+    'cell_phone',
+    'alternate_phone',
     'date_of_birth',
     'address_line_1',
     'address_line_2',
     'city',
     'state',
     'postal_code',
+    'previous_address_line_1',
+    'previous_city',
+    'previous_state',
+    'previous_postal_code',
     'emergency_contact_name',
     'emergency_contact_relationship',
     'emergency_contact_phone',
@@ -83,14 +131,51 @@ use Illuminate\Support\Carbon;
     'terminated_on',
     'employment_status',
     'job_title',
+    'employment_type',
+    'preferred_shift_type',
+    'desired_hours_per_week',
+    'willing_long_term',
+    'willing_short_term',
+    'willing_pets',
+    'willing_smoke',
+    'how_heard',
+    'employment_interest',
+    'has_drivers_license',
+    'license_state',
+    'license_number',
+    'vehicle_make_year',
+    'insurance_company',
+    'insurance_policy_number',
+    'has_moving_violations',
+    'moving_violations_description',
+    'license_ever_suspended',
+    'license_suspension_explanation',
+    'may_contact_current_employer',
+    'ohio_resident_5_years',
+    'residence_history',
+    'used_other_names',
+    'other_names',
+    'ssn',
+    'alternate_ssn',
+    'has_conviction',
+    'security_comments',
     'job_type',
     'supervisor_id',
     'notes',
+    'profile_photo_path',
 ])]
 class Employee extends Model
 {
     /** @use HasFactory<EmployeeFactory> */
     use HasFactory, SoftDeletes;
+
+    /**
+     * @var list<string>
+     */
+    protected $hidden = [
+        'ssn',
+        'alternate_ssn',
+    ];
 
     /**
      * @return array<string, string>
@@ -103,6 +188,21 @@ class Employee extends Model
             'terminated_on' => 'date',
             'employment_status' => EmploymentStatus::class,
             'job_type' => JobType::class,
+            'employment_type' => EmploymentType::class,
+            'desired_hours_per_week' => 'integer',
+            'willing_long_term' => 'boolean',
+            'willing_short_term' => 'boolean',
+            'willing_pets' => 'boolean',
+            'willing_smoke' => 'boolean',
+            'has_drivers_license' => 'boolean',
+            'has_moving_violations' => 'boolean',
+            'license_ever_suspended' => 'boolean',
+            'may_contact_current_employer' => 'boolean',
+            'ohio_resident_5_years' => 'boolean',
+            'used_other_names' => 'boolean',
+            'has_conviction' => 'boolean',
+            'ssn' => 'encrypted',
+            'alternate_ssn' => 'encrypted',
         ];
     }
 
@@ -170,6 +270,38 @@ class Employee extends Model
     public function trainings(): HasMany
     {
         return $this->hasMany(EmployeeTraining::class);
+    }
+
+    /**
+     * @return HasMany<EmployeeEducation, $this>
+     */
+    public function educations(): HasMany
+    {
+        return $this->hasMany(EmployeeEducation::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * @return HasMany<EmployeeReference, $this>
+     */
+    public function personalReferences(): HasMany
+    {
+        return $this->hasMany(EmployeeReference::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * @return HasMany<EmployeeWorkHistory, $this>
+     */
+    public function workHistories(): HasMany
+    {
+        return $this->hasMany(EmployeeWorkHistory::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * @return HasMany<EmployeeSecurityIncident, $this>
+     */
+    public function securityIncidents(): HasMany
+    {
+        return $this->hasMany(EmployeeSecurityIncident::class)->orderBy('sort_order')->orderBy('id');
     }
 
     /**
@@ -259,6 +391,24 @@ class Employee extends Model
     {
         return $this->job_type === JobType::Supervisor
             && $this->employment_status === EmploymentStatus::Active;
+    }
+
+    public function hasPhoto(): bool
+    {
+        return filled($this->profile_photo_path);
+    }
+
+    public function initials(): string
+    {
+        $first = mb_substr((string) $this->first_name, 0, 1);
+        $last = mb_substr((string) $this->last_name, 0, 1);
+
+        return mb_strtoupper($first.$last);
+    }
+
+    public function primaryPhone(): ?string
+    {
+        return $this->cell_phone ?: $this->phone ?: $this->home_phone;
     }
 
     /**

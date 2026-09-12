@@ -23,13 +23,21 @@ export function ClientForm({
     submitLabel: string;
 }) {
     return (
-        <Form action={action} method={method} className="space-y-6">
+        <Form action={action} method={method} encType="multipart/form-data" className="space-y-6">
             {({ processing, errors }) => (
                 <>
                     <section className="surface-panel grid gap-4 p-4 md:grid-cols-2 md:p-5">
                         <h2 className="text-sm font-semibold md:col-span-2">
                             Profile
                         </h2>
+                        <Field label="Profile photo" htmlFor="profile_photo" error={errors.profile_photo}>
+                            <Input id="profile_photo" name="profile_photo" type="file" accept="image/jpeg,image/png,image/webp" />
+                        </Field>
+                        {client?.photo_url ? (
+                            <p className="text-muted-foreground text-xs md:col-span-2">
+                                A photo is already on file. Upload a new image to replace it.
+                            </p>
+                        ) : null}
                         <Field label="First name" htmlFor="first_name" error={errors.first_name}>
                             <Input id="first_name" name="first_name" required defaultValue={client?.first_name} />
                         </Field>

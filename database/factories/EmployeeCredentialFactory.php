@@ -31,6 +31,8 @@ class EmployeeCredentialFactory extends Factory
                 CredentialType::BackgroundCheck => 'Background Check',
                 CredentialType::MedicationAdministration => 'Medication Administration',
                 CredentialType::TbScreening => 'TB Screening',
+                CredentialType::PhysicianStatement => 'Physician Good-Health Statement',
+                CredentialType::ProfessionalLicense => 'Professional License',
             },
             'issuer' => fake()->randomElement(['American Red Cross', 'Ohio BMV', 'County Board', 'State Health Dept']),
             'credential_number' => fake()->optional(0.7)->bothify('CRD-####-####'),

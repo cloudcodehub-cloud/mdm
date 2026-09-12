@@ -16,6 +16,8 @@ import {
     controlClassName,
 } from '@/components/mdm/directory';
 import { IdentityHeader } from '@/components/mdm/identity-header';
+import { ProfileCompletionMeter } from '@/components/mdm/profile-completion-meter';
+import { ProfilePhoto } from '@/components/mdm/profile-photo';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { TaskCatalogBuilder } from '@/components/mdm/task-catalog-builder';
 import { Button } from '@/components/ui/button';
@@ -46,6 +48,7 @@ import type {
     CarePlanRecord,
     ClientDetail,
     OptionItem,
+    ProfileCompletion,
     VisitRecord,
 } from '@/types/directory';
 
@@ -61,6 +64,7 @@ export default function ClientsShow({
     supervisor_contact = null,
     dspOptions,
     can,
+    profile_completion,
 }: {
     client: ClientDetail;
     authorizations: AuthorizationRecord[];
@@ -77,6 +81,7 @@ export default function ClientsShow({
     supervisor_contact?: SupervisorContact | null;
     dspOptions: OptionItem[];
     can: { update: boolean; manageAssignments: boolean; manageCarePlan: boolean };
+    profile_completion: ProfileCompletion;
 }) {
     const role = usePage().props.auth.user.role;
     const isDsp = role === 'DSP';
@@ -110,6 +115,14 @@ export default function ClientsShow({
             <Head title={client.name} />
             <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
                 <IdentityHeader
+                    leading={
+                        <ProfilePhoto
+                            name={client.name}
+                            photoUrl={client.photo_url}
+                            initials={client.initials}
+                            size="lg"
+                        />
+                    }
                     eyebrow={client.client_number}
                     title={client.name}
                     meta={
@@ -135,7 +148,9 @@ export default function ClientsShow({
                         </>
                     }
                     actions={
-                        can.update ? (
+                        <>
+                            <ProfileCompletionMeter completion={profile_completion} />
+                            {can.update ? (
                             <>
                                 <Button asChild variant="secondary">
                                     <Link href={edit(client.id)}>Edit</Link>
@@ -157,7 +172,8 @@ export default function ClientsShow({
                                     />
                                 )}
                             </>
-                        ) : undefined
+                            ) : null}
+                        </>
                     }
                 />
 

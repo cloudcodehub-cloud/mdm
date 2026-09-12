@@ -246,12 +246,18 @@ class MessagingService
      */
     public function serializeUser(User $user): array
     {
+        $user->loadMissing('employee');
+
         return [
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
             'role' => $user->role->value,
             'can_message' => $user->canMessage(),
+            'photo_url' => $user->employee
+                ? app(ProfilePhotoService::class)->employeeUrl($user->employee)
+                : null,
+            'initials' => $user->employee?->initials(),
         ];
     }
 

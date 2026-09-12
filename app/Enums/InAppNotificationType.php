@@ -8,4 +8,5 @@ enum InAppNotificationType: string
     case Announcement = 'announcement';
     case Schedule = 'schedule';
     case Availability = 'availability';
+    case Profile = 'profile';
 }

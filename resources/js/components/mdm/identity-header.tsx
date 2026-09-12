@@ -6,12 +6,14 @@ export function IdentityHeader({
     title,
     meta,
     actions,
+    leading,
     className,
 }: {
     eyebrow?: ReactNode;
     title: ReactNode;
     meta?: ReactNode;
     actions?: ReactNode;
+    leading?: ReactNode;
     className?: string;
 }) {
     return (
@@ -21,7 +23,9 @@ export function IdentityHeader({
                 className,
             )}
         >
-            <div className="min-w-0">
+            <div className="flex min-w-0 items-start gap-3">
+                {leading}
+                <div className="min-w-0">
                 {eyebrow ? (
                     <p className="text-muted-foreground text-sm">{eyebrow}</p>
                 ) : null}
@@ -31,6 +35,7 @@ export function IdentityHeader({
                         {meta}
                     </div>
                 ) : null}
+                </div>
             </div>
             {actions ? (
                 <div className="flex flex-wrap gap-2">{actions}</div>

@@ -9,6 +9,9 @@ use App\Http\Requests\UpdateClientStatusRequest;
 use App\Models\Client;
 use App\Models\ClientDspAssignment;
 use App\Services\CareOverviewService;
+use App\Services\ProfileAttentionService;
+use App\Services\ProfileCompletionService;
+use App\Services\ProfilePhotoService;
 use App\Services\SettingsService;
 use App\Support\CareServicePresenter;
 use App\Support\DirectoryPresenter;
@@ -84,21 +87,31 @@ class ClientController extends Controller
         ]);
     }
 
-    public function store(StoreClientRequest $request): RedirectResponse
-    {
+    public function store(
+        StoreClientRequest $request,
+        ProfilePhotoService $photos,
+        ProfileAttentionService $attention,
+    ): RedirectResponse {
         $data = $request->validated();
         $data['client_number'] = filled($data['client_number'] ?? null)
             ? $data['client_number']
             : Client::nextClientNumber();
 
+        unset($data['profile_photo'], $data['remove_photo']);
         $client = Client::query()->create($data);
+
+        if ($request->file('profile_photo')) {
+            $photos->storeClient($client, $request->file('profile_photo'));
+        }
+
+        $attention->syncClient($client);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Client created.')]);
 
         return redirect()->route('clients.setup.edit', $client);
     }
 
-    public function show(Request $request, Client $client, CareOverviewService $overview): Response
+    public function show(Request $request, Client $client, CareOverviewService $overview, ProfileCompletionService $completion): Response
     {
         $this->authorize('view', $client);
 
@@ -143,6 +156,7 @@ class ClientController extends Controller
 
         return Inertia::render('clients/show', [
             'client' => DirectoryPresenter::clientDetail($client),
+            'profile_completion' => $completion->forClient($client),
             'authorizations' => DirectoryPresenter::authorizations($client->authorizations),
             'carePlans' => DirectoryPresenter::carePlans($client->carePlans),
             'assignments' => DirectoryPresenter::assignments($assignments),
@@ -189,9 +203,25 @@ class ClientController extends Controller
         ]);
     }
 
-    public function update(UpdateClientRequest $request, Client $client): RedirectResponse
-    {
-        $client->update($request->validated());
+    public function update(
+        UpdateClientRequest $request,
+        Client $client,
+        ProfilePhotoService $photos,
+        ProfileAttentionService $attention,
+    ): RedirectResponse {
+        $data = $request->validated();
+        unset($data['profile_photo'], $data['remove_photo']);
+        $client->update($data);
+
+        if ($request->boolean('remove_photo')) {
+            $photos->removeClient($client);
+        }
+
+        if ($request->file('profile_photo')) {
+            $photos->storeClient($client, $request->file('profile_photo'));
+        }
+
+        $attention->syncClient($client->fresh() ?? $client);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Client updated.')]);
 
