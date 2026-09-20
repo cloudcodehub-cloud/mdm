@@ -11,11 +11,10 @@ import {
 } from '@/components/ui/sidebar';
 import { navigationForRole } from '@/lib/navigation';
 import { dashboard } from '@/routes';
-import type { AppRole } from '@/types/auth';
 
 export function AppSidebar() {
     const { auth } = usePage().props;
-    const role = (auth.user?.role ?? 'DSP') as AppRole;
+    const role = auth.user?.role;
 
     return (
         <Sidebar collapsible="icon" variant="inset">

@@ -182,7 +182,9 @@ class ClientController extends Controller
                 'name' => $supervisorName ?? $supervisorUser->name,
                 'available' => $supervisorUser->canMessage() && $supervisorUser->id !== $user?->id,
             ],
-            'dspOptions' => DirectoryPresenter::dspOptions(),
+            'dspOptions' => ($user?->can('create', ClientDspAssignment::class) ?? false)
+                ? DirectoryPresenter::dspOptions()
+                : [],
             'can' => [
                 'update' => $user?->can('update', $client) ?? false,
                 'manageAssignments' => $user?->can('create', ClientDspAssignment::class) ?? false,

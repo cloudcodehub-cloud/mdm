@@ -490,19 +490,21 @@ export default function ScheduledVisitsCalendar({
                                 ))}
                             </select>
                         )}
-                        <select
-                            name="supervisor_id"
-                            defaultValue={filters.supervisor_id ?? ''}
-                            className={controlClassName}
-                            aria-label="Supervisor"
-                        >
-                            <option value="">All supervisors</option>
-                            {supervisors.map((row) => (
-                                <option key={row.id} value={row.id}>
-                                    {row.name}
-                                </option>
-                            ))}
-                        </select>
+                        {supervisors.length > 0 && (
+                            <select
+                                name="supervisor_id"
+                                defaultValue={filters.supervisor_id ?? ''}
+                                className={controlClassName}
+                                aria-label="Supervisor"
+                            >
+                                <option value="">All supervisors</option>
+                                {supervisors.map((row) => (
+                                    <option key={row.id} value={row.id}>
+                                        {row.name}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
                         <select
                             name="status"
                             defaultValue={filters.status ?? ''}

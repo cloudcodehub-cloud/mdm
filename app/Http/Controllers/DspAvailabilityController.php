@@ -42,7 +42,7 @@ class DspAvailabilityController extends Controller
     public function store(DspAvailabilityRequestForm $request, DspAvailabilityService $availability, SchedulingNotificationService $notifications): RedirectResponse
     {
         $user = $request->user();
-        abort_unless($user?->employee !== null, 403);
+        abort_unless($user !== null && $user->isDsp() && $user->employee !== null, 403);
 
         $record = $availability->submitRequest($user->employee, $user, $request->validated());
         $notifications->availabilitySubmitted($record);
@@ -55,7 +55,7 @@ class DspAvailabilityController extends Controller
     public function storeTimeOff(TimeOffRequest $request, DspAvailabilityService $availability, SchedulingNotificationService $notifications): RedirectResponse
     {
         $user = $request->user();
-        abort_unless($user?->employee !== null, 403);
+        abort_unless($user !== null && $user->isDsp() && $user->employee !== null, 403);
 
         $record = $availability->submitTimeOff($user->employee, $user, $request->validated());
 

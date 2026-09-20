@@ -104,6 +104,16 @@ export const mainNavigation: RoleNavItem[] = [
     },
 ];
 
-export function navigationForRole(role: AppRole): RoleNavItem[] {
+export function isAppRole(role: string | null | undefined): role is AppRole {
+    return role === 'ADMIN' || role === 'SUPERVISOR' || role === 'DSP';
+}
+
+export function navigationForRole(
+    role: string | null | undefined,
+): RoleNavItem[] {
+    if (!isAppRole(role)) {
+        return [];
+    }
+
     return mainNavigation.filter((item) => item.roles.includes(role));
 }

@@ -101,7 +101,7 @@ class ScheduledVisitController extends Controller
             'filters' => $filters,
             'clients' => DirectoryPresenter::clientFilterOptions($user),
             'dsps' => DirectoryPresenter::dspFilterOptions($user),
-            'supervisors' => DirectoryPresenter::supervisorOptions(),
+            'supervisors' => $user->isDsp() ? [] : DirectoryPresenter::supervisorOptions(),
             'can' => [
                 'create' => $user->can('create', ScheduledVisit::class),
                 'filter_dsps' => ! $user->isDsp(),
@@ -135,7 +135,7 @@ class ScheduledVisitController extends Controller
             'filters' => $filters,
             'clients' => DirectoryPresenter::clientFilterOptions($user),
             'dsps' => DirectoryPresenter::dspFilterOptions($user),
-            'supervisors' => DirectoryPresenter::supervisorOptions(),
+            'supervisors' => $user->isDsp() ? [] : DirectoryPresenter::supervisorOptions(),
             'can' => [
                 'create' => $user->can('create', ScheduledVisit::class),
                 'filter_dsps' => ! $user->isDsp(),

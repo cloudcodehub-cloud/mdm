@@ -6,6 +6,7 @@ export const PRODUCT_TAGLINE = 'Streamlining Success, One Data at a Time.';
 export const brandAssets = {
     horizontal: '/brand/mdm-logo-horizontal.png',
     stacked: '/brand/mdm-logo-stacked.png',
+    noTagline: '/brand/mdm-logo-no-tagline.png',
     icon: '/brand/mdm-icon.png',
 } as const;
 

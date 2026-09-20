@@ -172,6 +172,7 @@ class ClientDirectoryTest extends TestCase
                 ->has('assignments')
                 ->has('scheduledVisits')
                 ->where('can.manageAssignments', true)
+                ->has('dspOptions')
             );
     }
 
@@ -195,6 +196,8 @@ class ClientDirectoryTest extends TestCase
                 ->where('today_visit.id', $scheduled->id)
                 ->where('today_visit.can_start', true)
                 ->where('can.update', false)
+                ->where('can.manageAssignments', false)
+                ->has('dspOptions', 0)
             );
     }
 }

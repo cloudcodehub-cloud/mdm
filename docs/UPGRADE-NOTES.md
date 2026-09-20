@@ -1,5 +1,11 @@
 # Upgrade notes
 
+## Phase 6A — Authentication, role routing, and app shell
+
+- Post-login destination remains the shared `/dashboard` route. Role-specific experience is the dashboard payload (ADMIN / SUPERVISOR / DSP), not separate dashboard URLs.
+- Sidebar navigation no longer falls back to DSP items when role is missing; active nav now matches nested routes (for example `/employees/1`).
+- DSP My Availability POST endpoints require an active DSP employee. Client assignment DSP pick-lists are included only for users who can create assignments. Schedule board supervisor filters are omitted for DSP.
+
 ## Phase 5C — Employee onboarding and profile completion
 
 - System Role and Job Title are separate. System Role (DSP, Supervisor, Admin) drives login permissions and role-aware profile completion; Job Title is the employment label.
