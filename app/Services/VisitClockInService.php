@@ -108,9 +108,11 @@ class VisitClockInService
     public function activeVisitFor(Employee $employee): ?Visit
     {
         return Visit::query()
-            ->with(['client', 'scheduledVisit.shiftTemplate'])
+            ->with(['client', 'scheduledVisit.shiftTemplate', 'tasks'])
             ->where('employee_id', $employee->id)
             ->inProgress()
+            ->orderByDesc('clocked_in_at')
+            ->orderByDesc('id')
             ->first();
     }
 

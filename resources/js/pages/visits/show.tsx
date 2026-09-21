@@ -3,6 +3,7 @@ import { Head, Link } from '@inertiajs/react';
 import { CareMessageDrawer } from '@/components/mdm/care-message-drawer';
 import { CompactTaskList } from '@/components/mdm/compact-task-list';
 import { StatusBadge } from '@/components/mdm/directory';
+import { BackLink } from '@/components/mdm/back-link';
 import {
     ContextGroup,
     ContextStrip,
@@ -93,12 +94,11 @@ export default function VisitsShow({
             <RecordPage>
                 <RecordHeader
                     eyebrow={
-                        <Link
-                            href={showScheduled(visit.scheduled_visit.id)}
-                            className="hover:text-foreground"
-                        >
-                            Scheduled visit
-                        </Link>
+                        completed ? (
+                            'Completed visit'
+                        ) : (
+                            <BackLink href={dashboard()}>Back to Dashboard</BackLink>
+                        )
                     }
                     title={visit.client.name}
                     meta={
@@ -118,11 +118,18 @@ export default function VisitsShow({
                     }
                     actions={
                         <div className="flex flex-wrap gap-2">
+                            {completed ? (
+                                <Button asChild>
+                                    <Link href={dashboard()}>
+                                        Back to Dashboard
+                                    </Link>
+                                </Button>
+                            ) : null}
                             {can?.view_exceptions &&
                                 visit.exceptions.some(
                                     (row) => row.status !== 'resolved',
                                 ) && (
-                                    <Button asChild variant="secondary">
+                                    <Button asChild variant={completed ? 'secondary' : 'default'}>
                                         <Link
                                             href={showException.url(
                                                 visit.exceptions.find(
@@ -139,6 +146,13 @@ export default function VisitsShow({
                             {documents?.completed_visit ? (
                                 <PrintPdfAction href={documents.completed_visit} />
                             ) : undefined}
+                            {completed ? (
+                                <Button asChild variant="outline">
+                                    <Link href={showScheduled(visit.scheduled_visit.id)}>
+                                        View Schedule
+                                    </Link>
+                                </Button>
+                            ) : null}
                         </div>
                     }
                 />
@@ -423,7 +437,7 @@ function VisitMonitoring({
                     renderFollowUp={
                         canFollowUp
                             ? (task) =>
-                                  exceptionByTaskId.get(task.id)
+                                  task.id && exceptionByTaskId.get(task.id)
                                       ? 'Supervisor follow-up available'
                                       : null
                             : undefined

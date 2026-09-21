@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { EmptyState } from '@/components/mdm/stat-card';
-import { index as announcementsIndex, read } from '@/routes/announcements';
+import { read } from '@/routes/announcements';
 import type { AnnouncementRecord } from '@/types/messaging';
 import { cn } from '@/lib/utils';
 
@@ -23,7 +23,7 @@ export function AnnouncementList({
                         href={read.url(item.id)}
                         method="post"
                         className={cn(
-                            'hover:bg-muted/40 -mx-1 block rounded-md px-1 py-1',
+                            'interactive-row -mx-1 block rounded-md px-1 py-1',
                             !item.is_read && 'bg-muted/30',
                         )}
                     >
@@ -38,14 +38,6 @@ export function AnnouncementList({
                     </Link>
                 </li>
             ))}
-            <li>
-                <Link
-                    href={announcementsIndex()}
-                    className="text-sm font-medium hover:underline"
-                >
-                    All announcements
-                </Link>
-            </li>
         </ul>
     );
 }

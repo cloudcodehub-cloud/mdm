@@ -65,97 +65,111 @@ class ProfileAttentionService
     /**
      * @return list<array<string, mixed>>
      */
+    /**
+     * @return array{employees: list<array<string, mixed>>, clients: list<array<string, mixed>>}
+     */
+    public function dashboardGroups(User $user, int $limit = 8): array
+    {
+        if (! $user->isAdmin() && ! $user->isSupervisor()) {
+            return [
+                'employees' => [],
+                'clients' => [],
+            ];
+        }
+
+        $employees = [];
+        $clients = [];
+
+        foreach (Employee::query()
+            ->visibleTo($user)
+            ->where('employment_status', '!=', EmploymentStatus::Terminated)
+            ->with(['credentials', 'educations', 'personalReferences', 'workHistories', 'weeklyAvailabilities', 'user'])
+            ->orderBy('last_name')
+            ->get() as $employee) {
+            $report = $this->completion->forEmployee($employee);
+
+            if (! $this->completion->needsAttention($report, $employee->employment_status)) {
+                continue;
+            }
+
+            $employees[] = [
+                'id' => 'employee-'.$employee->id,
+                'kind' => 'employee',
+                'name' => $employee->full_name,
+                'percent' => $report['percent'],
+                'status' => $report['status'],
+                'status_label' => $report['status_label'],
+                'tone' => $report['tone'],
+                'summary' => $report['summary'],
+                'href' => route('employees.show', $employee),
+                'photo_url' => app(ProfilePhotoService::class)->employeeUrl($employee),
+                'initials' => $employee->initials(),
+            ];
+        }
+
+        foreach (Client::query()
+            ->visibleTo($user)
+            ->where('status', '!=', ClientStatus::Discharged)
+            ->with(['careServices', 'carePlans', 'authorizations', 'dspAssignments'])
+            ->orderBy('last_name')
+            ->get() as $client) {
+            $report = $this->completion->forClient($client);
+
+            if (! $this->completion->needsAttention($report, $client->status)) {
+                continue;
+            }
+
+            $clients[] = [
+                'id' => 'client-'.$client->id,
+                'kind' => 'client',
+                'name' => $client->full_name,
+                'percent' => $report['percent'],
+                'status' => $report['status'],
+                'status_label' => $report['status_label'],
+                'tone' => $report['tone'],
+                'summary' => $report['summary'],
+                'href' => route('clients.show', $client),
+                'photo_url' => app(ProfilePhotoService::class)->clientUrl($client),
+                'initials' => $client->initials(),
+            ];
+        }
+
+        return [
+            'employees' => $this->rankAttentionItems($employees, $limit),
+            'clients' => $this->rankAttentionItems($clients, $limit),
+        ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
     public function dashboardItems(User $user, int $limit = 8): array
     {
-        $items = collect();
+        $groups = $this->dashboardGroups($user, $limit);
 
-        if ($user->isAdmin() || $user->isSupervisor()) {
-            $employees = Employee::query()
-                ->visibleTo($user)
-                ->where('employment_status', '!=', EmploymentStatus::Terminated)
-                ->with(['credentials', 'educations', 'personalReferences', 'workHistories', 'weeklyAvailabilities', 'user'])
-                ->orderBy('last_name')
-                ->get();
+        return $this->rankAttentionItems([
+            ...$groups['employees'],
+            ...$groups['clients'],
+        ], $limit);
+    }
 
-            foreach ($employees as $employee) {
-                $report = $this->completion->forEmployee($employee);
+    /**
+     * @param  list<array<string, mixed>>  $items
+     * @return list<array<string, mixed>>
+     */
+    private function rankAttentionItems(array $items, int $limit): array
+    {
+        usort($items, function (array $left, array $right): int {
+            $toneRank = static fn (array $item): int => match ($item['tone'] ?? '') {
+                'danger' => 0,
+                'warning' => 1,
+                default => 2,
+            };
 
-                if (! $this->completion->needsAttention($report, $employee->employment_status)) {
-                    continue;
-                }
+            return [$toneRank($left), $left['percent'] ?? 100] <=> [$toneRank($right), $right['percent'] ?? 100];
+        });
 
-                $items->push([
-                    'id' => 'employee-'.$employee->id,
-                    'kind' => 'employee',
-                    'name' => $employee->full_name,
-                    'percent' => $report['percent'],
-                    'status' => $report['status'],
-                    'status_label' => $report['status_label'],
-                    'tone' => $report['tone'],
-                    'summary' => $report['summary'],
-                    'href' => route('employees.show', $employee),
-                    'photo_url' => app(ProfilePhotoService::class)->employeeUrl($employee),
-                    'initials' => $employee->initials(),
-                ]);
-            }
-
-            $clients = Client::query()
-                ->visibleTo($user)
-                ->where('status', '!=', ClientStatus::Discharged)
-                ->with(['careServices', 'carePlans', 'authorizations', 'dspAssignments'])
-                ->orderBy('last_name')
-                ->get();
-
-            foreach ($clients as $client) {
-                $report = $this->completion->forClient($client);
-
-                if (! $this->completion->needsAttention($report, $client->status)) {
-                    continue;
-                }
-
-                $items->push([
-                    'id' => 'client-'.$client->id,
-                    'kind' => 'client',
-                    'name' => $client->full_name,
-                    'percent' => $report['percent'],
-                    'status' => $report['status'],
-                    'status_label' => $report['status_label'],
-                    'tone' => $report['tone'],
-                    'summary' => $report['summary'],
-                    'href' => route('clients.show', $client),
-                    'photo_url' => app(ProfilePhotoService::class)->clientUrl($client),
-                    'initials' => $client->initials(),
-                ]);
-            }
-        } elseif ($user->isDsp() && $user->employee) {
-            $report = $this->completion->forEmployee($user->employee);
-
-            if ($this->completion->needsAttention($report, $user->employee->employment_status)) {
-                $items->push([
-                    'id' => 'employee-'.$user->employee->id,
-                    'kind' => 'employee',
-                    'name' => $user->employee->full_name,
-                    'percent' => $report['percent'],
-                    'status' => $report['status'],
-                    'status_label' => $report['status_label'],
-                    'tone' => $report['tone'],
-                    'summary' => $report['summary'],
-                    'href' => route('employees.show', $user->employee),
-                    'photo_url' => app(ProfilePhotoService::class)->employeeUrl($user->employee),
-                    'initials' => $user->employee->initials(),
-                ]);
-            }
-        }
-
-        $ranked = [];
-
-        foreach ($items->sortBy('percent')->take($limit) as $item) {
-            if (is_array($item)) {
-                $ranked[] = $item;
-            }
-        }
-
-        return $ranked;
+        return array_slice($items, 0, $limit);
     }
 
     /**

@@ -108,8 +108,9 @@ class Phase6BDetailPolishTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->has('dashboard.profiles_needing_attention', 1)
-                ->where('dashboard.profiles_needing_attention.0.id', 'employee-'.$dsp->id)
+                ->where('dashboard.profile_attention.employees', [])
+                ->where('dashboard.profile_attention.clients', [])
+                ->where('dashboard.profiles_needing_attention', [])
             );
     }
 

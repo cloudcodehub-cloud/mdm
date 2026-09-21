@@ -2,6 +2,7 @@ import { Form, Head, Link, usePage } from '@inertiajs/react';
 import { ClockInAction } from '@/components/mdm/clock-in-action';
 import { CompactTaskList } from '@/components/mdm/compact-task-list';
 import { StatusBadge } from '@/components/mdm/directory';
+import { BackLink } from '@/components/mdm/back-link';
 import {
     ActionGroup,
     AttentionBanner,
@@ -45,11 +46,6 @@ export default function ScheduledVisitsShow({
     const role = usePage().props.auth.user.role;
     const canOpenDirectories = role === 'ADMIN' || role === 'SUPERVISOR';
     const recorded = visit.recorded_visit;
-    const taskProgress = recorded
-        ? `${recorded.task_summary.completed}/${recorded.task_summary.total}`
-        : visit.one_off_tasks && visit.one_off_tasks.length > 0
-          ? `${visit.one_off_tasks.length} one-off`
-          : 'Care-plan tasks apply at start';
     const highPriority = Boolean(recorded?.has_high_priority_open);
 
     return (
@@ -58,12 +54,7 @@ export default function ScheduledVisitsShow({
             <RecordPage>
                 <RecordHeader
                     eyebrow={
-                        <Link
-                            href={visitsIndex()}
-                            className="hover:text-foreground"
-                        >
-                            Scheduled Visits
-                        </Link>
+                        <BackLink href={visitsIndex()}>Back to Visits</BackLink>
                     }
                     title={visit.client?.name ?? visit.client_name}
                     meta={
@@ -163,36 +154,58 @@ export default function ScheduledVisitsShow({
                 )}
 
                 <ContextStrip>
+                    <ContextGroup label="Client">
+                        {visit.client?.name ?? visit.client_name}
+                        <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
+                            {visit.client?.client_number ?? 'Client ID unavailable'}
+                        </span>
+                    </ContextGroup>
                     <ContextGroup label="Service">
                         {visit.services && visit.services.length > 0
                             ? visit.services.map((service) => service.name).join(' · ')
                             : visit.service_type}
                     </ContextGroup>
-                    <ContextGroup label="Care team">
+                    <ContextGroup label="When">
+                        {visit.service_date} · {visit.time_label}
+                    </ContextGroup>
+                    <ContextGroup label="DSP">
                         {canOpenDirectories && visit.employee ? (
                             <Link href={showEmployee(visit.employee.id)} className="hover:text-foreground">
-                                {visit.employee.name} · DSP
+                                {visit.employee.name}
                             </Link>
                         ) : (
-                            <>{visit.dsp_name} · DSP</>
+                            visit.dsp_name
                         )}
-                        <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
-                            {visit.supervisor?.name ?? visit.supervisor_name ?? 'No supervisor assigned'}
-                        </span>
                     </ContextGroup>
-                    <ContextGroup label="Timing">
-                        {visit.service_date} · {visit.time_label}
+                    <ContextGroup label="Supervisor">
+                        {visit.supervisor?.name ?? visit.supervisor_name ?? 'No supervisor assigned'}
+                    </ContextGroup>
+                    <ContextGroup label="Visit status">
+                        {visit.status_label}
                         <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
-                            {taskProgress}
+                            {(visit.assigned_visit_tasks?.length ?? 0)} tasks assigned
                         </span>
                     </ContextGroup>
                 </ContextStrip>
 
                 {visit.notes ? (
-                    <RecordSection title="Important instructions" compact>
+                    <RecordSection title="Visit instructions" compact>
                         <p className="text-sm whitespace-pre-wrap">{visit.notes}</p>
                     </RecordSection>
                 ) : null}
+
+                {!recorded && (visit.assigned_visit_tasks?.length ?? 0) >= 0 && visit.visit_phase !== 'completed' && (
+                    <RecordSection
+                        title="Visit tasks"
+                        description="Tasks assigned to this scheduled visit."
+                        compact
+                    >
+                        <CompactTaskList
+                            tasks={visit.assigned_visit_tasks ?? []}
+                            empty="No visit tasks are assigned yet."
+                        />
+                    </RecordSection>
+                )}
 
                 {recorded && (
                     <RecordSection

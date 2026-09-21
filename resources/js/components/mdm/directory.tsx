@@ -103,22 +103,29 @@ export function ModuleTabs({
     onChange: (id: string) => void;
 }) {
     return (
-        <div className="flex flex-wrap gap-1 rounded-lg bg-muted/70 p-1">
-            {tabs.map((tab) => (
-                <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => onChange(tab.id)}
-                    className={cn(
-                        'rounded-md px-3 py-1.5 text-sm transition-colors duration-150',
-                        value === tab.id
-                            ? 'bg-background text-foreground shadow-xs'
-                            : 'text-muted-foreground hover:bg-background/70 hover:text-foreground',
-                    )}
-                >
-                    {tab.label}
-                </button>
-            ))}
+        <div role="tablist" className="flex flex-wrap gap-1 rounded-lg bg-muted/70 p-1">
+            {tabs.map((tab) => {
+                const selected = value === tab.id;
+
+                return (
+                    <button
+                        key={tab.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={selected}
+                        tabIndex={selected ? 0 : -1}
+                        onClick={() => onChange(tab.id)}
+                        className={cn(
+                            'rounded-md px-3 py-1.5 text-sm transition-colors duration-150',
+                            selected
+                                ? 'bg-background text-foreground shadow-xs'
+                                : 'text-muted-foreground hover:bg-background/70 hover:text-foreground',
+                        )}
+                    >
+                        {tab.label}
+                    </button>
+                );
+            })}
         </div>
     );
 }

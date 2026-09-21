@@ -354,6 +354,15 @@ export type VisitRecord = {
         included: boolean;
         exclusion_reason?: string | null;
     }>;
+    assigned_visit_tasks?: Array<{
+        key: string;
+        title: string;
+        instructions?: string | null;
+        is_required?: boolean;
+        is_critical?: boolean;
+        source?: string;
+        source_label?: string | null;
+    }>;
     recorded_visit?: import('./visit').ActiveVisitRecord | null;
 };
 

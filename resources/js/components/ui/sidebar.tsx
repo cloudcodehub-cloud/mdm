@@ -24,10 +24,11 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
+const SIDEBAR_STORAGE_KEY = "mdm.sidebar.expanded"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
-const SIDEBAR_WIDTH_ICON = "3rem"
+const SIDEBAR_WIDTH_ICON = "3.75rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
 type SidebarContext = {
@@ -80,11 +81,35 @@ function SidebarProvider({
         _setOpen(openState)
       }
 
-      // This sets the cookie to keep the sidebar state.
       document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+      try {
+        window.localStorage.setItem(SIDEBAR_STORAGE_KEY, openState ? "true" : "false")
+      } catch {
+        // Ignore storage failures; cookie still persists the preference.
+      }
     },
     [setOpenProp, open]
   )
+
+  React.useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(SIDEBAR_STORAGE_KEY)
+      if (stored === "true" || stored === "false") {
+        const storedOpen = stored === "true"
+        if (storedOpen !== open) {
+          if (setOpenProp) {
+            setOpenProp(storedOpen)
+          } else {
+            _setOpen(storedOpen)
+          }
+        }
+      }
+    } catch {
+      // Cookie-backed defaultOpen remains in use.
+    }
+    // Intentionally run once after mount to apply the local preference.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
@@ -237,6 +262,7 @@ function Sidebar({
       >
         <div
           data-sidebar="sidebar"
+          id="app-sidebar"
           className="bg-sidebar/90 group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col border-r border-sidebar-border/80 backdrop-blur-lg group-data-[variant=floating]:rounded-xl group-data-[variant=floating]:border group-data-[variant=floating]:shadow-[var(--shadow-soft)]"
         >
           {children}
@@ -251,7 +277,7 @@ function SidebarTrigger({
   onClick,
   ...props
 }: React.ComponentProps<typeof Button>) {
-  const { toggleSidebar, isMobile, state } = useSidebar()
+  const { toggleSidebar, isMobile, state, openMobile } = useSidebar()
 
   return (
     <Button
@@ -259,7 +285,10 @@ function SidebarTrigger({
       data-slot="sidebar-trigger"
       variant="ghost"
       size="icon"
-      className={cn("h-7 w-7", className)}
+      aria-label={isMobile ? "Open navigation" : state === "collapsed" ? "Expand sidebar" : "Collapse sidebar"}
+      aria-expanded={isMobile ? openMobile : state === "expanded"}
+      aria-controls="app-sidebar"
+      className={cn("h-8 w-8", className)}
       onClick={(event) => {
         onClick?.(event)
         toggleSidebar()
@@ -267,7 +296,9 @@ function SidebarTrigger({
       {...props}
     >
       {isMobile || state === "collapsed" ? <PanelLeftOpenIcon /> : <PanelLeftCloseIcon />}
-      <span className="sr-only">Toggle sidebar</span>
+      <span className="sr-only">
+        {isMobile ? "Open navigation" : state === "collapsed" ? "Expand sidebar" : "Collapse sidebar"}
+      </span>
     </Button>
   )
 }
@@ -467,7 +498,7 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
 }
 
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button flex w-full cursor-pointer items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm text-sidebar-foreground outline-hidden ring-sidebar-ring transition-[width,height,padding,background-color,color,box-shadow] duration-150 ease-out motion-reduce:transition-none hover:bg-sidebar-hover/35 hover:text-sidebar-hover-foreground hover:shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--sidebar-hover)_45%,transparent)] hover:[&>svg]:text-sidebar-hover-foreground focus-visible:ring-2 active:bg-sidebar-hover/40 disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-primary/14 data-[active=true]:font-medium data-[active=true]:text-sidebar-primary data-[active=true]:shadow-[inset_2px_0_0_0_var(--sidebar-primary)] data-[active=true]:hover:bg-sidebar-primary/18 data-[active=true]:hover:text-sidebar-primary data-[active=true]:hover:shadow-[inset_2px_0_0_0_var(--sidebar-primary)] data-[active=true]:hover:[&>svg]:text-sidebar-primary data-[state=open]:hover:bg-sidebar-hover/35 data-[state=open]:hover:text-sidebar-hover-foreground data-[active=true]:data-[state=open]:hover:bg-sidebar-primary/18 data-[active=true]:data-[state=open]:hover:text-sidebar-primary group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
+  "peer/menu-button flex w-full cursor-pointer items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm text-sidebar-foreground outline-hidden ring-sidebar-ring transition-[width,height,padding,background-color,color,box-shadow] duration-150 ease-out motion-reduce:transition-none hover:bg-sidebar-hover/35 hover:text-sidebar-hover-foreground hover:shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--sidebar-hover)_45%,transparent)] hover:[&>svg]:text-sidebar-hover-foreground focus-visible:ring-2 active:bg-sidebar-hover/40 disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-primary/14 data-[active=true]:font-medium data-[active=true]:text-sidebar-primary data-[active=true]:shadow-[inset_2px_0_0_0_var(--sidebar-primary)] data-[active=true]:hover:bg-sidebar-primary/18 data-[active=true]:hover:text-sidebar-primary data-[active=true]:hover:shadow-[inset_2px_0_0_0_var(--sidebar-primary)] data-[active=true]:hover:[&>svg]:text-sidebar-primary data-[state=open]:hover:bg-sidebar-hover/35 data-[state=open]:hover:text-sidebar-hover-foreground data-[active=true]:data-[state=open]:hover:bg-sidebar-primary/18 data-[active=true]:data-[state=open]:hover:text-sidebar-primary group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:p-2! [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 group-data-[collapsible=icon]:[&>svg]:size-5",
   {
     variants: {
       variant: {

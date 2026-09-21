@@ -5,13 +5,15 @@ export function RelativeTime({
     iso,
     exact,
     className,
+    compact = false,
 }: {
     iso?: string | null;
     exact?: string | null;
     className?: string;
+    compact?: boolean;
 }) {
     const now = usePage().props.organization?.now;
-    const relative = iso ? relativeLabel(iso, now) : null;
+    const relative = iso ? relativeLabel(iso, now, compact) : null;
     const title = exact ?? iso ?? undefined;
 
     if (!relative && !exact) {
@@ -19,18 +21,16 @@ export function RelativeTime({
     }
 
     return (
-        <span className={cn('inline-flex flex-col', className)} title={title}>
-            {relative ? (
-                <span>{relative}</span>
-            ) : null}
-            {exact ? (
+        <span className={cn(compact ? 'inline' : 'inline-flex flex-col', className)} title={title}>
+            {relative ? <span>{relative}</span> : null}
+            {!compact && exact ? (
                 <span className="text-muted-foreground text-xs">{exact}</span>
             ) : null}
         </span>
     );
 }
 
-export function relativeLabel(iso: string, nowIso?: string): string | null {
+export function relativeLabel(iso: string, nowIso?: string, compact = false): string | null {
     const then = Date.parse(iso);
     const now = nowIso ? Date.parse(nowIso) : Date.now();
 
@@ -46,7 +46,11 @@ export function relativeLabel(iso: string, nowIso?: string): string | null {
     }
 
     if (abs < 60) {
-        return then >= now ? `Starts in ${abs}m` : `${abs} minutes ago`;
+        if (then >= now) {
+            return `Starts in ${abs}m`;
+        }
+
+        return compact ? `${abs}m ago` : `${abs} minutes ago`;
     }
 
     const hours = Math.round(abs / 60);
@@ -58,12 +62,22 @@ export function relativeLabel(iso: string, nowIso?: string): string | null {
     const days = Math.round(hours / 24);
 
     if (days === 1) {
-        return then >= now ? 'Tomorrow' : 'Yesterday';
+        return then >= now ? 'Tomorrow' : 'yesterday';
     }
 
     if (days < 7) {
         return then >= now ? `In ${days} days` : `${days} days ago`;
     }
 
-    return null;
+    return compact && exactFallback(iso) ? exactFallback(iso) : null;
+}
+
+function exactFallback(iso: string): string | null {
+    const date = new Date(iso);
+
+    if (!Number.isFinite(date.getTime())) {
+        return null;
+    }
+
+    return date.toLocaleDateString();
 }

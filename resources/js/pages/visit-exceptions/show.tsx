@@ -1,6 +1,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import InputError from '@/components/input-error';
 import { StatusBadge } from '@/components/mdm/directory';
+import { BackLink } from '@/components/mdm/back-link';
 import {
     ContextGroup,
     ContextStrip,
@@ -44,12 +45,9 @@ export default function VisitExceptionsShow({
             <RecordPage>
                 <RecordHeader
                     eyebrow={
-                        <Link
-                            href={exceptionsIndex()}
-                            className="hover:text-foreground"
-                        >
-                            Exception review
-                        </Link>
+                        <BackLink href={exceptionsIndex()}>
+                            Back to Exception Review
+                        </BackLink>
                     }
                     title={exception.type_label}
                     meta={

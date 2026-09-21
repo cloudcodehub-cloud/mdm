@@ -41,7 +41,7 @@ export function AttentionList({
                         {item.href ? (
                             <Link
                                 href={item.href}
-                                className="hover:bg-muted/40 -mx-1 flex gap-3 rounded-md px-1 py-0.5"
+                                className="interactive-row -mx-1 flex gap-3 rounded-md px-1 py-0.5"
                             >
                                 {content}
                             </Link>

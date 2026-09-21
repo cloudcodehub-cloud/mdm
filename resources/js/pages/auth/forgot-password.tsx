@@ -42,6 +42,7 @@ export default function ForgotPassword({ status }: { status?: string }) {
                                 <Button
                                     className="w-full"
                                     disabled={processing}
+                                    type="submit"
                                     data-test="email-password-reset-link-button"
                                 >
                                     {processing && (

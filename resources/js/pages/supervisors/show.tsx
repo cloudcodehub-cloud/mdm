@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { StatusBadge } from '@/components/mdm/directory';
+import { BackLink } from '@/components/mdm/back-link';
 import { IdentityHeader } from '@/components/mdm/identity-header';
 import { ProfilePhoto } from '@/components/mdm/profile-photo';
 import { OperationsBoardView } from '@/components/mdm/operations-board';
@@ -50,12 +51,9 @@ export default function SupervisorsShow({
                             />
                         }
                         eyebrow={
-                            <Link
-                                href={supervisorsIndex()}
-                                className="hover:text-foreground"
-                            >
-                                Supervisors
-                            </Link>
+                            <BackLink href={supervisorsIndex()}>
+                                Back to Supervisors
+                            </BackLink>
                         }
                         title={supervisor.name}
                         meta={

@@ -1,7 +1,8 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import { Form, Head, Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import { ConfirmAction } from '@/components/mdm/confirm-action';
 import { ModuleTabs, StatusBadge } from '@/components/mdm/directory';
+import { BackLink } from '@/components/mdm/back-link';
 import { IdentityHeader } from '@/components/mdm/identity-header';
 import { ProfileCompletionMeter } from '@/components/mdm/profile-completion-meter';
 import { ProfilePhoto } from '@/components/mdm/profile-photo';
@@ -38,6 +39,7 @@ export default function EmployeesShow({
     can: { update: boolean; view_sensitive: boolean };
 }) {
     const [tab, setTab] = useState('profile');
+    const role = usePage().props.auth.user.role;
     const expiredCredentials = credentials.filter(
         (item) => item.status === 'expired' || item.status === 'revoked',
     ).length;
@@ -57,7 +59,15 @@ export default function EmployeesShow({
                             size="lg"
                         />
                     }
-                    eyebrow={employee.employee_number}
+                    eyebrow={
+                        role === 'DSP' ? (
+                            <BackLink href={dashboard()}>Back to Dashboard</BackLink>
+                        ) : (
+                            <BackLink href={employeesIndex()}>
+                                Back to Employees
+                            </BackLink>
+                        )
+                    }
                     title={employee.name}
                     meta={
                         <>
@@ -66,7 +76,7 @@ export default function EmployeesShow({
                                 label={employee.employment_status_label}
                             />
                             <span className="text-muted-foreground text-sm">
-                                {employee.job_title ?? employee.job_type_label}
+                                {employee.employee_number}
                             </span>
                             <span className="text-muted-foreground text-sm">
                                 Role: {employee.job_type_label}

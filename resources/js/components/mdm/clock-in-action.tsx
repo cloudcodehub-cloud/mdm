@@ -63,6 +63,16 @@ export function ClockInAction({
                                 ? `Visit in progress · ${activeVisit.service_type}.`
                                 : `You already have an active visit for ${activeVisit.client.name}. Continue that visit before starting another.`}
                         </p>
+                        {continueThisVisit && activeVisit.task_progress && (
+                            <p className="text-muted-foreground mt-1 text-xs">
+                                {activeVisit.task_progress.completed} / {activeVisit.task_progress.total} tasks complete
+                            </p>
+                        )}
+                        {continueThisVisit && activeVisit.next_task?.title && (
+                            <p className="text-status-warning mt-1 text-xs">
+                                Next: {activeVisit.next_task.title}
+                            </p>
+                        )}
                         <Button className="mt-4 w-full sm:w-auto" asChild>
                             <Link href={showVisit(activeVisit.id)}>
                                 <MapPin className="size-4" />

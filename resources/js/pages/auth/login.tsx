@@ -36,6 +36,15 @@ export default function Login({ status, canResetPassword }: Props) {
             >
                 {({ processing, errors }) => (
                     <>
+                        <button
+                            type="submit"
+                            className="sr-only"
+                            tabIndex={-1}
+                            disabled={processing}
+                            aria-hidden="true"
+                        >
+                            Log In
+                        </button>
                         <div className="grid gap-5">
                             <div className="grid gap-2">
                                 <Label htmlFor="email">
@@ -54,7 +63,8 @@ export default function Login({ status, canResetPassword }: Props) {
                                     required
                                     autoFocus
                                     tabIndex={1}
-                                    autoComplete="email"
+                                    autoComplete="username"
+                                    enterKeyHint="next"
                                     placeholder="name@organization.com"
                                 />
                                 <InputError message={errors.email} />
@@ -87,6 +97,7 @@ export default function Login({ status, canResetPassword }: Props) {
                                     required
                                     tabIndex={2}
                                     autoComplete="current-password"
+                                    enterKeyHint="go"
                                     placeholder="Enter password"
                                 />
                                 <InputError message={errors.password} />

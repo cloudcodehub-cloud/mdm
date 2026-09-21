@@ -261,7 +261,7 @@ export default function General({
                             </div>
 
                             <div className="flex items-center gap-4">
-                                <Button disabled={processing}>Save</Button>
+                                <Button disabled={processing} type="submit">Save</Button>
                             </div>
                         </>
                     )}

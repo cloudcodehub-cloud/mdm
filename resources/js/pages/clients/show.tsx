@@ -15,6 +15,7 @@ import {
     StatusBadge,
     controlClassName,
 } from '@/components/mdm/directory';
+import { BackLink } from '@/components/mdm/back-link';
 import { IdentityHeader } from '@/components/mdm/identity-header';
 import { ProfileCompletionMeter } from '@/components/mdm/profile-completion-meter';
 import { ProfilePhoto } from '@/components/mdm/profile-photo';
@@ -126,7 +127,15 @@ export default function ClientsShow({
                             size="lg"
                         />
                     }
-                    eyebrow={client.client_number}
+                    eyebrow={
+                        isDsp ? (
+                            <BackLink href={dashboard()}>Back to Dashboard</BackLink>
+                        ) : (
+                            <BackLink href={clientsIndex()}>
+                                Back to Clients
+                            </BackLink>
+                        )
+                    }
                     title={client.name}
                     meta={
                         <>
@@ -134,6 +143,9 @@ export default function ClientsShow({
                                 status={client.status}
                                 label={client.status_label}
                             />
+                            <span className="text-muted-foreground text-sm">
+                                {client.client_number}
+                            </span>
                             <span className="text-muted-foreground text-sm">
                                 Supervisor:{' '}
                                 {client.supervisor_name ?? 'Unassigned'}

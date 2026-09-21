@@ -89,6 +89,55 @@ class VisitCarePreviewService
     }
 
     /**
+     * Tasks assigned to this scheduled visit (included care-plan items + one-offs).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function assignedTasksFor(ScheduledVisit $scheduledVisit): array
+    {
+        $scheduledVisit->loadMissing(['oneOffTasks', 'taskOverrides', 'careServices', 'client']);
+        $serviceIds = $scheduledVisit->careServices->pluck('id')->all();
+        $preview = $this->forClientOnDate(
+            $scheduledVisit->client,
+            $scheduledVisit->service_date->toDateString(),
+            is_array($serviceIds) ? array_values(array_map('intval', $serviceIds)) : [],
+            $scheduledVisit,
+        );
+
+        $tasks = [];
+
+        foreach ($preview['tasks'] as $task) {
+            if (! ($task['included'] ?? false)) {
+                continue;
+            }
+
+            $tasks[] = [
+                'key' => $task['key'],
+                'title' => $task['title'],
+                'instructions' => $task['instructions'] ?? null,
+                'is_required' => (bool) ($task['is_required'] ?? false),
+                'is_critical' => (bool) ($task['is_critical'] ?? false),
+                'source' => 'care_plan',
+                'source_label' => null,
+            ];
+        }
+
+        foreach ($scheduledVisit->oneOffTasks as $oneOff) {
+            $tasks[] = [
+                'key' => 'one-off-'.$oneOff->id,
+                'title' => $oneOff->title,
+                'instructions' => $oneOff->instructions,
+                'is_required' => (bool) $oneOff->is_required,
+                'is_critical' => false,
+                'source' => 'one_off',
+                'source_label' => 'One-off',
+            ];
+        }
+
+        return $tasks;
+    }
+
+    /**
      * @param  list<int>  $serviceIds
      * @return Collection<int, array{id: int, name: string, catalog_item_ids: list<int>}>
      */

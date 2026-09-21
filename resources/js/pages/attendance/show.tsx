@@ -3,6 +3,7 @@ import InputError from '@/components/input-error';
 import { ConfirmAction } from '@/components/mdm/confirm-action';
 import { PrintPdfAction } from '@/components/mdm/print-pdf-action';
 import { StatusBadge } from '@/components/mdm/directory';
+import { BackLink } from '@/components/mdm/back-link';
 import {
     ContextGroup,
     ContextStrip,
@@ -44,12 +45,9 @@ export default function AttendanceShow({
             <RecordPage>
                 <RecordHeader
                     eyebrow={
-                        <Link
-                            href={attendanceIndex()}
-                            className="hover:text-foreground"
-                        >
-                            Attendance
-                        </Link>
+                        <BackLink href={attendanceIndex()}>
+                            Back to Attendance
+                        </BackLink>
                     }
                     title={record.employee.name}
                     meta={

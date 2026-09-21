@@ -1,12 +1,12 @@
 import { Head, Link } from '@inertiajs/react';
 import { AttentionList } from '@/components/mdm/attention-list';
+import { AttentionTabs } from '@/components/mdm/attention-tabs';
 import { AnnouncementList } from '@/components/mdm/announcement-list';
 import { ClockInAction } from '@/components/mdm/clock-in-action';
 import { DashboardGreeting } from '@/components/mdm/dashboard-greeting';
 import { ActivityList, PersonList } from '@/components/mdm/person-list';
-import { ProfileHealthBadge } from '@/components/mdm/profile-health';
-import { ProfilePhoto } from '@/components/mdm/profile-photo';
 import { Panel, StatCard } from '@/components/mdm/stat-card';
+import { RecentCompletedVisits } from '@/components/mdm/recent-completed-visits';
 import { VisitList } from '@/components/mdm/visit-list';
 import {
     MetricSummary,
@@ -16,12 +16,24 @@ import {
 } from '@/components/mdm/visual-summaries';
 import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
-import { create as createClient } from '@/routes/clients';
-import { show as showClient } from '@/routes/clients';
-import { create as createEmployee } from '@/routes/employees';
-import { show as showEmployee } from '@/routes/employees';
+import { index as announcementsIndex } from '@/routes/announcements';
+import {
+    create as createClient,
+    index as clientsIndex,
+    show as showClient,
+} from '@/routes/clients';
+import { index as complianceIndex } from '@/routes/compliance';
+import {
+    create as createEmployee,
+    index as employeesIndex,
+    show as showEmployee,
+} from '@/routes/employees';
 import { index as operationsIndex } from '@/routes/operations';
-import { create as createScheduledVisit, show as showScheduledVisit } from '@/routes/scheduled-visits';
+import {
+    create as createScheduledVisit,
+    index as scheduledVisitsIndex,
+    show as showScheduledVisit,
+} from '@/routes/scheduled-visits';
 import { index as exceptionsIndex } from '@/routes/visit-exceptions';
 import { show as showVisit } from '@/routes/visits';
 import type { DashboardPayload } from '@/types/dashboard';
@@ -186,6 +198,7 @@ function AdminDashboard({ data }: { data: DashboardPayload }) {
                 <Panel
                     title="Compliance health"
                     description="Valid share of credentials and training with known expiry status."
+                    viewAllHref={complianceIndex()}
                 >
                     <ProgressRing
                         value={health.valid_percent}
@@ -228,6 +241,7 @@ function AdminDashboard({ data }: { data: DashboardPayload }) {
                 title="Scheduled visits today"
                 description="Open visits across the agency."
                 className="xl:col-span-2"
+                viewAllHref={scheduledVisitsIndex()}
             >
                 <VisitList
                     visits={data.today_visits}
@@ -236,43 +250,26 @@ function AdminDashboard({ data }: { data: DashboardPayload }) {
                 />
             </Panel>
             <Panel
+                title="Recently completed visits"
+                description="Latest completed care sessions that may need review."
+            >
+                <RecentCompletedVisits
+                    visits={data.recently_completed_visits ?? []}
+                />
+            </Panel>
+            <Panel
                 title="Profiles needing attention"
                 description="Aggregated missing profile items. Not the same as credential compliance."
             >
-                {(data.profiles_needing_attention ?? []).length === 0 ? (
-                    <p className="text-muted-foreground text-sm">
-                        No incomplete profiles in scope.
-                    </p>
-                ) : (
-                    <ul className="space-y-3">
-                        {(data.profiles_needing_attention ?? []).map((item) => (
-                            <li key={item.id}>
-                                <Link href={item.href} className="hover:bg-muted/40 -mx-1 flex items-center gap-3 rounded-md px-1 py-1">
-                                    <ProfilePhoto name={item.name} photoUrl={item.photo_url} initials={item.initials} size="sm" />
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-medium">
-                                            {item.name}
-                                        </p>
-                                        <ProfileHealthBadge
-                                            percent={item.percent}
-                                            status={item.status}
-                                            statusLabel={item.status_label}
-                                            tone={item.tone}
-                                            className="mt-0.5"
-                                        />
-                                        <p className="text-muted-foreground truncate text-xs">
-                                            {item.summary || 'Details remaining'}
-                                        </p>
-                                    </div>
-                                </Link>
-                            </li>
-                        ))}
-                    </ul>
-                )}
+                <AttentionTabs
+                    employees={data.profile_attention?.employees ?? []}
+                    clients={data.profile_attention?.clients ?? []}
+                />
             </Panel>
             <Panel
                 title="Operational attention"
                 description="Credentials, training, authorizations, and cancelled visits."
+                viewAllHref={operationsIndex()}
             >
                 <AttentionList items={data.attention_items} />
             </Panel>
@@ -280,6 +277,7 @@ function AdminDashboard({ data }: { data: DashboardPayload }) {
                 title="Upcoming visits"
                 description="Next scheduled visits after today."
                 className="xl:col-span-2"
+                viewAllHref={scheduledVisitsIndex()}
             >
                 <VisitList visits={data.upcoming_visits} showEmployee />
             </Panel>
@@ -292,6 +290,7 @@ function AdminDashboard({ data }: { data: DashboardPayload }) {
             <Panel
                 title="Announcements"
                 description="Notices for this organization."
+                viewAllHref={announcementsIndex()}
             >
                 <AnnouncementList announcements={data.announcements} />
             </Panel>
@@ -374,60 +373,36 @@ function SupervisorDashboard({ data }: { data: DashboardPayload }) {
                 title="Today's scheduled visits"
                 description="Open the operations board for live caseload monitoring."
                 className="xl:col-span-2"
+                viewAllHref={operationsIndex()}
+                viewAllLabel="Open operations"
             >
                 <VisitList
                     visits={data.today_visits}
                     showEmployee
                     empty="No visits scheduled for your caseload today."
                 />
-                <p className="mt-3 text-sm">
-                    <Link
-                        href={operationsIndex()}
-                        className="hover:text-foreground font-medium"
-                    >
-                        Open supervisor operations
-                    </Link>
-                </p>
             </Panel>
-            <Panel title="Operational attention">
+            <Panel
+                title="Recently completed visits"
+                description="Latest completed caseload visits that may need review."
+            >
+                <RecentCompletedVisits
+                    visits={data.recently_completed_visits ?? []}
+                />
+            </Panel>
+            <Panel title="Operational attention" viewAllHref={exceptionsIndex()}>
                 <AttentionList items={data.attention_items} />
             </Panel>
             <Panel
                 title="Profiles needing attention"
                 description="Aggregated missing profile items. Not the same as credential compliance."
             >
-                {(data.profiles_needing_attention ?? []).length === 0 ? (
-                    <p className="text-muted-foreground text-sm">
-                        No incomplete profiles in scope.
-                    </p>
-                ) : (
-                    <ul className="space-y-3">
-                        {(data.profiles_needing_attention ?? []).map((item) => (
-                            <li key={item.id}>
-                                <Link href={item.href} className="hover:bg-muted/40 -mx-1 flex items-center gap-3 rounded-md px-1 py-1">
-                                    <ProfilePhoto name={item.name} photoUrl={item.photo_url} initials={item.initials} size="sm" />
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-medium">
-                                            {item.name}
-                                        </p>
-                                        <ProfileHealthBadge
-                                            percent={item.percent}
-                                            status={item.status}
-                                            statusLabel={item.status_label}
-                                            tone={item.tone}
-                                            className="mt-0.5"
-                                        />
-                                        <p className="text-muted-foreground truncate text-xs">
-                                            {item.summary || 'Details remaining'}
-                                        </p>
-                                    </div>
-                                </Link>
-                            </li>
-                        ))}
-                    </ul>
-                )}
+                <AttentionTabs
+                    employees={data.profile_attention?.employees ?? []}
+                    clients={data.profile_attention?.clients ?? []}
+                />
             </Panel>
-            <Panel title="Assigned DSPs">
+            <Panel title="Assigned DSPs" viewAllHref={employeesIndex()}>
                 <PersonList
                     people={data.assigned_dsps.map((dsp) => ({
                         id: dsp.id,
@@ -440,7 +415,7 @@ function SupervisorDashboard({ data }: { data: DashboardPayload }) {
                     empty="No assigned DSPs."
                 />
             </Panel>
-            <Panel title="Assigned clients">
+            <Panel title="Assigned clients" viewAllHref={clientsIndex()}>
                 <PersonList
                     people={data.assigned_clients.map((client) => ({
                         id: client.id,
@@ -453,10 +428,10 @@ function SupervisorDashboard({ data }: { data: DashboardPayload }) {
                     empty="No assigned clients."
                 />
             </Panel>
-            <Panel title="Upcoming visits">
+            <Panel title="Upcoming visits" viewAllHref={scheduledVisitsIndex()}>
                 <VisitList visits={data.upcoming_visits} showEmployee />
             </Panel>
-            <Panel title="Announcements">
+            <Panel title="Announcements" viewAllHref={announcementsIndex()}>
                 <AnnouncementList announcements={data.announcements} />
             </Panel>
         </div>
@@ -543,7 +518,7 @@ function DspDashboard({ data }: { data: DashboardPayload }) {
                     />
                 </Panel>
                 )}
-                <Panel title="Announcements">
+                <Panel title="Announcements" viewAllHref={announcementsIndex()}>
                     <AnnouncementList announcements={data.announcements} />
                 </Panel>
             </div>

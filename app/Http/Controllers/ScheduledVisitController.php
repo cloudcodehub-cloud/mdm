@@ -243,7 +243,7 @@ class ScheduledVisitController extends Controller
         return redirect()->route('scheduled-visits.show', $visit);
     }
 
-    public function show(Request $request, ScheduledVisit $scheduledVisit, VisitClockInService $clockIn): Response
+    public function show(Request $request, ScheduledVisit $scheduledVisit, VisitClockInService $clockIn, VisitCarePreviewService $carePreview): Response
     {
         $this->authorize('view', $scheduledVisit);
 
@@ -291,6 +291,7 @@ class ScheduledVisitController extends Controller
                 ...DirectoryPresenter::scheduledVisitDetail($scheduledVisit),
                 'visit_phase' => $phase,
                 'start_unavailable_reason' => $this->startUnavailableReason($scheduledVisit, $phase),
+                'assigned_visit_tasks' => $carePreview->assignedTasksFor($scheduledVisit),
                 'recorded_visit' => $recorded === null ? null : DirectoryPresenter::visitDetail($recorded),
             ],
             'can' => [

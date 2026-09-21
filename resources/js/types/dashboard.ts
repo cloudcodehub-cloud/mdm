@@ -73,6 +73,22 @@ export type DashboardActiveVisit = {
     location_status_label: string;
     client: DashboardClient;
     task_progress?: DashboardTaskProgress;
+    next_task?: { title: string } | null;
+};
+
+export type DashboardCompletedVisit = {
+    id: number;
+    service_type: string;
+    completed_at: string | null;
+    completed_at_label: string | null;
+    client: DashboardClient;
+    employee: DashboardEmployee;
+    task_summary: { completed: number; total: number };
+    needs_review: boolean;
+    has_high_priority_open: boolean;
+    attention_rank?: number;
+    attention_label?: string | null;
+    href: string;
 };
 
 export type ClockInVisitSummary = {
@@ -139,4 +155,9 @@ export type DashboardPayload = {
         photo_url?: string | null;
         initials?: string;
     }>;
+    profile_attention?: {
+        employees: NonNullable<DashboardPayload['profiles_needing_attention']>;
+        clients: NonNullable<DashboardPayload['profiles_needing_attention']>;
+    };
+    recently_completed_visits?: DashboardCompletedVisit[];
 };

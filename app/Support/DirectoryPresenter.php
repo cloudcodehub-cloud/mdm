@@ -581,12 +581,13 @@ final class DirectoryPresenter
      */
     public static function activeVisitSummary(Visit $visit): array
     {
-        $visit->loadMissing('tasks');
+        $visit->loadMissing(['tasks', 'client']);
         $tasks = $visit->tasks;
         $completed = $tasks->where('status', VisitTaskStatus::Completed)->count();
         $skipped = $tasks->where('status', VisitTaskStatus::Skipped)->count();
         $pending = $tasks->where('status', VisitTaskStatus::Pending)->count();
         $total = $tasks->count();
+        $next = self::nextActionableTask($tasks);
 
         return [
             'id' => $visit->id,
@@ -607,7 +608,27 @@ final class DirectoryPresenter
                 'total' => $total,
                 'percent' => $total === 0 ? 0 : (int) round(($completed / $total) * 100),
             ],
+            'next_task' => $next === null ? null : [
+                'title' => $next->title,
+            ],
         ];
+    }
+
+    /**
+     * @param  Collection<int, VisitTask>  $tasks
+     */
+    public static function nextActionableTask(Collection $tasks): ?VisitTask
+    {
+        return $tasks
+            ->filter(fn (VisitTask $task): bool => $task->status === VisitTaskStatus::Pending)
+            ->sortBy(fn (VisitTask $task): string => sprintf(
+                '%d-%d-%08d-%d',
+                $task->is_critical ? 0 : 1,
+                $task->is_required ? 0 : 1,
+                $task->sort_order,
+                $task->id,
+            ))
+            ->first();
     }
 
     /**

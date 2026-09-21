@@ -4,15 +4,18 @@ import { HighPriorityIndicator } from '@/components/mdm/priority-indicator';
 import { cn } from '@/lib/utils';
 
 export type CompactTask = {
-    id: number;
+    id?: number;
+    key?: string;
     title: string;
-    status: string;
-    status_label: string;
+    status?: string;
+    status_label?: string;
     is_required?: boolean;
     is_critical?: boolean;
     skip_reason_name?: string | null;
     skip_comment?: string | null;
     completion_note?: string | null;
+    source?: string;
+    source_label?: string | null;
 };
 
 export function CompactTaskList({
@@ -36,7 +39,11 @@ export function CompactTaskList({
     return (
         <ul className="divide-border/70 divide-y">
             {tasks.map((task) => {
-                const related = exceptionByTaskId?.get(task.id);
+                const related = task.id
+                    ? exceptionByTaskId?.get(task.id)
+                    : undefined;
+                const planned = !task.status;
+                const badges = plannedBadges(task);
                 const statusLabel = [
                     task.status_label,
                     task.is_critical && task.status === 'pending'
@@ -47,22 +54,33 @@ export function CompactTaskList({
                     .join(' · ');
 
                 return (
-                    <li key={task.id} className="py-2.5 first:pt-0 last:pb-0">
+                    <li key={task.id ?? task.key ?? task.title} className="py-2.5 first:pt-0 last:pb-0">
                         <div className="flex items-start justify-between gap-3">
                             <p className="min-w-0 text-sm font-medium">
                                 {task.title}
                             </p>
-                            <div className="flex shrink-0 items-center gap-2">
+                            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                                 <HighPriorityIndicator
                                     active={Boolean(
                                         related?.is_high_priority_open,
                                     )}
                                     label="High-priority task exception"
                                 />
-                                <StatusBadge
-                                    status={task.status}
-                                    label={statusLabel}
-                                />
+                                {planned ? (
+                                    badges.map((badge) => (
+                                        <span
+                                            key={badge}
+                                            className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase"
+                                        >
+                                            {badge}
+                                        </span>
+                                    ))
+                                ) : (
+                                    <StatusBadge
+                                        status={task.status ?? 'pending'}
+                                        label={statusLabel}
+                                    />
+                                )}
                             </div>
                         </div>
                         {task.status === 'skipped' &&
@@ -79,7 +97,7 @@ export function CompactTaskList({
                                 {task.completion_note}
                             </p>
                         ) : null}
-                        {task.is_required && task.status === 'pending' ? (
+                        {task.is_required && task.status === 'pending' && !planned ? (
                             <p className="text-muted-foreground mt-1 text-xs">
                                 Required
                             </p>
@@ -98,4 +116,20 @@ export function CompactTaskList({
             })}
         </ul>
     );
+}
+
+function plannedBadges(task: CompactTask): string[] {
+    const badges: string[] = [];
+
+    if (task.source === 'one_off' || task.source_label === 'One-off') {
+        badges.push('One-off');
+    }
+
+    if (task.is_critical) {
+        badges.push('Critical');
+    } else if (task.is_required) {
+        badges.push('Required');
+    }
+
+    return badges;
 }

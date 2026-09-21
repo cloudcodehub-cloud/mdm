@@ -1,5 +1,5 @@
-import { Link } from '@inertiajs/react';
 import { EmptyState } from '@/components/mdm/stat-card';
+import { RecordPreviewRow } from '@/components/mdm/record-preview-row';
 import { Badge } from '@/components/ui/badge';
 import { show } from '@/routes/scheduled-visits';
 import type { DashboardVisit } from '@/types/dashboard';
@@ -28,18 +28,14 @@ export function VisitList({
     return (
         <ul className="divide-y divide-border/70">
             {visits.map((visit) => (
-                <li
-                    key={visit.id}
-                    className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
-                >
+                <li key={visit.id}>
+                    <RecordPreviewRow
+                        href={show(visit.id)}
+                        className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
                     <div className="min-w-0">
                         <p className="truncate font-medium">
-                            <Link
-                                href={show(visit.id)}
-                                className="hover:text-primary underline-offset-4 hover:underline"
-                            >
-                                {visit.client.name}
-                            </Link>
+                            {visit.client.name}
                         </p>
                         <p className="text-muted-foreground text-xs">
                             {visit.service_type}
@@ -57,6 +53,7 @@ export function VisitList({
                             <Badge variant="secondary">{visit.shift_name}</Badge>
                         )}
                     </div>
+                    </RecordPreviewRow>
                 </li>
             ))}
         </ul>

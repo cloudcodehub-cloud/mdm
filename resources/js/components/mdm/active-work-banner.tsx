@@ -1,9 +1,9 @@
 import { Link, usePage } from '@inertiajs/react';
-import { MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { show as showVisit } from '@/routes/visits';
 import type { DashboardActiveVisit } from '@/types/dashboard';
+import { cn } from '@/lib/utils';
 
 export function ActiveWorkBanner() {
     const { auth, activeWork } = usePage().props;
@@ -17,47 +17,72 @@ export function ActiveWorkBanner() {
     const onVisitPage = isCurrentUrl(showVisit.url(visit.id));
     const progress = visit.task_progress;
     const progressLabel = progress
-        ? `${progress.completed}/${progress.total} tasks complete`
-        : visit.service_type;
+        ? `${progress.completed} / ${progress.total} tasks complete`
+        : null;
+    const nextTitle = visit.next_task?.title;
 
     return (
         <>
-            <div className="border-brand-cyan/30 from-primary/8 hidden border-b bg-gradient-to-r via-card/80 to-brand-mint/15 px-4 py-2.5 md:block md:px-6">
-                <div className="flex items-center justify-between gap-3">
+            <div className="border-brand-cyan/25 bg-card/80 hidden border-b px-4 py-2 md:block md:px-6">
+                <div className="flex min-w-0 items-center justify-between gap-3">
                     <div className="min-w-0">
-                        <p className="text-primary text-[11px] font-medium tracking-wide uppercase">
-                            Visit in progress
+                        <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-sm font-medium">
+                            <ActiveVisitPulse />
+                            {onVisitPage ? (
+                                <span>Visit in progress</span>
+                            ) : (
+                                <Link
+                                    href={showVisit(visit.id)}
+                                    className="hover:text-foreground"
+                                >
+                                    Continue Visit
+                                </Link>
+                            )}
+                            {progressLabel ? (
+                                <span className="text-muted-foreground font-normal">
+                                    {progressLabel}
+                                </span>
+                            ) : null}
                         </p>
-                        <p className="truncate text-sm font-medium">
-                            {visit.client.name}
-                            <span className="text-muted-foreground font-normal">
-                                {' '}
-                                · {progressLabel}
-                            </span>
-                        </p>
+                        {nextTitle ? (
+                            <p className="text-status-warning mt-0.5 truncate text-xs">
+                                Next: {nextTitle}
+                            </p>
+                        ) : null}
                     </div>
                     {!onVisitPage && (
-                        <Button size="sm" asChild>
-                            <Link href={showVisit(visit.id)}>
-                                Continue Visit
-                            </Link>
+                        <Button size="sm" variant="secondary" asChild>
+                            <Link href={showVisit(visit.id)}>Continue Visit</Link>
                         </Button>
                     )}
                 </div>
             </div>
             {!onVisitPage && (
-                <div className="border-brand-cyan/30 from-primary/15 to-brand-mint/20 fixed inset-x-0 bottom-0 z-30 border-t bg-gradient-to-r p-3 backdrop-blur-md md:hidden">
+                <div className="border-brand-cyan/30 bg-card/95 fixed inset-x-0 bottom-0 z-30 border-t p-3 backdrop-blur-md md:hidden">
                     <Button className="h-11 w-full" asChild>
                         <Link href={showVisit(visit.id)}>
-                            <MapPin className="size-4" />
-                            Continue {visit.client.name}
+                            <ActiveVisitPulse />
+                            Continue Visit
                         </Link>
                     </Button>
                     <p className="text-muted-foreground mt-1 text-center text-xs">
                         {progressLabel}
+                        {nextTitle ? ` · Next: ${nextTitle}` : ''}
                     </p>
                 </div>
             )}
         </>
+    );
+}
+
+function ActiveVisitPulse({ className }: { className?: string }) {
+    return (
+        <span className={cn('inline-flex items-center', className)}>
+            <span
+                className="mdm-priority-pulse bg-brand-teal size-2 shrink-0 rounded-full"
+                aria-hidden="true"
+            />
+            <span className="sr-only">Active visit in progress</span>
+        </span>
     );
 }

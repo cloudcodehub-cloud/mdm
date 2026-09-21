@@ -12,6 +12,7 @@ use App\Enums\OperationalVisitStatus;
 use App\Enums\ScheduledVisitStatus;
 use App\Enums\TrainingStatus;
 use App\Enums\VisitStatus;
+use App\Enums\VisitTaskStatus;
 use App\Models\Client;
 use App\Models\ClientAuthorization;
 use App\Models\ClientDspAssignment;
@@ -20,6 +21,7 @@ use App\Models\EmployeeCredential;
 use App\Models\EmployeeTraining;
 use App\Models\ScheduledVisit;
 use App\Models\User;
+use App\Models\Visit;
 use App\Models\VisitException;
 use App\Support\DirectoryPresenter;
 use Illuminate\Database\Eloquent\Builder;
@@ -67,6 +69,8 @@ class DashboardService
             'visit_trend' => $this->visitTrend($user, $today),
             'work_items' => $this->dspWorkItems($user, $employee, $today),
             'profiles_needing_attention' => app(ProfileAttentionService::class)->dashboardItems($user),
+            'profile_attention' => app(ProfileAttentionService::class)->dashboardGroups($user),
+            'recently_completed_visits' => $this->recentlyCompletedVisits($user),
         ];
     }
 
@@ -501,7 +505,102 @@ class DashboardService
             }
         }
 
+        $rank = ['danger' => 0, 'warning' => 1, 'neutral' => 2];
+        usort($items, function (array $left, array $right) use ($rank): int {
+            return ($rank[$left['tone'] ?? 'neutral'] ?? 3) <=> ($rank[$right['tone'] ?? 'neutral'] ?? 3);
+        });
+
         return array_slice($items, 0, 10);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function recentlyCompletedVisits(User $user): array
+    {
+        if ($user->isDsp()) {
+            return [];
+        }
+
+        $visits = Visit::query()
+            ->visibleTo($user)
+            ->where('status', VisitStatus::Completed)
+            ->with(['client', 'employee', 'tasks', 'exceptions'])
+            ->orderByDesc('clocked_out_at')
+            ->orderByDesc('id')
+            ->limit(24)
+            ->get();
+
+        $rows = [];
+
+        foreach ($visits as $visit) {
+            $rows[] = $this->serializeCompletedVisitPreview($visit);
+        }
+
+        usort($rows, function (array $left, array $right): int {
+            $rank = ($left['attention_rank'] ?? 2) <=> ($right['attention_rank'] ?? 2);
+
+            if ($rank !== 0) {
+                return $rank;
+            }
+
+            return strcmp((string) ($right['completed_at'] ?? ''), (string) ($left['completed_at'] ?? ''));
+        });
+
+        return array_slice($rows, 0, 6);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function serializeCompletedVisitPreview(Visit $visit): array
+    {
+        $tasks = $visit->tasks;
+        $total = $tasks->count();
+        $completedTasks = $tasks->where('status', VisitTaskStatus::Completed)->count();
+        $pendingRequired = $tasks
+            ->where('status', VisitTaskStatus::Pending)
+            ->where('is_required', true)
+            ->count();
+        $openExceptions = $visit->exceptions->filter(fn (VisitException $exception): bool => $exception->isOpen());
+        $highPriority = $openExceptions->contains(fn (VisitException $exception): bool => $exception->isHighPriorityOpen());
+        $needsReview = $highPriority || $openExceptions->isNotEmpty() || $pendingRequired > 0;
+        $attentionRank = $highPriority ? 0 : ($needsReview ? 1 : 2);
+        $openException = $openExceptions->first();
+        $href = $openException !== null
+            ? route('visit-exceptions.show', $openException)
+            : route('visits.show', $visit);
+
+        $attentionLabel = null;
+
+        if ($highPriority || $openExceptions->isNotEmpty()) {
+            $attentionLabel = 'Needs review';
+        } elseif ($pendingRequired > 0) {
+            $attentionLabel = 'Unfinished required tasks';
+        }
+
+        return [
+            'id' => $visit->id,
+            'service_type' => $visit->service_type,
+            'completed_at' => $visit->clocked_out_at?->toIso8601String(),
+            'completed_at_label' => $visit->clocked_out_at === null
+                ? null
+                : $this->settings->formatDateTime($visit->clocked_out_at),
+            'client' => $this->clientSummary($visit->client),
+            'employee' => [
+                'id' => $visit->employee->id,
+                'name' => $visit->employee->full_name,
+            ],
+            'task_summary' => [
+                'completed' => $completedTasks,
+                'total' => $total,
+            ],
+            'needs_review' => $needsReview,
+            'has_high_priority_open' => $highPriority,
+            'attention_rank' => $attentionRank,
+            'attention_label' => $attentionLabel,
+            'href' => $href,
+        ];
     }
 
     /**
