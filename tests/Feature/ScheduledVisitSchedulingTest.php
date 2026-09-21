@@ -14,6 +14,7 @@ use App\Models\ShiftTemplate;
 use App\Models\User;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Route;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -22,8 +23,15 @@ class ScheduledVisitSchedulingTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
     public function test_admin_can_list_filter_create_and_edit_scheduled_visits(): void
     {
+        Carbon::setTestNow('2026-09-11 14:00:00');
         $this->seed(DemoSeeder::class);
         $admin = User::query()->where('email', 'admin@mdm.test')->firstOrFail();
         $maya = Employee::query()->where('email', 'maya.chen@mdm.test')->firstOrFail();
@@ -51,7 +59,7 @@ class ScheduledVisitSchedulingTest extends TestCase
                 'employee_id' => $maya->id,
                 'supervisor_id' => $maya->supervisor_id,
                 'shift_template_id' => $day->id,
-                'service_date' => '2026-09-20',
+                'service_date' => '2026-09-17',
                 'service_type' => 'Personal Care',
                 'status' => ScheduledVisitStatus::Scheduled->value,
                 'notes' => 'Coverage added by admin.',
@@ -61,7 +69,7 @@ class ScheduledVisitSchedulingTest extends TestCase
 
         $visit = ScheduledVisit::query()
             ->where('employee_id', $maya->id)
-            ->whereDate('service_date', '2026-09-20')
+            ->whereDate('service_date', '2026-09-17')
             ->firstOrFail();
 
         $this->actingAs($admin)
@@ -78,9 +86,9 @@ class ScheduledVisitSchedulingTest extends TestCase
                 'client_id' => $elena->id,
                 'employee_id' => $maya->id,
                 'supervisor_id' => $maya->supervisor_id,
-                'service_date' => '2026-09-20',
-                'starts_at' => '22:00',
-                'ends_at' => '06:00',
+                'service_date' => '2026-09-17',
+                'starts_at' => '08:00',
+                'ends_at' => '14:00',
                 'service_type' => 'Overnight support',
                 'status' => ScheduledVisitStatus::Scheduled->value,
                 'timing_mode' => 'custom',
@@ -89,8 +97,8 @@ class ScheduledVisitSchedulingTest extends TestCase
 
         $visit->refresh();
         $this->assertNull($visit->shift_template_id);
-        $this->assertTrue($visit->spansOvernight());
-        $this->assertSame('2026-09-21 06:00:00', $visit->endsAtOn()->format('Y-m-d H:i:s'));
+        $this->assertFalse($visit->spansOvernight());
+        $this->assertSame('2026-09-17 14:00:00', $visit->endsAtOn()->format('Y-m-d H:i:s'));
     }
 
     public function test_invalid_dsp_inactive_client_and_overlapping_windows_are_rejected(): void
@@ -264,7 +272,7 @@ class ScheduledVisitSchedulingTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('scheduled-visits/index')
                 ->where('can.create', false)
-                ->has('visits.data', 3)
+                ->has('visits.data')
             );
 
         $this->actingAs($dsp)

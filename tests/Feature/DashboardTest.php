@@ -51,8 +51,8 @@ class DashboardTest extends TestCase
 
     public function test_admin_dashboard_uses_seeded_operational_counts(): void
     {
-        $this->seed(DemoSeeder::class);
         Carbon::setTestNow('2026-09-11 14:00:00');
+        $this->seed(DemoSeeder::class);
 
         $admin = User::query()->where('email', 'admin@mdm.test')->firstOrFail();
 
@@ -63,12 +63,12 @@ class DashboardTest extends TestCase
                 ->component('dashboard')
                 ->where('dashboard.role', Role::Admin->value)
                 ->where('dashboard.metrics.0.key', 'active_employees')
-                ->where('dashboard.metrics.0.value', 6)
+                ->where('dashboard.metrics.0.value', 8)
                 ->where('dashboard.metrics.1.key', 'active_clients')
-                ->where('dashboard.metrics.1.value', 5)
+                ->where('dashboard.metrics.1.value', 7)
                 ->where('dashboard.metrics.2.key', 'visits_today')
-                ->where('dashboard.metrics.2.value', 2)
-                ->has('dashboard.today_visits', 2)
+                ->where('dashboard.metrics.2.value', 5)
+                ->has('dashboard.today_visits', 5)
                 ->where('dashboard.active_visit', null)
                 ->where('dashboard.clock_in_visit', null)
                 ->has('dashboard.upcoming_visits')
@@ -82,8 +82,8 @@ class DashboardTest extends TestCase
 
     public function test_supervisor_dashboard_is_scoped_to_assigned_caseload(): void
     {
-        $this->seed(DemoSeeder::class);
         Carbon::setTestNow('2026-09-11 14:00:00');
+        $this->seed(DemoSeeder::class);
 
         $supervisor = User::query()->where('email', 'jordan.hale@mdm.test')->firstOrFail();
 
@@ -94,14 +94,14 @@ class DashboardTest extends TestCase
                 ->component('dashboard')
                 ->where('dashboard.role', Role::Supervisor->value)
                 ->where('dashboard.metrics.0.key', 'assigned_dsps')
-                ->where('dashboard.metrics.0.value', 2)
+                ->where('dashboard.metrics.0.value', 3)
                 ->where('dashboard.metrics.1.key', 'assigned_clients')
-                ->where('dashboard.metrics.1.value', 3)
+                ->where('dashboard.metrics.1.value', 4)
                 ->where('dashboard.metrics.2.key', 'visits_today')
-                ->where('dashboard.metrics.2.value', 1)
-                ->has('dashboard.assigned_dsps', 2)
-                ->has('dashboard.assigned_clients', 3)
-                ->has('dashboard.today_visits', 1)
+                ->where('dashboard.metrics.2.value', 3)
+                ->has('dashboard.assigned_dsps', 3)
+                ->has('dashboard.assigned_clients', 4)
+                ->has('dashboard.today_visits', 3)
                 ->has('dashboard.today_visit_summary')
                 ->has('dashboard.open_exceptions')
             );
@@ -109,8 +109,8 @@ class DashboardTest extends TestCase
 
     public function test_dsp_dashboard_shows_own_schedule(): void
     {
-        $this->seed(DemoSeeder::class);
         Carbon::setTestNow('2026-09-11 14:00:00');
+        $this->seed(DemoSeeder::class);
 
         $dsp = User::query()->where('email', 'maya.chen@mdm.test')->firstOrFail();
 

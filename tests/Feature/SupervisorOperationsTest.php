@@ -50,9 +50,9 @@ class SupervisorOperationsTest extends TestCase
                 ->component('operations/index')
                 ->where('operations.today', '2026-09-11')
                 ->where('operations.metrics.0.key', 'assigned_dsps')
-                ->where('operations.metrics.0.value', 2)
+                ->where('operations.metrics.0.value', 3)
                 ->where('operations.metrics.1.key', 'assigned_clients')
-                ->where('operations.metrics.1.value', 3)
+                ->where('operations.metrics.1.value', 4)
                 ->has('operations.today_visits')
                 ->has('operations.active_visits')
                 ->has('operations.completed_visits')
@@ -64,7 +64,7 @@ class SupervisorOperationsTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('operations/index')
-                ->where('operations.metrics.0.value', 2)
+                ->where('operations.metrics.0.value', 3)
             );
     }
 

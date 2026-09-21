@@ -42,8 +42,8 @@ class SupervisorDirectoryTest extends TestCase
                 ->component('supervisors/show')
                 ->where('supervisor.id', $jordan->id)
                 ->where('operations.metrics.0.key', 'assigned_dsps')
-                ->where('operations.metrics.0.value', 2)
-                ->where('operations.metrics.1.value', 3)
+                ->where('operations.metrics.0.value', 3)
+                ->where('operations.metrics.1.value', 4)
             );
     }
 

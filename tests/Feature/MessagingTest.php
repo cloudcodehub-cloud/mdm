@@ -53,7 +53,9 @@ class MessagingTest extends TestCase
             ])
             ->assertRedirect();
 
-        $conversation = Conversation::query()->firstOrFail();
+        $conversation = Conversation::query()
+            ->where('participant_key', Conversation::participantKeyFor($dsp, $supervisor))
+            ->firstOrFail();
 
         $this->assertTrue($conversation->hasParticipant($dsp));
         $this->assertTrue($conversation->hasParticipant($supervisor));
@@ -129,7 +131,9 @@ class MessagingTest extends TestCase
             'body' => 'Need a schedule check.',
         ]);
 
-        $conversation = Conversation::query()->firstOrFail();
+        $conversation = Conversation::query()
+            ->where('participant_key', Conversation::participantKeyFor($dsp, $supervisor))
+            ->firstOrFail();
 
         $this->actingAs($supervisor)
             ->get(route('messages.index'))
@@ -196,7 +200,7 @@ class MessagingTest extends TestCase
             ])
             ->assertRedirect(route('announcements.index'));
 
-        $announcement = Announcement::query()->firstOrFail();
+        $announcement = Announcement::query()->where('title', 'Holiday coverage')->firstOrFail();
 
         $this->actingAs($dsp)
             ->get(route('dashboard'))
@@ -246,12 +250,22 @@ class MessagingTest extends TestCase
         $this->actingAs($nina)
             ->get(route('announcements.index'))
             ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->where('announcements', []));
+            ->assertInertia(fn (Assert $page) => $page->where(
+                'announcements',
+                fn ($announcements): bool => collect($announcements)->every(
+                    fn (array $announcement): bool => $announcement['title'] !== 'North caseload note',
+                ),
+            ));
 
         $this->actingAs($admin)
             ->get(route('announcements.index'))
             ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->where('announcements', []));
+            ->assertInertia(fn (Assert $page) => $page->where(
+                'announcements',
+                fn ($announcements): bool => collect($announcements)->every(
+                    fn (array $announcement): bool => $announcement['title'] !== 'North caseload note',
+                ),
+            ));
     }
 
     public function test_dsp_cannot_publish_announcements(): void

@@ -273,20 +273,21 @@ class VisitClockInTest extends TestCase
 
     public function test_admin_and_supervisor_visibility_remains_appropriate(): void
     {
-        $this->seed(DemoSeeder::class);
         Carbon::setTestNow('2026-09-11 09:00:00');
+        $this->seed(DemoSeeder::class);
 
         $maya = User::query()->where('email', 'maya.chen@mdm.test')->firstOrFail();
         $scheduled = ScheduledVisit::query()
             ->where('employee_id', $maya->employee->id)
             ->whereDate('service_date', '2026-09-11')
+            ->where('status', ScheduledVisitStatus::Scheduled)
             ->firstOrFail();
 
         $this->actingAs($maya)
             ->post(route('scheduled-visits.clock-in', $scheduled), $this->unavailablePayload())
             ->assertRedirect();
 
-        $visit = Visit::query()->firstOrFail();
+        $visit = $scheduled->fresh()->visit()->firstOrFail();
         $admin = User::query()->where('email', 'admin@mdm.test')->firstOrFail();
         $supervisor = User::query()->where('email', 'jordan.hale@mdm.test')->firstOrFail();
         $otherSupervisor = User::query()->where('email', 'priya.nair@mdm.test')->firstOrFail();
