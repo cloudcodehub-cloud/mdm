@@ -9,6 +9,8 @@ use App\Models\OrganizationSetting;
 use App\Models\User;
 use App\Services\SettingsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class OrganizationSettingsTest extends TestCase
@@ -111,5 +113,28 @@ class OrganizationSettingsTest extends TestCase
                 'timezone' => 'Not/A_Zone',
             ]))
             ->assertSessionHasErrors('timezone');
+    }
+
+    public function test_admin_can_upload_and_view_agency_logo(): void
+    {
+        Storage::fake('local');
+        $admin = User::factory()->admin()->create();
+        $file = UploadedFile::fake()->image('agency.png', 80, 80);
+
+        $this->actingAs($admin)
+            ->from(route('settings.general.edit'))
+            ->patch(route('settings.general.update'), $this->payload([
+                'logo' => $file,
+            ]))
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('settings.general.edit'));
+
+        $settings = OrganizationSetting::query()->firstOrFail();
+        $this->assertNotNull($settings->logo_path);
+        Storage::disk('local')->assertExists($settings->logo_path);
+
+        $this->actingAs($admin)
+            ->get(route('organization.logo'))
+            ->assertOk();
     }
 }

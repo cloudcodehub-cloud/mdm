@@ -329,6 +329,9 @@ export type VisitRecord = {
     start_unavailable_reason?: string | null;
     needs_attention?: boolean;
     attention_reason?: string | null;
+    duration_label?: string | null;
+    exception_count?: number;
+    open_exception_count?: number;
     series_id?: number | null;
     assignments?: Array<{
         id: number;

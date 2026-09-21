@@ -28,6 +28,8 @@ class GeneralSettingsController extends Controller
                 'time_format' => $this->settings->current()->time_format->value,
                 'first_day_of_week' => $this->settings->current()->first_day_of_week,
                 'credential_expiring_soon_days' => $this->settings->credentialExpiringSoonDays(),
+                'logo_url' => $this->settings->logoUrl(),
+                'has_logo' => filled($this->settings->current()->logo_path),
             ],
             'timezoneOptions' => $this->settings->timezoneOptions(),
             'dateFormatOptions' => $this->settings->dateFormatOptions(),
@@ -38,7 +40,14 @@ class GeneralSettingsController extends Controller
 
     public function update(UpdateOrganizationSettingsRequest $request): RedirectResponse
     {
-        $this->settings->updateOrganization($request->validated());
+        $data = $request->validated();
+        $this->settings->updateOrganization($data);
+
+        if ($request->boolean('remove_logo')) {
+            $this->settings->removeLogo();
+        } elseif ($request->file('logo')) {
+            $this->settings->storeLogo($request->file('logo'));
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Organization settings saved.')]);
 

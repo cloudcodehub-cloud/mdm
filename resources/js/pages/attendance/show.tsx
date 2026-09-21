@@ -4,8 +4,8 @@ import { ConfirmAction } from '@/components/mdm/confirm-action';
 import { PrintPdfAction } from '@/components/mdm/print-pdf-action';
 import { StatusBadge } from '@/components/mdm/directory';
 import {
-    FactGrid,
-    FactItem,
+    ContextGroup,
+    ContextStrip,
     RecordHeader,
     RecordPage,
     RecordSection,
@@ -91,46 +91,33 @@ export default function AttendanceShow({
 
                 <div className="grid gap-4 lg:grid-cols-12">
                     <RecordSection title="Times" className="lg:col-span-7">
-                        <FactGrid className="sm:grid-cols-2 xl:grid-cols-2">
-                            <FactItem
-                                label="Scheduled time"
-                                value={record.scheduled_time}
-                            />
-                            <FactItem
-                                label="Original clock-in"
-                                value={record.original_clock_in ?? '—'}
-                            />
-                            <FactItem
-                                label="Original clock-out"
-                                value={record.original_clock_out ?? '—'}
-                            />
-                            {record.is_adjusted && (
-                                <>
-                                    <FactItem
-                                        label="Adjusted clock-in"
-                                        value={record.effective_clock_in ?? '—'}
-                                    />
-                                    <FactItem
-                                        label="Adjusted clock-out"
-                                        value={
-                                            record.effective_clock_out ?? '—'
-                                        }
-                                    />
-                                </>
-                            )}
-                            <FactItem
-                                label="Duration"
-                                value={record.worked_duration ?? '—'}
-                            />
-                            {record.is_adjusted && record.original_duration && (
-                                <FactItem
-                                    label="Original duration"
-                                    value={record.original_duration}
-                                />
-                            )}
-                            <FactItem label="Client" value={record.client.name} />
-                            <FactItem label="DSP" value={record.employee.name} />
-                        </FactGrid>
+                        <ContextStrip className="border-0 bg-transparent p-0 shadow-none">
+                            <ContextGroup label="Scheduled">
+                                {record.scheduled_time}
+                            </ContextGroup>
+                            <ContextGroup label="Recorded clocks">
+                                In {record.original_clock_in ?? '—'}
+                                <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
+                                    Out {record.original_clock_out ?? '—'}
+                                </span>
+                            </ContextGroup>
+                            <ContextGroup label="Duration">
+                                {record.worked_duration ?? '—'}
+                            </ContextGroup>
+                            {record.is_adjusted ? (
+                                <ContextGroup label="Adjusted clocks">
+                                    In {record.effective_clock_in ?? '—'}
+                                    <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
+                                        Out {record.effective_clock_out ?? '—'}
+                                        {record.original_duration
+                                            ? ` · original ${record.original_duration}`
+                                            : ''}
+                                    </span>
+                                </ContextGroup>
+                            ) : null}
+                            <ContextGroup label="Client">{record.client.name}</ContextGroup>
+                            <ContextGroup label="DSP">{record.employee.name}</ContextGroup>
+                        </ContextStrip>
                     </RecordSection>
 
                     {can.request_correction && (

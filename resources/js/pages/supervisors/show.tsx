@@ -1,6 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { StatusBadge } from '@/components/mdm/directory';
 import { IdentityHeader } from '@/components/mdm/identity-header';
+import { ProfilePhoto } from '@/components/mdm/profile-photo';
 import { OperationsBoardView } from '@/components/mdm/operations-board';
 import { SupervisorManagement } from '@/components/mdm/supervisor-management';
 import { Panel } from '@/components/mdm/stat-card';
@@ -40,6 +41,14 @@ export default function SupervisorsShow({
             <div className="flex flex-1 flex-col gap-5 pb-6">
                 <div className="px-4 pt-4 md:px-6">
                     <IdentityHeader
+                        leading={
+                            <ProfilePhoto
+                                name={supervisor.name}
+                                photoUrl={supervisor.photo_url}
+                                initials={supervisor.initials}
+                                size="lg"
+                            />
+                        }
                         eyebrow={
                             <Link
                                 href={supervisorsIndex()}

@@ -69,6 +69,9 @@ export default function SupervisorsIndex({
                         <Button type="submit" variant="secondary">
                             Apply
                         </Button>
+                        <Button type="button" variant="ghost" asChild>
+                            <Link href={supervisorsIndex()}>Reset</Link>
+                        </Button>
                     </Form>
                 </Panel>
 

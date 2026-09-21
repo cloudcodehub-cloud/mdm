@@ -56,7 +56,7 @@ export function Panel({
 }) {
     return (
         <section className={cn('surface-panel p-4 md:p-5', className)}>
-            <div className="mb-4">
+            <div className={cn('mb-3', !description && 'mb-2')}>
                 <h2 className="text-sm font-semibold tracking-tight">
                     {title}
                 </h2>
@@ -84,7 +84,7 @@ export function EmptyState({
         return <p className="text-muted-foreground text-sm">{message}</p>;
     }
     return (
-        <div className="text-muted-foreground rounded-lg border border-dashed border-border/80 bg-muted/20 px-4 py-6 text-center">
+        <div className="text-muted-foreground rounded-lg border border-dashed border-border/80 bg-muted/20 px-4 py-8 text-center">
             <Inbox className="mx-auto mb-2 size-5 opacity-60" aria-hidden="true" />
             <p className="text-sm">{message}</p>
             {action ? (

@@ -8,7 +8,13 @@
             <td width="58%">
                 <table cellspacing="0" cellpadding="0">
                     <tr>
-                        <td><div class="mark">{{ $context->productMark }}</div></td>
+                        <td>
+                            @if (filled($context->logoDataUri))
+                                <img src="{{ $context->logoDataUri }}" alt="" class="logo">
+                            @else
+                                <div class="mark">{{ $context->productMark }}</div>
+                            @endif
+                        </td>
                         <td>
                             <div class="brand-name">{{ $context->productName }}</div>
                             <div class="agency">{{ $context->agencyName }}</div>

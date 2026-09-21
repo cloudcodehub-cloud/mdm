@@ -16,6 +16,7 @@ use App\Http\Controllers\DspAvailabilityController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\OrganizationLogoController;
 use App\Http\Controllers\ProfilePhotoController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ScheduledVisitController;
@@ -40,6 +41,7 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::get('organization/logo', OrganizationLogoController::class)->name('organization.logo');
 
     Route::resource('employees', EmployeeController::class)->except(['destroy']);
     Route::patch('employees/{employee}/status', [EmployeeController::class, 'updateStatus'])->name('employees.status');

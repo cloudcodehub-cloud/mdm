@@ -84,7 +84,7 @@ export function VisitNotesForm({
                 <InputError message={form.errors.handover_note} />
             </div>
             <Button type="submit" disabled={form.processing}>
-                Save notes
+                {form.processing ? 'Saving…' : 'Save notes'}
             </Button>
         </form>
     );

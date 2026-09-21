@@ -37,15 +37,14 @@ export function CompactTaskList({
         <ul className="divide-border/70 divide-y">
             {tasks.map((task) => {
                 const related = exceptionByTaskId?.get(task.id);
-                const secondary = [
-                    task.is_critical ? 'Critical' : null,
-                    task.is_required ? 'Required' : null,
-                    task.skip_reason_name,
-                    task.skip_comment,
-                    task.completion_note
-                        ? `DSP note: ${task.completion_note}`
+                const statusLabel = [
+                    task.status_label,
+                    task.is_critical && task.status === 'pending'
+                        ? 'Critical'
                         : null,
-                ].filter(Boolean);
+                ]
+                    .filter(Boolean)
+                    .join(' · ');
 
                 return (
                     <li key={task.id} className="py-2.5 first:pt-0 last:pb-0">
@@ -62,20 +61,38 @@ export function CompactTaskList({
                                 />
                                 <StatusBadge
                                     status={task.status}
-                                    label={task.status_label}
+                                    label={statusLabel}
                                 />
                             </div>
                         </div>
-                        {secondary.length > 0 ? (
-                            <p
-                                className={cn(
-                                    'text-muted-foreground mt-1 text-xs whitespace-pre-wrap',
-                                )}
-                            >
-                                {secondary.join(' · ')}
+                        {task.status === 'skipped' &&
+                        (task.skip_reason_name || task.skip_comment) ? (
+                            <p className="text-muted-foreground mt-1 text-xs">
+                                Reason:{' '}
+                                {[task.skip_reason_name, task.skip_comment]
+                                    .filter(Boolean)
+                                    .join(' — ')}
                             </p>
                         ) : null}
-                        {renderFollowUp?.(task)}
+                        {task.completion_note && task.status !== 'skipped' ? (
+                            <p className="text-muted-foreground mt-1 text-xs">
+                                {task.completion_note}
+                            </p>
+                        ) : null}
+                        {task.is_required && task.status === 'pending' ? (
+                            <p className="text-muted-foreground mt-1 text-xs">
+                                Required
+                            </p>
+                        ) : null}
+                        {renderFollowUp ? (
+                            <div
+                                className={cn(
+                                    'text-muted-foreground mt-1 text-xs',
+                                )}
+                            >
+                                {renderFollowUp(task)}
+                            </div>
+                        ) : null}
                     </li>
                 );
             })}

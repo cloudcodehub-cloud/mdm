@@ -26,7 +26,7 @@ export default function ClientsIndex({
     return (
         <>
             <Head title="Clients" />
-            <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
+            <div className="page-shell">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h1 className="text-xl font-semibold tracking-tight">
@@ -78,6 +78,9 @@ export default function ClientsIndex({
                         </select>
                         <Button type="submit" variant="secondary">
                             Apply
+                        </Button>
+                        <Button type="button" variant="ghost" asChild>
+                            <Link href={clientsIndex()}>Reset</Link>
                         </Button>
                     </Form>
                 </Panel>

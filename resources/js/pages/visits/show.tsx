@@ -4,12 +4,14 @@ import { CareMessageDrawer } from '@/components/mdm/care-message-drawer';
 import { CompactTaskList } from '@/components/mdm/compact-task-list';
 import { StatusBadge } from '@/components/mdm/directory';
 import {
-    FactGrid,
-    FactItem,
+    ContextGroup,
+    ContextStrip,
     RecordHeader,
+    RecordHero,
     RecordPage,
     RecordSection,
 } from '@/components/mdm/record-detail';
+import { ActivityTimeline } from '@/components/mdm/activity-timeline';
 import {
     HighPriorityIndicator,
     hasHighPriorityOpen,
@@ -20,6 +22,7 @@ import { VisitElapsedTimer } from '@/components/mdm/visit-elapsed-timer';
 import { VisitWorkflow } from '@/components/mdm/visit-workflow';
 import { ProgressRing } from '@/components/mdm/visual-summaries';
 import { EmptyState } from '@/components/mdm/stat-card';
+import { Button } from '@/components/ui/button';
 import { VisitClockOutReview } from '@/components/mdm/visit-clock-out-review';
 import { VisitNotesForm } from '@/components/mdm/visit-notes-form';
 import { VisitTaskCard } from '@/components/mdm/visit-task-card';
@@ -114,9 +117,29 @@ export default function VisitsShow({
                         </>
                     }
                     actions={
-                        documents?.completed_visit ? (
-                            <PrintPdfAction href={documents.completed_visit} />
-                        ) : undefined
+                        <div className="flex flex-wrap gap-2">
+                            {can?.view_exceptions &&
+                                visit.exceptions.some(
+                                    (row) => row.status !== 'resolved',
+                                ) && (
+                                    <Button asChild variant="secondary">
+                                        <Link
+                                            href={showException.url(
+                                                visit.exceptions.find(
+                                                    (row) =>
+                                                        row.status !==
+                                                        'resolved',
+                                                )!.id,
+                                            )}
+                                        >
+                                            Review exception
+                                        </Link>
+                                    </Button>
+                                )}
+                            {documents?.completed_visit ? (
+                                <PrintPdfAction href={documents.completed_visit} />
+                            ) : undefined}
+                        </div>
                     }
                 />
 
@@ -209,33 +232,54 @@ function ActiveVisit({
 
     return (
         <div className="grid gap-4 lg:grid-cols-12">
-            <div className="surface-panel border-primary/20 from-primary/8 via-card to-brand-lime/15 bg-gradient-to-br p-4 lg:col-span-12 md:p-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="min-w-0">
-                        <p className="text-primary text-xs font-medium tracking-wide uppercase">
-                            Active visit
-                        </p>
-                        <VisitElapsedTimer clockedInAt={visit.clocked_in_at} />
-                        <div className="mt-3">
-                            <VisitWorkflow visit={visit} />
+            <div className="lg:col-span-12">
+                <RecordHero
+                    eyebrow="Active visit"
+                    title={visit.client.name}
+                    subtitle={`${visit.service_type} · ${visit.client.client_number}`}
+                    chips={
+                        <>
+                            <StatusBadge
+                                status={visit.status}
+                                label={visit.status_label}
+                            />
+                            <StatusBadge
+                                status="scheduled"
+                                label={visit.scheduled_visit.time_label}
+                            />
+                            <StatusBadge
+                                status={visit.location_status}
+                                label={visit.location_status_label}
+                            />
+                        </>
+                    }
+                    aside={
+                        <div className="text-right">
+                            <VisitElapsedTimer clockedInAt={visit.clocked_in_at} />
+                            <div className="mt-3 flex justify-end">
+                                <ProgressRing
+                                    value={percent}
+                                    label={`${percent}%`}
+                                    detail={`${visit.task_summary.completed} completed · ${visit.task_summary.pending} pending · ${visit.task_summary.skipped} skipped`}
+                                />
+                            </div>
                         </div>
+                    }
+                >
+                    <div className="mt-4">
+                        <VisitWorkflow visit={visit} />
                     </div>
-                    <ProgressRing
-                        value={percent}
-                        label={`${percent}%`}
-                        detail={`${visit.task_summary.completed} completed · ${visit.task_summary.pending} pending · ${visit.task_summary.skipped} skipped`}
-                    />
-                </div>
-                <p className="mt-3 text-sm">
-                    {readyToComplete
-                        ? 'Visit is ready for wrap-up and clock-out after notes.'
-                        : 'Finish remaining required tasks, or acknowledge them at clock-out.'}
-                </p>
+                    <p className="mt-3 text-sm">
+                        {readyToComplete
+                            ? 'Visit is ready for wrap-up and clock-out after notes.'
+                            : 'Finish remaining required tasks, or acknowledge them at clock-out.'}
+                    </p>
+                </RecordHero>
             </div>
 
-            <RecordSection title="Key facts" className="lg:col-span-12" compact>
+            <div className="lg:col-span-12">
                 <VisitFacts visit={visit} />
-            </RecordSection>
+            </div>
 
             <RecordSection
                 title="Care-plan tasks"
@@ -339,8 +383,52 @@ function VisitMonitoring({
 
     return (
         <div className="grid gap-4 lg:grid-cols-12">
-            <RecordSection title="Key facts" className="lg:col-span-8" compact>
+            <div className="lg:col-span-12">
+                <RecordHero
+                    eyebrow={
+                        visit.status === 'completed'
+                            ? 'Completed visit'
+                            : 'Visit monitoring'
+                    }
+                    title={visit.client.name}
+                    subtitle={`${visit.service_type} · ${visit.client.client_number}`}
+                    chips={
+                        <>
+                            <StatusBadge
+                                status={visit.status}
+                                label={visit.status_label}
+                            />
+                            <StatusBadge
+                                status="info"
+                                label={visit.duration_label ?? visit.scheduled_visit.time_label}
+                            />
+                            {visit.exceptions.length > 0 && (
+                                <StatusBadge
+                                    status="exception"
+                                    label={`${visit.exceptions.length} exception${visit.exceptions.length === 1 ? '' : 's'}`}
+                                />
+                            )}
+                        </>
+                    }
+                />
+            </div>
+            <div className="lg:col-span-12">
                 <VisitFacts visit={visit} completed />
+            </div>
+            <RecordSection title="Task summary" className="lg:col-span-8" compact>
+                <CompactTaskList
+                    tasks={visit.tasks}
+                    empty="No care-plan tasks applied to this visit."
+                    exceptionByTaskId={exceptionByTaskId}
+                    renderFollowUp={
+                        canFollowUp
+                            ? (task) =>
+                                  exceptionByTaskId.get(task.id)
+                                      ? 'Supervisor follow-up available'
+                                      : null
+                            : undefined
+                    }
+                />
             </RecordSection>
             <RecordSection title="Status" className="lg:col-span-4" compact>
                 <p className="text-sm">
@@ -357,13 +445,6 @@ function VisitMonitoring({
                         High-priority follow-up needed
                     </p>
                 )}
-            </RecordSection>
-            <RecordSection title="Tasks" className="lg:col-span-12">
-                <CompactTaskList
-                    tasks={visit.tasks}
-                    empty="No care-plan tasks applied to this visit."
-                    exceptionByTaskId={exceptionByTaskId}
-                />
             </RecordSection>
             <RecordSection title="Notes / handover" className="lg:col-span-6">
                 {visit.visit_notes || visit.handover_note ? (
@@ -454,6 +535,11 @@ function VisitMonitoring({
                     </ul>
                 </RecordSection>
             )}
+            {(visit.timeline ?? []).length > 0 && (
+                <RecordSection title="Timeline" className="lg:col-span-12" compact>
+                    <ActivityTimeline items={visit.timeline ?? []} />
+                </RecordSection>
+            )}
         </div>
     );
 }
@@ -466,48 +552,37 @@ function VisitFacts({
     completed?: boolean;
 }) {
     return (
-        <FactGrid className="xl:grid-cols-4">
-            <FactItem label="Client" value={visit.client.name} />
-            <FactItem label="Service" value={visit.service_type} />
-            <FactItem label="DSP" value={visit.employee.name} />
-            <FactItem
-                label="Supervisor"
-                value={visit.supervisor?.name ?? 'None'}
-            />
-            <FactItem
-                label="Scheduled time"
-                value={`${visit.scheduled_visit.service_date} · ${visit.scheduled_visit.time_label}`}
-            />
-            <FactItem label="Actual clock-in" value={visit.clocked_in_at_label} />
-            {completed && (
-                <FactItem
-                    label="Actual clock-out"
-                    value={visit.clocked_out_at_label ?? '—'}
-                />
-            )}
-            <FactItem
-                label="Duration"
-                value={
-                    visit.duration_label ??
-                    (completed ? '—' : 'In progress')
-                }
-            />
-            <FactItem
-                label="Attendance / location"
-                value={`${visit.location_status_label}${
-                    visit.clock_out_location_status_label
-                        ? ` · Out ${visit.clock_out_location_status_label}`
-                        : ''
-                }`}
-            />
-            <FactItem
-                label="Exceptions"
-                value={`${visit.exceptions.length} · ${
-                    visit.exceptions.filter((row) => row.status !== 'resolved')
-                        .length
-                } open`}
-            />
-        </FactGrid>
+        <ContextStrip>
+            <ContextGroup label="Care team">
+                {visit.employee.name} · DSP
+                <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
+                    {visit.supervisor?.name
+                        ? `${visit.supervisor.name} · Supervisor`
+                        : 'No supervisor assigned'}
+                </span>
+            </ContextGroup>
+            <ContextGroup label="Timing">
+                Scheduled {visit.scheduled_visit.time_label}
+                <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
+                    Clocked in {visit.clocked_in_at_label}
+                    {completed && visit.clocked_out_at_label
+                        ? ` · Out ${visit.clocked_out_at_label}`
+                        : ''}
+                    {visit.duration_label ? ` · ${visit.duration_label}` : ''}
+                </span>
+            </ContextGroup>
+            <ContextGroup label="Attendance">
+                {visit.location_status_label}
+                {visit.clock_out_location_status_label
+                    ? ` · Out ${visit.clock_out_location_status_label}`
+                    : ''}
+                <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
+                    {visit.exceptions.length} exception
+                    {visit.exceptions.length === 1 ? '' : 's'}
+                    {` · ${visit.exceptions.filter((row) => row.status !== 'resolved').length} open`}
+                </span>
+            </ContextGroup>
+        </ContextStrip>
     );
 }
 

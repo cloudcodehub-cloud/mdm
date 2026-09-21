@@ -20,7 +20,7 @@ export function OperationsBoardView({
     description?: string;
 }) {
     return (
-        <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
+        <div className="page-shell">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <h1 className="text-xl font-semibold tracking-tight">

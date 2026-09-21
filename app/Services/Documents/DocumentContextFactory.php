@@ -28,6 +28,7 @@ class DocumentContextFactory
             confidentiality: self::CONFIDENTIALITY,
             productMark: 'MDM',
             productName: 'Magic Data Management',
+            logoDataUri: $this->settings->logoDataUri(),
         );
     }
 }

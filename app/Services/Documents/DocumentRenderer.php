@@ -5,18 +5,27 @@ namespace App\Services\Documents;
 use App\Support\Documents\DocumentDefinition;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Barryvdh\DomPDF\PDF as DomPdfDocument;
-use Illuminate\Http\Response;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class DocumentRenderer
 {
-    public function preview(DocumentDefinition $document, string $backUrl, string $downloadUrl): Response
+    public function preview(DocumentDefinition $document, string $backUrl, string $downloadUrl): InertiaResponse
     {
-        return response()->view('documents.preview', [
-            'document' => $document,
+        return Inertia::render('documents/viewer', [
+            'title' => $document->title,
+            'html' => $this->html($document),
             'backUrl' => $backUrl,
             'downloadUrl' => $downloadUrl,
         ]);
+    }
+
+    public function html(DocumentDefinition $document): string
+    {
+        return view('documents.partials.canvas', [
+            'document' => $document,
+        ])->render();
     }
 
     public function download(DocumentDefinition $document): SymfonyResponse

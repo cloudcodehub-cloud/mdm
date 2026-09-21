@@ -9,7 +9,9 @@ use App\Models\OrganizationSetting;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use DateTimeZone;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class SettingsService
@@ -48,11 +50,73 @@ class SettingsService
         }
 
         $settings = $this->current();
+        unset($data['logo'], $data['remove_logo']);
         $settings->fill($data);
         $settings->save();
         $this->resolved = $settings->fresh() ?? $settings;
 
         return $this->resolved;
+    }
+
+    public function storeLogo(UploadedFile $file): void
+    {
+        $settings = $this->current();
+        $this->deleteLogoFile($settings->logo_path);
+        $path = $file->store('agency-logos', 'local');
+        $settings->update(['logo_path' => $path]);
+        $this->resolved = $settings->fresh() ?? $settings;
+    }
+
+    public function removeLogo(): void
+    {
+        $settings = $this->current();
+        $this->deleteLogoFile($settings->logo_path);
+        $settings->update(['logo_path' => null]);
+        $this->resolved = $settings->fresh() ?? $settings;
+    }
+
+    public function logoUrl(): ?string
+    {
+        if (! filled($this->current()->logo_path)) {
+            return null;
+        }
+
+        return route('organization.logo', [
+            'v' => $this->current()->updated_at?->timestamp,
+        ]);
+    }
+
+    public function logoDataUri(): ?string
+    {
+        $path = $this->current()->logo_path;
+
+        if (! filled($path) || ! Storage::disk('local')->exists($path)) {
+            return null;
+        }
+
+        $mime = Storage::disk('local')->mimeType($path) ?: 'image/png';
+        $contents = Storage::disk('local')->get($path);
+
+        if ($contents === null) {
+            return null;
+        }
+
+        return 'data:'.$mime.';base64,'.base64_encode($contents);
+    }
+
+    public function streamLogo(): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $path = $this->current()->logo_path;
+        abort_unless(filled($path) && Storage::disk('local')->exists($path), 404);
+
+        return Storage::disk('local')->response($path);
+    }
+
+    private function deleteLogoFile(?string $path): void
+    {
+        if (filled($path) && Storage::disk('local')->exists($path)) {
+            Storage::disk('local')->delete($path);
+        }
     }
 
     public function timezone(): string
@@ -282,6 +346,7 @@ class SettingsService
             'state' => $location['state'],
             'postal_code' => $location['postal_code'],
             'location_label' => $location['label'],
+            'logo_url' => $this->logoUrl(),
         ];
     }
 

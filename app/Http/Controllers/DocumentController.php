@@ -11,7 +11,7 @@ use App\Services\Documents\DocumentRenderer;
 use App\Services\Documents\MdmDocumentFactory;
 use App\Services\SettingsService;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
+use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class DocumentController extends Controller

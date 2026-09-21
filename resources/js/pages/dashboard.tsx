@@ -34,7 +34,7 @@ export default function Dashboard({
     return (
         <>
             <Head title="Dashboard" />
-            <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
+            <div className="page-shell">
                 <div>
                     <DashboardGreeting name={data.greeting_name} />
                     <h2 className="mt-1 text-xl font-semibold tracking-tight">

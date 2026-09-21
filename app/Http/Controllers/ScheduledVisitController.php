@@ -25,6 +25,7 @@ use App\Services\VisitClockInService;
 use App\Services\VisitSeriesService;
 use App\Support\CareServicePresenter;
 use App\Support\DirectoryPresenter;
+use App\Support\VisitHistoryQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -39,46 +40,29 @@ class ScheduledVisitController extends Controller
         abort_unless($user !== null, 401);
         $this->authorize('viewAny', ScheduledVisit::class);
 
-        $filters = [
-            'service_date' => $request->string('service_date')->trim()->value(),
-            'client_id' => $request->string('client_id')->value(),
-            'employee_id' => $request->string('employee_id')->value(),
-            'status' => $request->string('status')->value(),
-            'supervisor_id' => $request->string('supervisor_id')->value(),
-            'service_type' => $request->string('service_type')->value(),
-        ];
+        $filters = VisitHistoryQuery::filters($request);
 
-        $visits = ScheduledVisit::query()
-            ->with(['client', 'employee', 'supervisor', 'shiftTemplate', 'careServices'])
-            ->visibleTo($user)
-            ->when(
-                $filters['service_date'] !== '',
-                fn ($query) => $query->whereDate('service_date', $filters['service_date']),
-            )
-            ->when(
-                $filters['client_id'] !== '' && ctype_digit($filters['client_id']),
-                fn ($query) => $query->where('client_id', (int) $filters['client_id']),
-            )
-            ->when(
-                $filters['employee_id'] !== '' && ctype_digit($filters['employee_id']),
-                fn ($query) => $query->where('employee_id', (int) $filters['employee_id']),
-            )
-            ->when(
-                $filters['status'] !== '' && ScheduledVisitStatus::tryFrom($filters['status']),
-                fn ($query) => $query->where('status', $filters['status']),
-            )
-            ->when(
-                $filters['supervisor_id'] !== '' && ctype_digit($filters['supervisor_id']),
-                fn ($query) => $query->where('supervisor_id', (int) $filters['supervisor_id']),
-            )
-            ->when(
-                $filters['service_type'] !== '',
-                fn ($query) => $query->where('service_type', $filters['service_type']),
-            )
-            ->orderByDesc('service_date')
-            ->orderByDesc('id')
-            ->paginate(12)
-            ->withQueryString();
+        $query = ScheduledVisit::query()
+            ->with([
+                'client',
+                'employee',
+                'supervisor',
+                'shiftTemplate',
+                'careServices',
+                'visit.exceptions',
+            ])
+            ->visibleTo($user);
+
+        VisitHistoryQuery::apply($query, $filters);
+
+        if (VisitHistoryQuery::prefersNewestFirst($filters)) {
+            $query->orderByDesc('service_date')->orderByDesc('id');
+        } else {
+            $query->orderBy('service_date')->orderBy('id');
+        }
+
+        $visits = $query->paginate(12)->withQueryString();
+        $filterQuery = VisitHistoryQuery::queryString($filters);
 
         return Inertia::render('scheduled-visits/index', [
             'visits' => [
@@ -102,11 +86,20 @@ class ScheduledVisitController extends Controller
             'clients' => DirectoryPresenter::clientFilterOptions($user),
             'dsps' => DirectoryPresenter::dspFilterOptions($user),
             'supervisors' => $user->isDsp() ? [] : DirectoryPresenter::supervisorOptions(),
+            'service_types' => ScheduledVisit::query()
+                ->visibleTo($user)
+                ->select('service_type')
+                ->distinct()
+                ->orderBy('service_type')
+                ->pluck('service_type')
+                ->values()
+                ->all(),
             'can' => [
                 'create' => $user->can('create', ScheduledVisit::class),
                 'filter_dsps' => ! $user->isDsp(),
+                'filter_supervisors' => $user->isAdmin(),
             ],
-            'board_url' => route('scheduled-visits.calendar'),
+            'board_url' => route('scheduled-visits.calendar', $filterQuery),
         ]);
     }
 
@@ -122,7 +115,22 @@ class ScheduledVisitController extends Controller
             'supervisor_id' => $request->string('supervisor_id')->value(),
             'service_type' => $request->string('service_type')->value(),
             'status' => $request->string('status')->value(),
+            'phase' => $request->string('phase')->value(),
+            'from' => $request->string('from')->value(),
+            'to' => $request->string('to')->value(),
         ];
+
+        if ($filters['status'] === '' && $filters['phase'] !== '') {
+            $filters['status'] = match ($filters['phase']) {
+                'upcoming' => ScheduledVisitStatus::Scheduled->value,
+                'in_progress' => ScheduledVisitStatus::InProgress->value,
+                'completed' => ScheduledVisitStatus::Completed->value,
+                'cancelled' => ScheduledVisitStatus::Cancelled->value,
+                default => '',
+            };
+        }
+
+        $listFilters = VisitHistoryQuery::queryString($filters);
 
         return Inertia::render('scheduled-visits/calendar', [
             'board' => $calendar->view(
@@ -139,8 +147,9 @@ class ScheduledVisitController extends Controller
             'can' => [
                 'create' => $user->can('create', ScheduledVisit::class),
                 'filter_dsps' => ! $user->isDsp(),
+                'filter_supervisors' => $user->isAdmin(),
             ],
-            'list_url' => route('scheduled-visits.index'),
+            'list_url' => route('scheduled-visits.index', $listFilters),
         ]);
     }
 

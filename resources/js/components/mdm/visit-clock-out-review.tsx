@@ -90,9 +90,15 @@ export function VisitClockOutReview({
 
     if (!open) {
         return (
-        <Button type="button" className="min-h-11 w-full sm:w-auto" onClick={() => setOpen(true)}>
-            Review & Clock Out
-        </Button>
+            <div className="sticky-form-actions justify-start">
+                <Button
+                    type="button"
+                    className="min-h-11 w-full sm:w-auto"
+                    onClick={() => setOpen(true)}
+                >
+                    Review & clock out
+                </Button>
+            </div>
         );
     }
 

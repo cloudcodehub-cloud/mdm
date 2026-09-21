@@ -29,7 +29,9 @@ export function IdentityHeader({
                 {eyebrow ? (
                     <p className="text-muted-foreground text-sm">{eyebrow}</p>
                 ) : null}
-                <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+                <h1 className="text-2xl font-semibold tracking-tight md:text-[1.75rem]">
+                    {title}
+                </h1>
                 {meta ? (
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                         {meta}

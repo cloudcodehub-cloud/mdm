@@ -47,7 +47,7 @@ export default function EmployeesShow({
     return (
         <>
             <Head title={employee.name} />
-            <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
+            <div className="page-shell">
                 <IdentityHeader
                     leading={
                         <ProfilePhoto

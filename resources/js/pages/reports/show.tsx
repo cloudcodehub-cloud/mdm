@@ -186,6 +186,9 @@ export default function ReportShow({
                         <Button type="submit" variant="secondary">
                             Apply
                         </Button>
+                        <Button type="button" variant="ghost" asChild>
+                            <Link href={showReport.url(report.key)}>Reset</Link>
+                        </Button>
                     </Form>
                 </Panel>
 

@@ -48,7 +48,7 @@ export default function AttendanceIndex({
     return (
         <>
             <Head title="Attendance" />
-            <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
+            <div className="page-shell">
                 <div>
                     <h1 className="text-xl font-semibold tracking-tight">
                         Attendance
@@ -140,6 +140,9 @@ export default function AttendanceIndex({
                         </select>
                         <Button type="submit" variant="secondary">
                             Apply
+                        </Button>
+                        <Button type="button" variant="ghost" asChild>
+                            <Link href={attendanceIndex()}>Reset</Link>
                         </Button>
                     </Form>
                 </Panel>

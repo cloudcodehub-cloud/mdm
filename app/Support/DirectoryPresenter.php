@@ -406,6 +406,17 @@ final class DirectoryPresenter
             'needs_attention' => $visit->needs_attention,
             'attention_reason' => $visit->attention_reason,
             'series_id' => $visit->series_id,
+            'duration_label' => $visit->relationLoaded('visit') && $visit->visit
+                ? self::visitDurationLabel($visit->visit)
+                : null,
+            'exception_count' => $visit->relationLoaded('visit') && $visit->visit?->relationLoaded('exceptions')
+                ? $visit->visit->exceptions->count()
+                : 0,
+            'open_exception_count' => $visit->relationLoaded('visit') && $visit->visit?->relationLoaded('exceptions')
+                ? $visit->visit->exceptions
+                    ->filter(fn (VisitException $exception): bool => $exception->status->value !== 'resolved')
+                    ->count()
+                : 0,
         ];
     }
 
@@ -561,6 +572,7 @@ final class DirectoryPresenter
             'exceptions' => self::visitExceptions($exceptions),
             'has_high_priority_open' => $exceptions
                 ->contains(fn (VisitException $exception): bool => $exception->isHighPriorityOpen()),
+            'timeline' => self::visitTimeline($visit),
         ];
     }
 
@@ -644,6 +656,9 @@ final class DirectoryPresenter
                 ? null
                 : app(SettingsService::class)->formatTime($task->completed_at),
             'skipped_at' => $task->skipped_at?->toIso8601String(),
+            'skipped_at_label' => $task->skipped_at === null
+                ? null
+                : app(SettingsService::class)->formatTime($task->skipped_at),
             'skip_reason_id' => $task->skip_reason_id,
             'skip_reason_name' => $task->skipReason?->name,
             'skip_comment' => $task->skip_comment,
@@ -690,11 +705,119 @@ final class DirectoryPresenter
             'reviewed_by_name' => $exception->reviewedBy?->name,
             'resolved_by_name' => $exception->resolvedBy?->name,
             'status_history' => $exception->status_history ?? [],
+            'created_at' => $exception->created_at?->toIso8601String(),
+            'reviewed_at' => $exception->reviewed_at?->toIso8601String(),
+            'resolved_at' => $exception->resolved_at?->toIso8601String(),
             'created_at_label' => $exception->created_at === null ? null : $settings->formatTime($exception->created_at),
             'client_name' => $visit?->client?->full_name,
             'dsp_name' => $visit?->employee?->full_name,
             'service_type' => $visit?->service_type,
         ];
+    }
+
+    /**
+     * @return list<array{id: string, title: string, detail: string|null, at: string|null, at_label: string|null}>
+     */
+    public static function visitTimeline(Visit $visit): array
+    {
+        $settings = app(SettingsService::class);
+        $scheduled = $visit->scheduledVisit;
+        $items = [];
+
+        $items[] = [
+            'id' => 'scheduled',
+            'title' => 'Scheduled',
+            'detail' => self::date($scheduled->service_date).' · '.self::visitTimeLabel($scheduled),
+            'at' => $scheduled->created_at?->toIso8601String(),
+            'at_label' => $scheduled->created_at === null ? null : $settings->formatDateTime($scheduled->created_at),
+        ];
+
+        $items[] = [
+            'id' => 'clock-in',
+            'title' => 'Clocked in',
+            'detail' => self::gpsStatusLabel($visit->clock_in_location_status->value),
+            'at' => $visit->clocked_in_at->toIso8601String(),
+            'at_label' => $settings->formatTime($visit->clocked_in_at),
+        ];
+
+        foreach ($visit->tasks as $task) {
+            if ($task->status === VisitTaskStatus::Completed && $task->completed_at) {
+                $items[] = [
+                    'id' => 'task-'.$task->id,
+                    'title' => 'Task completed',
+                    'detail' => $task->title,
+                    'at' => $task->completed_at->toIso8601String(),
+                    'at_label' => $settings->formatTime($task->completed_at),
+                ];
+            }
+
+            if ($task->status === VisitTaskStatus::Skipped && $task->skipped_at) {
+                $items[] = [
+                    'id' => 'skip-'.$task->id,
+                    'title' => 'Task skipped',
+                    'detail' => $task->title.($task->skipReason?->name ? ' · '.$task->skipReason->name : ''),
+                    'at' => $task->skipped_at->toIso8601String(),
+                    'at_label' => $settings->formatTime($task->skipped_at),
+                ];
+            }
+        }
+
+        if (filled($visit->visit_notes) || filled($visit->handover_note)) {
+            $stamp = $visit->clocked_out_at ?? $visit->updated_at;
+            $items[] = [
+                'id' => 'notes',
+                'title' => 'Notes saved',
+                'detail' => filled($visit->handover_note) ? 'Visit notes and handover' : 'Visit notes',
+                'at' => $stamp?->toIso8601String(),
+                'at_label' => $stamp === null ? null : $settings->formatTime($stamp),
+            ];
+        }
+
+        if ($visit->clocked_out_at !== null) {
+            $items[] = [
+                'id' => 'clock-out',
+                'title' => 'Clocked out',
+                'detail' => self::visitDurationLabel($visit),
+                'at' => $visit->clocked_out_at->toIso8601String(),
+                'at_label' => $settings->formatTime($visit->clocked_out_at),
+            ];
+        }
+
+        foreach ($visit->relationLoaded('exceptions') ? $visit->exceptions : [] as $exception) {
+            $items[] = [
+                'id' => 'exception-'.$exception->id,
+                'title' => $exception->type->label(),
+                'detail' => $exception->status->label(),
+                'at' => $exception->created_at?->toIso8601String(),
+                'at_label' => $exception->created_at === null ? null : $settings->formatTime($exception->created_at),
+            ];
+
+            if ($exception->reviewed_at !== null) {
+                $items[] = [
+                    'id' => 'reviewed-'.$exception->id,
+                    'title' => 'Exception reviewed',
+                    'detail' => $exception->type->label(),
+                    'at' => $exception->reviewed_at->toIso8601String(),
+                    'at_label' => $settings->formatTime($exception->reviewed_at),
+                ];
+            }
+
+            if ($exception->resolved_at !== null) {
+                $items[] = [
+                    'id' => 'resolved-'.$exception->id,
+                    'title' => 'Exception resolved',
+                    'detail' => $exception->type->label(),
+                    'at' => $exception->resolved_at->toIso8601String(),
+                    'at_label' => $settings->formatTime($exception->resolved_at),
+                ];
+            }
+        }
+
+        usort($items, function (array $left, array $right): int {
+            return strcmp((string) ($left['at'] ?? ''), (string) ($right['at'] ?? ''));
+        });
+
+        return self::values($items);
     }
 
     /**
@@ -987,7 +1110,7 @@ final class DirectoryPresenter
         ]));
     }
 
-    private static function visitDurationLabel(Visit $visit): ?string
+    public static function visitDurationLabel(Visit $visit): ?string
     {
         if ($visit->clocked_out_at === null) {
             return null;

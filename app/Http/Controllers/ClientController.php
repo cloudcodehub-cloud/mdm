@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateClientStatusRequest;
 use App\Models\CarePlan;
 use App\Models\Client;
 use App\Models\ClientDspAssignment;
+use App\Models\ScheduledVisit;
 use App\Services\CareOverviewService;
 use App\Services\ProfileAttentionService;
 use App\Services\ProfileCompletionService;
@@ -207,6 +208,7 @@ class ClientController extends Controller
                 'update' => $user?->can('update', $client) ?? false,
                 'manageAssignments' => $user?->can('create', ClientDspAssignment::class) ?? false,
                 'manageCarePlan' => $canManageCarePlan,
+                'schedule_visit' => $user?->can('create', ScheduledVisit::class) ?? false,
             ],
         ]);
     }

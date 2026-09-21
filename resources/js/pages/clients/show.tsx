@@ -33,7 +33,10 @@ import {
 } from '@/routes/clients';
 import { store as storeAssignment } from '@/routes/clients/assignments';
 import { show as showVisit } from '@/routes/visits';
-import { show as showScheduledVisit } from '@/routes/scheduled-visits';
+import {
+    create as createVisit,
+    show as showScheduledVisit,
+} from '@/routes/scheduled-visits';
 import type {
     CareHistoryItem,
     CareOverview,
@@ -80,7 +83,7 @@ export default function ClientsShow({
     task_catalog?: TaskCatalogPayload | null;
     supervisor_contact?: SupervisorContact | null;
     dspOptions: OptionItem[];
-    can: { update: boolean; manageAssignments: boolean; manageCarePlan: boolean };
+    can: { update: boolean; manageAssignments: boolean; manageCarePlan: boolean; schedule_visit?: boolean };
     profile_completion: ProfileCompletion;
 }) {
     const role = usePage().props.auth.user.role;
@@ -113,7 +116,7 @@ export default function ClientsShow({
     return (
         <>
             <Head title={client.name} />
-            <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
+            <div className="page-shell">
                 <IdentityHeader
                     leading={
                         <ProfilePhoto
@@ -150,6 +153,18 @@ export default function ClientsShow({
                     actions={
                         <>
                             <ProfileCompletionMeter completion={profile_completion} />
+                            {can.schedule_visit && (
+                                <Button asChild>
+                                    <Link href={createVisit()}>Schedule visit</Link>
+                                </Button>
+                            )}
+                            {can.manageCarePlan && (
+                                <Button asChild variant="secondary">
+                                    <Link href={`/clients/${client.id}/setup`}>
+                                        View care plan
+                                    </Link>
+                                </Button>
+                            )}
                             {can.update ? (
                             <>
                                 <Button asChild variant="secondary">

@@ -389,7 +389,7 @@ export default function ScheduledVisitsCalendar({
     return (
         <>
             <Head title="Schedule Board" />
-            <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
+            <div className="page-shell-wide">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h1 className="text-xl font-semibold tracking-tight">
@@ -521,6 +521,9 @@ export default function ScheduledVisitsCalendar({
                         </select>
                         <Button type="submit" variant="secondary">
                             Apply
+                        </Button>
+                        <Button asChild variant="ghost">
+                            <Link href="/scheduled-visits/calendar">Reset</Link>
                         </Button>
                     </Form>
                 </Panel>

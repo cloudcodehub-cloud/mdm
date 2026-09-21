@@ -271,8 +271,20 @@
     @apply border border-white/80 bg-popover/88 shadow-[inset_0_1px_0_oklch(1_0_0_/_0.62),var(--shadow-elevated)] backdrop-blur-[22px] dark:border-white/14 dark:bg-popover/82;
 }
 
+@utility page-shell {
+    @apply mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 p-4 md:gap-6 md:p-6;
+}
+
+@utility page-shell-wide {
+    @apply mx-auto flex w-full max-w-[88rem] flex-1 flex-col gap-5 p-4 md:gap-6 md:p-6;
+}
+
 @utility sticky-form-actions {
     @apply sticky bottom-0 z-10 mt-4 flex justify-end gap-2 border-t border-border/70 bg-card/90 py-3 backdrop-blur-md;
+}
+
+@utility table-dense {
+    @apply w-full text-left text-sm [&_th]:pb-2 [&_th]:pr-3 [&_th]:text-xs [&_th]:font-medium [&_th]:tracking-wide [&_th]:text-muted-foreground [&_th]:uppercase [&_td]:py-2 [&_td]:pr-3 [&_td]:align-top;
 }
 
 @utility interactive-surface {
@@ -300,6 +312,48 @@
 
 .mdm-priority-pulse {
     animation: mdm-priority-pulse 1.7s ease-in-out infinite;
+}
+
+.document-stage {
+    background:
+        radial-gradient(
+            900px 420px at 50% -10%,
+            color-mix(in oklch, var(--brand-cyan) 10%, transparent),
+            transparent 60%
+        );
+}
+
+.document-paper {
+    background: #fff;
+    color: #1c1917;
+    box-shadow: var(--shadow-elevated);
+}
+
+@media print {
+    body {
+        background: #fff !important;
+        background-image: none !important;
+    }
+
+    [data-slot='sidebar'],
+    [data-slot='sidebar-wrapper'],
+    [data-slot='sidebar-gap'],
+    header,
+    .document-toolbar,
+    [data-active-work] {
+        display: none !important;
+    }
+
+    .document-stage {
+        background: #fff !important;
+        padding: 0 !important;
+    }
+
+    .document-paper {
+        box-shadow: none !important;
+        max-width: none !important;
+        border: 0 !important;
+    }
 }
 
 @utility control-focus {

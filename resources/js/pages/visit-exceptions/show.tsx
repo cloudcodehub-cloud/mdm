@@ -2,12 +2,13 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import InputError from '@/components/input-error';
 import { StatusBadge } from '@/components/mdm/directory';
 import {
-    FactGrid,
-    FactItem,
+    ContextGroup,
+    ContextStrip,
     RecordHeader,
     RecordPage,
     RecordSection,
 } from '@/components/mdm/record-detail';
+import { ActivityTimeline } from '@/components/mdm/activity-timeline';
 import { HighPriorityIndicator } from '@/components/mdm/priority-indicator';
 import { SupervisorFollowUp } from '@/components/mdm/supervisor-follow-up';
 import { Button } from '@/components/ui/button';
@@ -79,33 +80,26 @@ export default function VisitExceptionsShow({
 
                 <div className="grid gap-4 lg:grid-cols-12">
                     <RecordSection title="Exception" className="lg:col-span-7">
-                        <FactGrid className="sm:grid-cols-2 xl:grid-cols-2">
-                            <FactItem label="Message" value={exception.message} />
-                            <FactItem
-                                label="Task"
-                                value={exception.task_title ?? 'Visit-level'}
-                            />
-                            <FactItem
-                                label="Client"
-                                value={exception.client_name ?? '—'}
-                            />
-                            <FactItem
-                                label="DSP"
-                                value={exception.dsp_name ?? '—'}
-                            />
-                            <FactItem
-                                label="Service"
-                                value={exception.service_type ?? '—'}
-                            />
-                            <FactItem
-                                label="Priority"
-                                value={
-                                    exception.is_high_priority
-                                        ? 'High'
-                                        : 'Standard'
-                                }
-                            />
-                        </FactGrid>
+                        <ContextStrip className="border-0 bg-transparent p-0 shadow-none">
+                            <ContextGroup label="Message">
+                                {exception.message}
+                            </ContextGroup>
+                            <ContextGroup label="Task">
+                                {exception.task_title ?? 'Visit-level'}
+                            </ContextGroup>
+                            <ContextGroup label="Client">
+                                {exception.client_name ?? '—'}
+                            </ContextGroup>
+                            <ContextGroup label="DSP">
+                                {exception.dsp_name ?? '—'}
+                            </ContextGroup>
+                            <ContextGroup label="Service">
+                                {exception.service_type ?? '—'}
+                            </ContextGroup>
+                            <ContextGroup label="Priority">
+                                {exception.is_high_priority ? 'High' : 'Standard'}
+                            </ContextGroup>
+                        </ContextStrip>
                     </RecordSection>
                     <RecordSection title="Review history" className="lg:col-span-5">
                         {exception.status_history.length === 0 ? (
@@ -114,23 +108,18 @@ export default function VisitExceptionsShow({
                                 original exception record is unchanged.
                             </p>
                         ) : (
-                            <ul className="space-y-3 text-sm">
-                                {exception.status_history.map((entry, index) => (
-                                    <li key={`${entry.at}-${index}`}>
-                                        <p className="font-medium capitalize">
-                                            {entry.status.replaceAll('_', ' ')}
-                                        </p>
-                                        <p className="text-muted-foreground text-xs">
-                                            {entry.user_name}
-                                        </p>
-                                        {entry.notes && (
-                                            <p className="mt-1 whitespace-pre-wrap">
-                                                {entry.notes}
-                                            </p>
-                                        )}
-                                    </li>
-                                ))}
-                            </ul>
+                            <ActivityTimeline
+                                items={exception.status_history.map(
+                                    (entry, index) => ({
+                                        id: `${entry.at}-${index}`,
+                                        title: entry.status.replaceAll('_', ' '),
+                                        detail: [entry.user_name, entry.notes]
+                                            .filter(Boolean)
+                                            .join(' · '),
+                                        at_label: entry.at,
+                                    }),
+                                )}
+                            />
                         )}
                         {exception.review_notes && (
                             <p className="mt-3 text-sm">

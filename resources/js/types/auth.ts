@@ -30,6 +30,7 @@ export type OrganizationSettings = {
     state?: string;
     postal_code?: string;
     location_label?: string;
+    logo_url?: string | null;
 };
 
 export type AgencyWeather = {

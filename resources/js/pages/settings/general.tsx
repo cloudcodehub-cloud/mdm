@@ -24,6 +24,8 @@ type Props = {
         time_format: string;
         first_day_of_week: number;
         credential_expiring_soon_days: number;
+        logo_url?: string | null;
+        has_logo?: boolean;
     };
     timezoneOptions: Option[];
     dateFormatOptions: Option[];
@@ -65,6 +67,7 @@ export default function General({
                 <Form
                     {...GeneralSettingsController.update.form()}
                     options={{ preserveScroll: true }}
+                    encType="multipart/form-data"
                     className="space-y-6"
                 >
                     {({ processing, errors }) => (
@@ -80,6 +83,35 @@ export default function General({
                                     defaultValue={settings.organization_name}
                                 />
                                 <InputError message={errors.organization_name} />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="logo">Agency logo</Label>
+                                {settings.logo_url ? (
+                                    <img
+                                        src={settings.logo_url}
+                                        alt=""
+                                        className="h-12 w-auto object-contain"
+                                    />
+                                ) : (
+                                    <p className="text-muted-foreground text-sm">
+                                        Optional. MDM branding is used when no
+                                        logo is uploaded.
+                                    </p>
+                                )}
+                                <Input
+                                    id="logo"
+                                    name="logo"
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp"
+                                />
+                                {settings.has_logo ? (
+                                    <label className="text-muted-foreground flex items-center gap-2 text-sm">
+                                        <input type="checkbox" name="remove_logo" value="1" />
+                                        Remove current logo
+                                    </label>
+                                ) : null}
+                                <InputError message={errors.logo} />
                             </div>
 
                             <div className="grid gap-4 md:grid-cols-3">

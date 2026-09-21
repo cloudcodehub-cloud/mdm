@@ -15,5 +15,6 @@ final class DocumentContext
         public string $confidentiality,
         public string $productMark,
         public string $productName,
+        public ?string $logoDataUri = null,
     ) {}
 }

@@ -85,6 +85,13 @@ export type ActiveVisitRecord = {
         is_high_priority_open?: boolean;
     }>;
     has_high_priority_open?: boolean;
+    timeline?: Array<{
+        id: string;
+        title: string;
+        detail?: string | null;
+        at?: string | null;
+        at_label?: string | null;
+    }>;
     supervisor?: {
         id: number;
         name: string;
