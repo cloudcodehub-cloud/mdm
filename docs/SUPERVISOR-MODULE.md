@@ -15,6 +15,20 @@ Supervisor visibility is limited to their permitted caseload:
 
 Admins may view any caseload. DSPs cannot open supervisor operations, exception review, or the supervisor directory.
 
+## Supervisor directory and management (Admin)
+
+`/supervisors` is an Admin directory of existing supervisor employees (not a second Employee CRUD). It shows status, assigned DSP/client counts, and a short operational summary. Admin may open supervisor detail to see identity, job information, DSP team, client caseload, workload, and that supervisor’s caseload board.
+
+Admin may appoint a Supervisor from an eligible **active DSP employee with a linked DSP login**. Promotion changes System Role (`users.role` and `employees.job_type`) and does **not** change Job Title. The same Employee record is kept.
+
+Admin may transfer DSP reports (`employees.supervisor_id`) and assigned clients (`clients.supervisor_id`) to another active Supervisor. Historical scheduled visits keep their original supervisor of record.
+
+Admin may revoke Supervisor duties. If DSPs or clients still report to that Supervisor, a replacement Supervisor is required and those current relationships transfer first. After revocation the User role becomes DSP (the supported non-supervisor workforce login role). The Employee record and Job Title remain. Pending availability and time-off reviews follow the DSP’s current supervisor; attendance correction approval remains Admin.
+
+Employee create/edit remains on Employees.
+
+Payroll, messaging, and a full attendance engine are out of scope for this phase.
+
 ## Phase 3C — supervisor operations
 
 The Operations board (`/operations`) is the live caseload board. Times and “today” use the organization timezone from Settings.
@@ -52,8 +66,16 @@ Authorized supervisors and admins review structured `visit_exceptions` (`/visit-
 
 Out-of-scope supervisors cannot open another supervisor’s caseload exceptions.
 
-## Supervisor directory (Admin)
+## Supervisor directory and management (Admin)
 
-`/supervisors` is an Admin directory of existing supervisor employees (not a second Employee CRUD). It shows status, assigned DSP/client counts, and a short operational summary. Admin may open supervisor detail to see that supervisor’s caseload board. Employee create/edit remains on Employees.
+`/supervisors` is an Admin directory of existing supervisor employees (not a second Employee CRUD). It shows status, assigned DSP/client counts, and a short operational summary. Admin may open supervisor detail to see identity, job information, DSP team, client caseload, workload, and that supervisor’s caseload board.
+
+Admin may appoint a Supervisor from an eligible **active DSP employee with a linked DSP login**. Promotion changes System Role (`users.role` and `employees.job_type`) and does **not** change Job Title. The same Employee record is kept.
+
+Admin may transfer DSP reports (`employees.supervisor_id`) and assigned clients (`clients.supervisor_id`) to another active Supervisor. Historical scheduled visits keep their original supervisor of record.
+
+Admin may revoke Supervisor duties. If DSPs or clients still report to that Supervisor, a replacement Supervisor is required and those current relationships transfer first. After revocation the User role becomes DSP (the supported non-supervisor workforce login role). The Employee record and Job Title remain. Pending availability and time-off reviews follow the DSP’s current supervisor; attendance correction approval remains Admin.
+
+Employee create/edit remains on Employees.
 
 Payroll, messaging, and a full attendance engine are out of scope for this phase.

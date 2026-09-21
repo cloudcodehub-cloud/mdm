@@ -46,8 +46,8 @@ This is the simplest Laravel approach for three application roles. Authorization
 
 ## Phase 3C supervisor operations and exception review
 
-- Admin: view the operations board; view and review/resolve any visit exception; view the supervisor directory and each supervisor's caseload board. Cannot alter DSP clock events.
-- Supervisor: view the operations board, visits, and exceptions only for their caseload (assigned DSPs, assigned clients, or supervisor of record). May mark in-scope exceptions reviewed or resolved. Cannot open another supervisor's caseload. Cannot clock in, complete tasks, or clock out.
+- Admin: view the operations board; view and review/resolve any visit exception; view the supervisor directory and each supervisor's caseload board; appoint Supervisors from eligible employees, reassign DSP team/client caseload, and revoke Supervisor duties. Cannot alter DSP clock events.
+- Supervisor: view the operations board, visits, and exceptions only for their caseload (assigned DSPs, assigned clients, or supervisor of record). May mark in-scope exceptions reviewed or resolved. Cannot open another supervisor's caseload. Cannot appoint, reassign, or revoke Supervisors. Cannot clock in, complete tasks, or clock out.
 - DSP: cannot open operations, exception review, or the supervisor directory.
 
 ## Phase 3D-1 attendance and compliance

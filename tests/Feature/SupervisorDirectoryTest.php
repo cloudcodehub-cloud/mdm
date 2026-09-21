@@ -33,6 +33,7 @@ class SupervisorDirectoryTest extends TestCase
                 ->component('supervisors/index')
                 ->has('supervisors.data')
                 ->where('supervisors.data.0.job_type', JobType::Supervisor->value)
+                ->where('can.manage', true)
             );
 
         $this->actingAs($admin)

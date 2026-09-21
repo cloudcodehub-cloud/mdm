@@ -1,10 +1,10 @@
-import { Form, Head, router } from '@inertiajs/react';
+import { Form, Head, Link, router } from '@inertiajs/react';
 import { Pagination, StatusBadge, controlClassName } from '@/components/mdm/directory';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { dashboard } from '@/routes';
-import { index as supervisorsIndex, show } from '@/routes/supervisors';
+import { create, index as supervisorsIndex, show } from '@/routes/supervisors';
 import type { EmployeeSummary, Paginated } from '@/types/directory';
 
 type SupervisorDirectoryRow = EmployeeSummary & {
@@ -18,22 +18,31 @@ type SupervisorDirectoryRow = EmployeeSummary & {
 export default function SupervisorsIndex({
     supervisors,
     filters,
+    can,
 }: {
     supervisors: Paginated<SupervisorDirectoryRow>;
     filters: { search: string; employment_status: string };
+    can: { manage: boolean };
 }) {
     return (
         <>
             <Head title="Supervisors" />
             <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
-                <div>
-                    <h1 className="text-xl font-semibold tracking-tight">
-                        Supervisors
-                    </h1>
-                    <p className="text-muted-foreground text-sm">
-                        Supervisor directory and caseload summary. Employee
-                        records stay on the Employees pages.
-                    </p>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h1 className="text-xl font-semibold tracking-tight">
+                            Supervisors
+                        </h1>
+                        <p className="text-muted-foreground text-sm">
+                            Appoint Supervisors from existing employees. Job
+                            title stays separate from System Role.
+                        </p>
+                    </div>
+                    {can.manage && (
+                        <Button asChild>
+                            <Link href={create()}>Add Supervisor</Link>
+                        </Button>
+                    )}
                 </div>
 
                 <Panel title="Search and filters">
@@ -111,6 +120,9 @@ export default function SupervisorsIndex({
                                                         {
                                                             supervisor.employee_number
                                                         }
+                                                        {supervisor.job_title
+                                                            ? ` · ${supervisor.job_title}`
+                                                            : ''}
                                                     </p>
                                                 </td>
                                                 <td className="py-3">

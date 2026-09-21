@@ -372,3 +372,34 @@ export type ShiftTemplateOption = {
     ends_at: string;
     spans_overnight: boolean;
 };
+
+export type SupervisorCandidate = EmployeeSummary & {
+    login_role: string | null;
+    login_role_label: string | null;
+};
+
+export type SupervisorRoleEvent = {
+    action: string;
+    previous_role: string | null;
+    new_role: string | null;
+    actor_user_id: number;
+    actor_name: string;
+    at: string;
+    replacement_employee_id?: number | null;
+    replacement_name?: string | null;
+    employee_ids?: number[];
+    client_ids?: number[];
+};
+
+export type SupervisorResponsibilities = {
+    dsps: EmployeeSummary[];
+    clients: ClientSummary[];
+    dsp_count: number;
+    client_count: number;
+    other_report_count: number;
+    pending_availability_count: number;
+    pending_time_off_count: number;
+    pending_attendance_correction_count: number;
+    open_exception_count: number;
+    blocks_revocation: boolean;
+};

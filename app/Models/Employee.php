@@ -79,6 +79,7 @@ use Illuminate\Support\Carbon;
  * @property JobType $job_type
  * @property int|null $supervisor_id
  * @property string|null $notes
+ * @property list<array<string, mixed>>|null $role_change_history
  * @property string|null $profile_photo_path
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -197,6 +198,7 @@ class Employee extends Model
             'has_drivers_license' => 'boolean',
             'has_moving_violations' => 'boolean',
             'license_ever_suspended' => 'boolean',
+            'role_change_history' => 'array',
             'may_contact_current_employer' => 'boolean',
             'ohio_resident_5_years' => 'boolean',
             'used_other_names' => 'boolean',

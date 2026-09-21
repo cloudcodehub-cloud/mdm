@@ -106,7 +106,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('visit-exceptions/{visit_exception}/follow-up', [VisitExceptionController::class, 'followUp'])->name('visit-exceptions.follow-up');
 
     Route::get('supervisors', [SupervisorController::class, 'index'])->name('supervisors.index');
+    Route::get('supervisors/create', [SupervisorController::class, 'create'])->name('supervisors.create');
+    Route::post('supervisors', [SupervisorController::class, 'store'])->name('supervisors.store');
     Route::get('supervisors/{employee}', [SupervisorController::class, 'show'])->name('supervisors.show');
+    Route::post('supervisors/{employee}/team', [SupervisorController::class, 'reassignTeam'])->name('supervisors.team');
+    Route::post('supervisors/{employee}/caseload', [SupervisorController::class, 'reassignCaseload'])->name('supervisors.caseload');
+    Route::post('supervisors/{employee}/revoke', [SupervisorController::class, 'revoke'])->name('supervisors.revoke');
     Route::get('attendance', [AttendanceController::class, 'index'])->name('attendance.index');
     Route::get('attendance/{scheduled_visit}', [AttendanceController::class, 'show'])->name('attendance.show');
     Route::post('attendance/{scheduled_visit}/corrections', [AttendanceCorrectionController::class, 'store'])

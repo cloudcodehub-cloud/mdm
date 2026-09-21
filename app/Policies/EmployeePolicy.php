@@ -18,6 +18,11 @@ class EmployeePolicy
         return $user->isAdmin();
     }
 
+    public function manageSupervisors(User $user): bool
+    {
+        return $user->isAdmin();
+    }
+
     public function view(User $user, Employee $employee): bool
     {
         if ($user->isAdmin()) {
