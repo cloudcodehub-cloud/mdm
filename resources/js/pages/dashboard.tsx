@@ -2,6 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import { AttentionList } from '@/components/mdm/attention-list';
 import { AnnouncementList } from '@/components/mdm/announcement-list';
 import { ClockInAction } from '@/components/mdm/clock-in-action';
+import { DashboardGreeting } from '@/components/mdm/dashboard-greeting';
 import { ActivityList, PersonList } from '@/components/mdm/person-list';
 import { ProfilePhoto } from '@/components/mdm/profile-photo';
 import { Panel, StatCard } from '@/components/mdm/stat-card';
@@ -34,10 +35,8 @@ export default function Dashboard({
             <Head title="Dashboard" />
             <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
                 <div>
-                    <p className="text-muted-foreground text-sm">
-                        Welcome back, {data.greeting_name}
-                    </p>
-                    <h2 className="text-xl font-semibold tracking-tight">
+                    <DashboardGreeting name={data.greeting_name} />
+                    <h2 className="mt-1 text-xl font-semibold tracking-tight">
                         {headline(data.role)}
                     </h2>
                     <RoleQuickActions data={data} />

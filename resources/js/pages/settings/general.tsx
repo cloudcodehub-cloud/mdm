@@ -56,7 +56,7 @@ export default function General({
                 <Heading
                     variant="small"
                     title="General"
-                    description="Organization-wide operational settings. Changing timezone does not rewrite historical timestamps."
+                    description="Agency identity and operational settings. Changing timezone does not rewrite historical timestamps."
                 />
 
                 <Form
@@ -68,7 +68,7 @@ export default function General({
                         <>
                             <div className="grid gap-2">
                                 <Label htmlFor="organization_name">
-                                    Organization Name
+                                    Agency Name
                                 </Label>
                                 <Input
                                     id="organization_name"

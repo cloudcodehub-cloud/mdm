@@ -17,8 +17,10 @@ use App\Models\Employee;
 use App\Models\ScheduledVisit;
 use App\Models\ScheduledVisitOneOffTask;
 use App\Models\ScheduledVisitTaskOverride;
+use App\Models\OrganizationSetting;
 use App\Models\User;
 use App\Models\Visit;
+use App\Services\SettingsService;
 use Database\Seeders\DemoDataSeeder;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -73,6 +75,8 @@ class DemoDataSeederTest extends TestCase
         );
 
         $this->assertTrue(Client::query()->where('client_number', 'CLT-3001')->exists());
+        $this->assertSame(DemoDataSeeder::AGENCY_NAME, OrganizationSetting::query()->value('organization_name'));
+        $this->assertSame(DemoDataSeeder::TIMEZONE, OrganizationSetting::query()->value('timezone'));
         $this->assertTrue(
             ClientDspAssignment::query()
                 ->where('status', AssignmentStatus::Active)
@@ -122,5 +126,37 @@ class DemoDataSeederTest extends TestCase
             1,
             ScheduledVisit::query()->where('notes', 'like', '%maya-elena-today%')->count(),
         );
+        $this->assertSame(
+            DemoDataSeeder::AGENCY_NAME,
+            OrganizationSetting::query()->value('organization_name'),
+        );
+        $this->assertSame(
+            DemoDataSeeder::TIMEZONE,
+            OrganizationSetting::query()->value('timezone'),
+        );
+    }
+
+    public function test_demo_seeder_sets_agency_identity_without_overwriting_custom_agencies(): void
+    {
+        $this->seed(DemoDataSeeder::class);
+
+        $this->assertSame(DemoDataSeeder::AGENCY_NAME, app(SettingsService::class)->agencyName());
+        $this->assertSame(DemoDataSeeder::TIMEZONE, app(SettingsService::class)->timezone());
+
+        $this->seed(DemoDataSeeder::class);
+
+        $this->assertSame(DemoDataSeeder::AGENCY_NAME, OrganizationSetting::query()->value('organization_name'));
+        $this->assertSame(1, OrganizationSetting::query()->count());
+
+        app(SettingsService::class)->updateOrganization([
+            'organization_name' => 'Custom Production Agency',
+            'timezone' => 'America/Chicago',
+        ]);
+
+        $this->seed(DemoDataSeeder::class);
+
+        $settings = OrganizationSetting::query()->firstOrFail();
+        $this->assertSame('Custom Production Agency', $settings->organization_name);
+        $this->assertSame('America/Chicago', $settings->timezone);
     }
 }

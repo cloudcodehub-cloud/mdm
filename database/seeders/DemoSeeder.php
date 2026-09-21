@@ -18,7 +18,7 @@ class DemoSeeder extends Seeder
     public const DSP_EMAIL = 'maya.chen@mdm.test';
 
     /**
-     * Seed the Lakeside Supported Living demo agency.
+     * Seed the Ultimate Care Supported Living demo agency.
      */
     public function run(): void
     {

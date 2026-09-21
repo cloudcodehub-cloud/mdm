@@ -43,7 +43,6 @@ use App\Models\Employee;
 use App\Models\EmployeeCredential;
 use App\Models\EmployeeTimeOff;
 use App\Models\EmployeeTraining;
-use App\Models\OrganizationSetting;
 use App\Models\ScheduledVisit;
 use App\Models\ScheduledVisitOneOffTask;
 use App\Models\ScheduledVisitSeries;
@@ -65,6 +64,10 @@ class DemoDataSeeder extends Seeder
      * Marker prefix used to upsert demo operational rows without touching unrelated local data.
      */
     public const MARKER_PREFIX = '[[mdm-demo:';
+
+    public const AGENCY_NAME = 'Ultimate Care Supported Living';
+
+    public const TIMEZONE = 'America/New_York';
 
     /**
      * Seed a coherent local/demo agency. Skipped in production.
@@ -112,15 +115,28 @@ class DemoDataSeeder extends Seeder
 
     private function seedOrganization(): void
     {
-        $settings = app(SettingsService::class)->current();
-        $current = $settings->organization_name;
+        $service = app(SettingsService::class);
+        $current = trim($service->current()->organization_name);
         $appName = (string) config('app.name', 'MDM - Magic Data Management');
 
-        if (in_array($current, [$appName, 'MDM - Magic Data Management', 'Laravel'], true)) {
-            OrganizationSetting::query()->whereKey($settings->id)->update([
-                'organization_name' => 'Lakeside Supported Living',
-            ]);
+        $demoPlaceholders = [
+            '',
+            $appName,
+            'MDM - Magic Data Management',
+            'Magic Data Management',
+            'Laravel',
+            'Lakeside Supported Living',
+            self::AGENCY_NAME,
+        ];
+
+        if (! in_array($current, $demoPlaceholders, true)) {
+            return;
         }
+
+        $service->updateOrganization([
+            'organization_name' => self::AGENCY_NAME,
+            'timezone' => self::TIMEZONE,
+        ]);
     }
 
     /**

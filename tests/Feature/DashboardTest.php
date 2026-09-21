@@ -12,6 +12,7 @@ use App\Models\ScheduledVisit;
 use App\Models\User;
 use App\Models\Visit;
 use App\Models\VisitTask;
+use Database\Seeders\DemoDataSeeder;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -77,6 +78,9 @@ class DashboardTest extends TestCase
                 ->has('dashboard.today_visit_summary')
                 ->has('dashboard.visit_trend', 7)
                 ->has('dashboard.compliance_health')
+                ->where('organization.organization_name', DemoDataSeeder::AGENCY_NAME)
+                ->where('organization.timezone', DemoDataSeeder::TIMEZONE)
+                ->has('organization.now')
             );
     }
 
@@ -227,5 +231,24 @@ class DashboardTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->where('activeWork.id', $visit->id)
             );
+    }
+
+    public function test_demo_agency_name_is_not_hardcoded_in_dashboard_or_layout_jsx(): void
+    {
+        $paths = [
+            resource_path('js/pages/dashboard.tsx'),
+            resource_path('js/components/mdm/dashboard-greeting.tsx'),
+            resource_path('js/components/mdm/live-clock.tsx'),
+            resource_path('js/components/app-sidebar-header.tsx'),
+            resource_path('js/layouts/app/app-sidebar-layout.tsx'),
+        ];
+
+        foreach ($paths as $path) {
+            $this->assertFileExists($path);
+            $this->assertStringNotContainsString(
+                DemoDataSeeder::AGENCY_NAME,
+                (string) file_get_contents($path),
+            );
+        }
     }
 }

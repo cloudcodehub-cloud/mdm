@@ -66,6 +66,50 @@ class SettingsService
         return $timezone;
     }
 
+    /**
+     * Configurable agency identity. Empty values fall back to the product name.
+     */
+    public function agencyName(): string
+    {
+        $name = trim($this->current()->organization_name);
+
+        return $name !== '' ? $name : 'Magic Data Management';
+    }
+
+    /**
+     * Dashboard greeting for the organization-local hour.
+     *
+     * 05:00–11:59 Good morning
+     * 12:00–16:59 Good afternoon
+     * 17:00–04:59 Good evening
+     */
+    public function greeting(?CarbonInterface $now = null): string
+    {
+        $hour = (int) $this->localNow($now)->format('G');
+
+        if ($hour >= 5 && $hour < 12) {
+            return 'Good morning';
+        }
+
+        if ($hour >= 12 && $hour < 17) {
+            return 'Good afternoon';
+        }
+
+        return 'Good evening';
+    }
+
+    /**
+     * Top-bar sun/moon indicator for organization-local time.
+     *
+     * Sun 06:00–17:59, Moon 18:00–05:59.
+     */
+    public function isDaytime(?CarbonInterface $now = null): bool
+    {
+        $hour = (int) $this->localNow($now)->format('G');
+
+        return $hour >= 6 && $hour < 18;
+    }
+
     public function now(?CarbonInterface $now = null): CarbonInterface
     {
         return ($now ?? now())->toImmutable();
@@ -191,12 +235,13 @@ class SettingsService
         $settings = $this->current();
 
         return [
-            'organization_name' => $settings->organization_name,
+            'organization_name' => $this->agencyName(),
             'timezone' => $this->timezone(),
             'timezone_label' => $this->timezoneLabel($this->timezone()),
             'date_format' => $settings->date_format->value,
             'time_format' => $settings->time_format->value,
             'first_day_of_week' => $settings->first_day_of_week,
+            'now' => $this->now()->utc()->toIso8601String(),
         ];
     }
 

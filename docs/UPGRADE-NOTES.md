@@ -1,5 +1,12 @@
 # Upgrade notes
 
+## Phase 6B — Agency identity and dashboard context
+
+- Agency identity is configuration-driven via existing `organization_settings` (`organization_name`). Admins edit **Agency Name** in General settings; it is not hard-coded in dashboard or layout UI.
+- Organization timezone remains the single operational timezone and is authoritative for dashboard greeting, the top-bar clock, and future reporting/PDF timestamps. Historical UTC timestamps are not rewritten.
+- Greeting and sun/moon indicators use organization-local time (morning 05:00–11:59, afternoon 12:00–16:59, evening 17:00–04:59; sun 06:00–17:59, moon 18:00–05:59). The live clock starts from a server timestamp and advances client-side.
+- Browser geolocation, Maps/GPS/EVV, and branded PDF/document output remain deferred.
+
 ## Phase 6B — Access hardening (second batch)
 
 - DSP Gate access to `ClientAuthorization` is denied. Billing/authorization records remain Admin/Supervisor caseload views only; assigned DSP HTTP payloads already omitted this ledger.

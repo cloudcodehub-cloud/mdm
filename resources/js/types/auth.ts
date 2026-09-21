@@ -25,6 +25,7 @@ export type OrganizationSettings = {
     date_format: string;
     time_format: string;
     first_day_of_week: number;
+    now: string;
 };
 
 export type DemoWeather = {
