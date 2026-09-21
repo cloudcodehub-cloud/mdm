@@ -12,7 +12,25 @@ class OverrideWeeklyAvailabilityRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->isAdmin() ?? false;
+        $user = $this->user();
+
+        if ($user === null || ! $user->isAdmin()) {
+            return false;
+        }
+
+        $employeeId = (int) $this->input('employee_id');
+
+        if ($employeeId <= 0) {
+            return true;
+        }
+
+        $employee = Employee::query()->find($employeeId);
+
+        if ($employee === null) {
+            return true;
+        }
+
+        return $user->can('overrideWeeklyAvailability', $employee);
     }
 
     /**

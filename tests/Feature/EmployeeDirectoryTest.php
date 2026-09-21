@@ -145,6 +145,10 @@ class EmployeeDirectoryTest extends TestCase
             ->assertForbidden();
 
         $this->actingAs($dsp->user()->firstOrFail())
+            ->get(route('employees.show', $dsp))
+            ->assertForbidden();
+
+        $this->actingAs($dsp->user()->firstOrFail())
             ->post(route('employees.store'), [
                 'first_name' => 'Blocked',
                 'last_name' => 'User',

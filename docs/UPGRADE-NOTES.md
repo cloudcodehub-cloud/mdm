@@ -1,5 +1,19 @@
 # Upgrade notes
 
+## Phase 6B — Access hardening (second batch)
+
+- DSP Gate access to `ClientAuthorization` is denied. Billing/authorization records remain Admin/Supervisor caseload views only; assigned DSP HTTP payloads already omitted this ledger.
+- DSP scheduled-visit detail no longer includes the workforce DSP picker (`assigned_client_ids` / other DSP identities). Replacement pickers remain on Admin/Supervisor create/edit/replace surfaces.
+- Admin weekly availability override is limited to DSP employees (`EmployeePolicy::overrideWeeklyAvailability`).
+- Unused account-deletion UI component was removed. `DELETE settings/profile` remains 403 for all current roles.
+
+## Phase 6B — Access hardening (first batch)
+
+- Supervisor and DSP login requires a linked Employee record that is allowed to sign in. Admins may still sign in without an employee profile.
+- DSPs cannot open `/employees/{employee}` (including their own HR record or employee photo). Settings → Profile remains the DSP account surface.
+- Assigned DSP client detail and visit care history omit authorizations, assignment history, other DSP visits, and other DSP task notes. Admin/Supervisor payloads are unchanged.
+- Account self-deletion is denied for all current roles (`DELETE settings/profile` returns 403). Users, employees, and operational history are not removed by that endpoint.
+
 ## Phase 6A — Authentication, role routing, and app shell
 
 - Post-login destination remains the shared `/dashboard` route. Role-specific experience is the dashboard payload (ADMIN / SUPERVISOR / DSP), not separate dashboard URLs.

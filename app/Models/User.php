@@ -122,7 +122,7 @@ class User extends Authenticatable implements PasskeyUser
 
     /**
      * Admins may sign in without an employee profile.
-     * Linked supervisor/DSP accounts may sign in only while employment is active.
+     * Supervisor and DSP accounts require a linked employee that is allowed to log in.
      */
     public function canAccessApplication(): bool
     {
@@ -133,7 +133,7 @@ class User extends Authenticatable implements PasskeyUser
         $employee = $this->employee;
 
         if ($employee === null) {
-            return true;
+            return false;
         }
 
         return $employee->employment_status->allowsLogin();
@@ -152,7 +152,6 @@ class User extends Authenticatable implements PasskeyUser
     {
         return $query->where(function (Builder $builder): void {
             $builder->where('role', Role::Admin)
-                ->orWhereDoesntHave('employee')
                 ->orWhereHas(
                     'employee',
                     fn (Builder $employee) => $employee->where('employment_status', EmploymentStatus::Active),

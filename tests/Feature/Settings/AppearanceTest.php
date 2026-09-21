@@ -3,6 +3,7 @@
 namespace Tests\Feature\Settings;
 
 use App\Enums\Appearance;
+use App\Models\Employee;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -20,9 +21,8 @@ class AppearanceTest extends TestCase
 
     public function test_user_can_persist_their_own_appearance_preference(): void
     {
-        $user = User::factory()->dsp()->create([
-            'appearance' => Appearance::System,
-        ]);
+        $user = Employee::factory()->dsp()->create()->user()->firstOrFail();
+        $user->update(['appearance' => Appearance::System]);
 
         $this->actingAs($user)
             ->get(route('appearance.edit'))
@@ -45,9 +45,8 @@ class AppearanceTest extends TestCase
 
     public function test_appearance_preference_does_not_change_other_users(): void
     {
-        $first = User::factory()->dsp()->create([
-            'appearance' => Appearance::Light,
-        ]);
+        $first = Employee::factory()->dsp()->create()->user()->firstOrFail();
+        $first->update(['appearance' => Appearance::Light]);
         $second = User::factory()->admin()->create([
             'appearance' => Appearance::System,
         ]);

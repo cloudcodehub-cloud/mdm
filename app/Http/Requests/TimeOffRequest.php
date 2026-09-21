@@ -11,7 +11,10 @@ class TimeOffRequest extends FormRequest
     {
         $user = $this->user();
 
-        return $user !== null && $user->isDsp() && $user->employee !== null;
+        return $user !== null
+            && $user->isDsp()
+            && $user->employee !== null
+            && $user->employee->isActiveDsp();
     }
 
     /**

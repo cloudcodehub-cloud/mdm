@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\JobType;
 use App\Models\Employee;
 use App\Models\User;
 
@@ -23,6 +24,10 @@ class EmployeePolicy
             return true;
         }
 
+        if ($user->isDsp()) {
+            return false;
+        }
+
         if ($user->employee?->is($employee)) {
             return true;
         }
@@ -42,6 +47,11 @@ class EmployeePolicy
     public function update(User $user, Employee $employee): bool
     {
         return $user->isAdmin();
+    }
+
+    public function overrideWeeklyAvailability(User $user, Employee $employee): bool
+    {
+        return $user->isAdmin() && $employee->job_type === JobType::Dsp;
     }
 
     public function viewSensitive(User $user, Employee $employee): bool

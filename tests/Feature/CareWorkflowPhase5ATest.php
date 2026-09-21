@@ -206,8 +206,7 @@ class CareWorkflowPhase5ATest extends TestCase
             ->get(route('clients.show', $client))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->where('care_overview.history.0.task_title', 'Meal Preparation')
-                ->where('care_overview.history.0.previous_dsp_available', true));
+                ->where('care_overview.history', []));
 
         $this->actingAs($actor)
             ->post(route('conversations.store'), [

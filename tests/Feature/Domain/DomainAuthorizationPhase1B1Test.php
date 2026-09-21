@@ -79,7 +79,7 @@ class DomainAuthorizationPhase1B1Test extends TestCase
         $this->assertTrue(Gate::forUser($user)->denies('create', ShiftTemplate::class));
     }
 
-    public function test_dsps_can_view_own_credentials_assigned_client_authorizations_and_shift_templates(): void
+    public function test_dsps_cannot_view_hr_credentials_or_authorizations_but_may_view_assigned_client_and_shift_templates(): void
     {
         $dsp = Employee::factory()->dsp()->create();
         $otherDsp = Employee::factory()->dsp()->create();
@@ -96,9 +96,9 @@ class DomainAuthorizationPhase1B1Test extends TestCase
 
         $user = $dsp->user()->firstOrFail();
 
-        $this->assertTrue(Gate::forUser($user)->allows('view', $ownCredential));
+        $this->assertTrue(Gate::forUser($user)->denies('view', $ownCredential));
         $this->assertTrue(Gate::forUser($user)->denies('view', $otherCredential));
-        $this->assertTrue(Gate::forUser($user)->allows('view', $authorization));
+        $this->assertTrue(Gate::forUser($user)->denies('view', $authorization));
         $this->assertTrue(Gate::forUser($user)->denies('view', $otherAuthorization));
         $this->assertTrue(Gate::forUser($user)->allows('view', $shift));
         $this->assertTrue(Gate::forUser($user)->denies('update', $ownCredential));

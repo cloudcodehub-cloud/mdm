@@ -31,7 +31,7 @@ class DspAvailabilityRequestPolicy
 
     public function create(User $user): bool
     {
-        return $user->isDsp() && $user->employee !== null;
+        return $user->isDsp() && $user->employee !== null && $user->employee->isActiveDsp();
     }
 
     public function review(User $user, DspAvailabilityRequest $request): bool

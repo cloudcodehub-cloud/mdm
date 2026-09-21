@@ -4,6 +4,7 @@ namespace Tests\Feature\Settings;
 
 use App\Enums\DateFormat;
 use App\Enums\TimeFormat;
+use App\Models\Employee;
 use App\Models\OrganizationSetting;
 use App\Models\User;
 use App\Services\SettingsService;
@@ -62,8 +63,8 @@ class OrganizationSettingsTest extends TestCase
 
     public function test_non_admin_cannot_view_or_update_organization_settings(): void
     {
-        $supervisor = User::factory()->supervisor()->create();
-        $dsp = User::factory()->dsp()->create();
+        $supervisor = Employee::factory()->supervisor()->create()->user()->firstOrFail();
+        $dsp = Employee::factory()->dsp()->create()->user()->firstOrFail();
 
         $this->actingAs($supervisor)
             ->get(route('settings.general.edit'))
@@ -89,7 +90,7 @@ class OrganizationSettingsTest extends TestCase
     public function test_settings_index_sends_admins_to_general(): void
     {
         $admin = User::factory()->admin()->create();
-        $dsp = User::factory()->dsp()->create();
+        $dsp = Employee::factory()->dsp()->create()->user()->firstOrFail();
 
         $this->actingAs($admin)
             ->get(route('settings.index'))

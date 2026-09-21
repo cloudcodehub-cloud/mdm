@@ -292,7 +292,9 @@ class ScheduledVisitController extends Controller
             ],
             'activeVisit' => $activeVisit,
             'clockInVisit' => $clockInVisit,
-            'dsps' => $user !== null ? DirectoryPresenter::schedulingDspOptions($user, $scheduledVisit->employee) : [],
+            'dsps' => ($user !== null && ($user->can('update', $scheduledVisit) || $user->can('create', ScheduledVisit::class)))
+                ? DirectoryPresenter::schedulingDspOptions($user, $scheduledVisit->employee)
+                : [],
         ]);
     }
 

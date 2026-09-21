@@ -6,6 +6,7 @@ use App\Enums\ClientStatus;
 use App\Http\Requests\StoreClientRequest;
 use App\Http\Requests\UpdateClientRequest;
 use App\Http\Requests\UpdateClientStatusRequest;
+use App\Models\CarePlan;
 use App\Models\Client;
 use App\Models\ClientDspAssignment;
 use App\Services\CareOverviewService;
@@ -115,27 +116,44 @@ class ClientController extends Controller
     {
         $this->authorize('view', $client);
 
+        $user = $request->user();
+        $user?->loadMissing('employee');
+        $isDsp = $user?->isDsp() ?? false;
+        $dspId = $isDsp ? $user?->employee?->id : null;
+
         $client->load([
             'supervisor.user',
-            'authorizations' => fn ($query) => $query->orderByDesc('starts_on'),
             'carePlans.taskTemplates',
             'careServices',
-            'dspAssignments.employee',
-            'scheduledVisits.employee',
-            'scheduledVisits.supervisor',
-            'scheduledVisits.shiftTemplate',
-            'scheduledVisits.visit',
+            'scheduledVisits' => function ($query) use ($dspId): void {
+                $query->with(['employee', 'supervisor', 'shiftTemplate', 'visit']);
+
+                if ($dspId !== null) {
+                    $query->where('employee_id', $dspId);
+                }
+            },
         ]);
+
+        if (! $isDsp) {
+            $client->load([
+                'authorizations' => fn ($query) => $query->orderByDesc('starts_on'),
+                'dspAssignments.employee',
+            ]);
+        }
 
         $visits = $client->scheduledVisits
             ->sortByDesc(fn ($visit) => $visit->service_date->toDateString())
             ->values();
-        $assignments = $client->dspAssignments
-            ->sortByDesc(fn ($assignment) => $assignment->started_on->toDateString())
-            ->values();
+        $assignments = $isDsp
+            ? collect()
+            : $client->dspAssignments
+                ->sortByDesc(fn ($assignment) => $assignment->started_on->toDateString())
+                ->values();
+        $carePlans = $isDsp
+            ? $client->carePlans->filter(fn (CarePlan $plan): bool => $plan->isCurrentlyActive())->values()
+            : $client->carePlans;
+        $authorizations = $isDsp ? collect() : $client->authorizations;
 
-        $user = $request->user();
-        $user?->loadMissing('employee');
         $today = app(SettingsService::class)->today();
         $todayVisit = $visits->first(function ($visit) use ($today, $user): bool {
             if ($visit->service_date->toDateString() !== $today) {
@@ -157,8 +175,8 @@ class ClientController extends Controller
         return Inertia::render('clients/show', [
             'client' => DirectoryPresenter::clientDetail($client),
             'profile_completion' => $completion->forClient($client),
-            'authorizations' => DirectoryPresenter::authorizations($client->authorizations),
-            'carePlans' => DirectoryPresenter::carePlans($client->carePlans),
+            'authorizations' => DirectoryPresenter::authorizations($authorizations),
+            'carePlans' => DirectoryPresenter::carePlans($carePlans),
             'assignments' => DirectoryPresenter::assignments($assignments),
             'scheduledVisits' => DirectoryPresenter::scheduledVisits($visits),
             'today_visit' => $todayVisit === null ? null : [

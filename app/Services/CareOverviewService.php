@@ -91,8 +91,8 @@ class CareOverviewService
     {
         $notes = VisitTask::query()
             ->with(['visit.employee.user', 'visit.scheduledVisit'])
-            ->whereHas('visit', function ($query) use ($client): void {
-                $query->where('client_id', $client->id);
+            ->whereHas('visit', function ($query) use ($client, $viewer): void {
+                $query->where('client_id', $client->id)->visibleTo($viewer);
             })
             ->whereIn('status', [VisitTaskStatus::Completed, VisitTaskStatus::Skipped])
             ->where(function ($query): void {
@@ -108,13 +108,27 @@ class CareOverviewService
         foreach ($notes as $task) {
             $visit = $task->visit;
             $employee = $visit->employee;
+
+            if ($employee === null) {
+                continue;
+            }
+
             $user = $employee->user;
             $available = $user !== null
                 && $user->id !== $viewer->id
                 && $user->canMessage();
 
             $occurredAt = $task->completed_at ?? $task->skipped_at ?? $visit->clocked_in_at;
+
+            if ($occurredAt === null) {
+                continue;
+            }
+
             $previousUserId = $available ? $user->id : null;
+            $serviceDate = $visit->scheduledVisit?->service_date;
+            $dateLabel = $serviceDate !== null
+                ? $this->settings->formatDate($serviceDate)
+                : 'Visit';
 
             $items[] = [
                 'id' => $task->id,
@@ -126,7 +140,7 @@ class CareOverviewService
                 'visit_id' => $visit->id,
                 'occurred_at' => $occurredAt->toIso8601String(),
                 'occurred_at_label' => $this->settings->formatDateTime($occurredAt),
-                'context_label' => $client->full_name.' · '.$task->title.' · '.$this->settings->formatDate($visit->scheduledVisit->service_date).' Visit',
+                'context_label' => $client->full_name.' · '.$task->title.' · '.$dateLabel.' Visit',
             ];
         }
 

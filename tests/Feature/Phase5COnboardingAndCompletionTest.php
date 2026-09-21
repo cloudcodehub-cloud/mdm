@@ -139,12 +139,7 @@ class Phase5COnboardingAndCompletionTest extends TestCase
 
         $this->actingAs($dsp->user()->firstOrFail())
             ->get(route('employees.show', $dsp))
-            ->assertOk()
-            ->assertInertia(fn ($page) => $page
-                ->where('can.view_sensitive', false)
-                ->missing('employee.ssn_masked')
-                ->missing('employee.security_comments')
-            );
+            ->assertForbidden();
     }
 
     public function test_profile_photos_are_stored_on_disk_not_as_base64(): void

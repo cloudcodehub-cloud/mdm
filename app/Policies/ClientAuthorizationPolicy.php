@@ -9,11 +9,15 @@ class ClientAuthorizationPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->isAdmin() || $user->isSupervisor() || $user->isDsp();
+        return $user->isAdmin() || $user->isSupervisor();
     }
 
     public function view(User $user, ClientAuthorization $clientAuthorization): bool
     {
+        if ($user->isDsp()) {
+            return false;
+        }
+
         return $user->can('view', $clientAuthorization->client);
     }
 

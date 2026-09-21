@@ -45,7 +45,7 @@ class DomainAuthorizationTest extends TestCase
         $this->assertTrue(Gate::forUser($user)->denies('create', Employee::class));
     }
 
-    public function test_dsps_can_view_their_own_profile_and_assigned_clients(): void
+    public function test_dsps_can_view_assigned_clients_but_not_hr_employee_records(): void
     {
         $dsp = Employee::factory()->dsp()->create();
         $otherDsp = Employee::factory()->dsp()->create();
@@ -56,7 +56,7 @@ class DomainAuthorizationTest extends TestCase
 
         $user = $dsp->user()->firstOrFail();
 
-        $this->assertTrue(Gate::forUser($user)->allows('view', $dsp));
+        $this->assertTrue(Gate::forUser($user)->denies('view', $dsp));
         $this->assertTrue(Gate::forUser($user)->denies('view', $otherDsp));
         $this->assertTrue(Gate::forUser($user)->allows('view', $assignedClient));
         $this->assertTrue(Gate::forUser($user)->denies('view', $otherClient));

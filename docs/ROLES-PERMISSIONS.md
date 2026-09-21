@@ -18,9 +18,9 @@ This is the simplest Laravel approach for three application roles. Authorization
 
 ## Phase 1B-1 policy scope
 
-- Admin: create/update credentials, training, authorizations, and shift templates. Cannot hard-delete these records.
-- Supervisor: view credentials/training for assigned DSP reports; view authorizations for assigned clients; view shift templates. Cannot create or update them.
-- DSP: view own credentials/training, authorizations for currently assigned clients, and shift templates.
+- Admin: create/update credentials, training, authorizations, and shift templates. Cannot hard-delete these records. `ClientAuthorizationPolicy` also allows admin `view`/`viewAny`/`restore`.
+- Supervisor: view credentials/training for assigned DSP reports; view authorizations for assigned clients (`ClientAuthorizationPolicy::view` follows `ClientPolicy`, i.e. `clients.supervisor_id`); `viewAny` authorizations; view shift templates. Cannot create or update them.
+- DSP: view own credentials/training and shift templates. No `ClientAuthorization` `view` or `viewAny` access.
 
 ## Phase 1B-2 policy scope
 

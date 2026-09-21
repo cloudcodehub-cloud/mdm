@@ -198,6 +198,8 @@ class ClientDirectoryTest extends TestCase
                 ->where('can.update', false)
                 ->where('can.manageAssignments', false)
                 ->has('dspOptions', 0)
+                ->has('authorizations', 0)
+                ->has('assignments', 0)
             );
     }
 }

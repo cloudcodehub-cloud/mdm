@@ -26,7 +26,7 @@ class ExampleTest extends TestCase
 
     public function test_authenticated_users_are_redirected_from_home_to_the_dashboard(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->admin()->create();
 
         $this->actingAs($user)
             ->get(route('home'))

@@ -116,7 +116,7 @@ class VisitExceptionReviewTest extends TestCase
     public function test_dsp_cannot_review_exceptions(): void
     {
         ['exception' => $exception] = $this->scopedException();
-        $dsp = User::factory()->dsp()->create();
+        $dsp = Employee::factory()->dsp()->create()->user()->firstOrFail();
 
         $this->actingAs($dsp)
             ->get(route('visit-exceptions.show', $exception))
