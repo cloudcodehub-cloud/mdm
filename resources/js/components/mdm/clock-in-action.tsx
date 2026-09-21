@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { clockIn } from '@/routes/scheduled-visits';
 import { show as showVisit } from '@/routes/visits';
+import { VisitCountdown } from '@/components/mdm/visit-countdown';
 import type {
     ClockInVisitSummary,
     DashboardActiveVisit,
@@ -52,6 +53,11 @@ export function ClockInAction({
                                 ? activeVisit.client.name
                                 : `Finish ${activeVisit.client.name} first`}
                         </p>
+                        {continueThisVisit && (
+                            <VisitCountdown
+                                startedAtIso={activeVisit.clocked_in_at}
+                            />
+                        )}
                         <p className="text-muted-foreground mt-1 text-sm">
                             {continueThisVisit
                                 ? `Visit in progress · ${activeVisit.service_type}.`
@@ -109,6 +115,7 @@ export function ClockInAction({
             clientName={clockInVisit?.client.name}
             serviceType={clockInVisit?.service_type}
             timeLabel={clockInVisit?.time_label}
+            startsAtIso={clockInVisit?.starts_at_iso}
         />
     );
 }
@@ -118,11 +125,13 @@ function StartVisitForm({
     clientName,
     serviceType,
     timeLabel,
+    startsAtIso,
 }: {
     scheduledVisitId: number;
     clientName?: string;
     serviceType?: string;
     timeLabel?: string;
+    startsAtIso?: string | null;
 }) {
     const pageErrors = usePage().props.errors;
     const [needsAttestation, setNeedsAttestation] = useState(false);
@@ -188,6 +197,7 @@ function StartVisitForm({
                     ? `Start visit for ${clientName}${serviceType ? ` · ${serviceType}` : ''}${timeLabel ? ` · ${timeLabel}` : ''}.`
                     : 'Clock in to start this scheduled visit. Browser GPS is used when available.'}
             </p>
+            <VisitCountdown startsAtIso={startsAtIso} />
             {!needsAttestation ? (
                 <Button
                     className="mt-4 w-full sm:w-auto"

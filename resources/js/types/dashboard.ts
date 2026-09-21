@@ -80,6 +80,7 @@ export type ClockInVisitSummary = {
     service_date: string | null;
     service_type: string;
     time_label: string;
+    starts_at_iso?: string | null;
     client: DashboardClient;
 };
 

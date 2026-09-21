@@ -33,6 +33,11 @@ class VisitExceptionPolicy
         return $this->manage($user, $exception) && ! $exception->isResolved();
     }
 
+    public function followUp(User $user, VisitException $exception): bool
+    {
+        return $this->manage($user, $exception) && ! $exception->isResolved();
+    }
+
     public function create(User $user): bool
     {
         return false;

@@ -1,8 +1,15 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import type { ReactNode } from 'react';
 import InputError from '@/components/input-error';
 import { StatusBadge } from '@/components/mdm/directory';
-import { Panel } from '@/components/mdm/stat-card';
+import {
+    FactGrid,
+    FactItem,
+    RecordHeader,
+    RecordPage,
+    RecordSection,
+} from '@/components/mdm/record-detail';
+import { HighPriorityIndicator } from '@/components/mdm/priority-indicator';
+import { SupervisorFollowUp } from '@/components/mdm/supervisor-follow-up';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { dashboard } from '@/routes';
@@ -21,7 +28,7 @@ export default function VisitExceptionsShow({
     can,
 }: {
     exception: VisitExceptionRecord;
-    can: { review: boolean; resolve: boolean };
+    can: { review: boolean; resolve: boolean; follow_up?: boolean };
 }) {
     const reviewForm = useForm({
         review_notes: exception.review_notes ?? '',
@@ -33,60 +40,74 @@ export default function VisitExceptionsShow({
     return (
         <>
             <Head title={exception.type_label} />
-            <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
-                <div>
-                    <p className="text-muted-foreground text-sm">
+            <RecordPage>
+                <RecordHeader
+                    eyebrow={
                         <Link
                             href={exceptionsIndex()}
                             className="hover:text-foreground"
                         >
                             Exception review
                         </Link>
-                    </p>
-                    <h1 className="text-xl font-semibold tracking-tight">
-                        {exception.type_label}
-                    </h1>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <StatusBadge
-                            status={exception.status}
-                            label={exception.status_label}
-                        />
-                        {exception.created_at_label && (
-                            <span className="text-muted-foreground text-sm">
-                                Recorded {exception.created_at_label}
-                            </span>
-                        )}
-                    </div>
-                </div>
-
-                <div className="grid gap-4 lg:grid-cols-2">
-                    <Panel title="Exception">
-                        <dl className="grid gap-3 text-sm">
-                            <Detail label="Message" value={exception.message} />
-                            <Detail
-                                label="Task"
-                                value={exception.task_title ?? 'Visit-level'}
+                    }
+                    title={exception.type_label}
+                    meta={
+                        <>
+                            <StatusBadge
+                                status={exception.status}
+                                label={exception.status_label}
                             />
-                            <Detail
-                                label="Client"
-                                value={exception.client_name ?? '—'}
+                            <HighPriorityIndicator
+                                active={Boolean(exception.is_high_priority_open)}
+                                label="Unresolved high-priority exception"
                             />
-                            <Detail
-                                label="DSP"
-                                value={exception.dsp_name ?? '—'}
-                            />
-                            <Detail
-                                label="Service"
-                                value={exception.service_type ?? '—'}
-                            />
-                        </dl>
-                        <Button asChild variant="secondary" className="mt-4">
+                            {exception.created_at_label && (
+                                <span className="text-muted-foreground text-sm">
+                                    Recorded {exception.created_at_label}
+                                </span>
+                            )}
+                        </>
+                    }
+                    actions={
+                        <Button asChild variant="secondary">
                             <Link href={showVisit.url(exception.visit_id)}>
                                 Open visit
                             </Link>
                         </Button>
-                    </Panel>
-                    <Panel title="Review history">
+                    }
+                />
+
+                <div className="grid gap-4 lg:grid-cols-12">
+                    <RecordSection title="Exception" className="lg:col-span-7">
+                        <FactGrid className="sm:grid-cols-2 xl:grid-cols-2">
+                            <FactItem label="Message" value={exception.message} />
+                            <FactItem
+                                label="Task"
+                                value={exception.task_title ?? 'Visit-level'}
+                            />
+                            <FactItem
+                                label="Client"
+                                value={exception.client_name ?? '—'}
+                            />
+                            <FactItem
+                                label="DSP"
+                                value={exception.dsp_name ?? '—'}
+                            />
+                            <FactItem
+                                label="Service"
+                                value={exception.service_type ?? '—'}
+                            />
+                            <FactItem
+                                label="Priority"
+                                value={
+                                    exception.is_high_priority
+                                        ? 'High'
+                                        : 'Standard'
+                                }
+                            />
+                        </FactGrid>
+                    </RecordSection>
+                    <RecordSection title="Review history" className="lg:col-span-5">
                         {exception.status_history.length === 0 ? (
                             <p className="text-muted-foreground text-sm">
                                 No review or resolution history yet. The
@@ -131,9 +152,20 @@ export default function VisitExceptionsShow({
                                 </span>
                             </p>
                         )}
-                    </Panel>
+                    </RecordSection>
+                    {can.follow_up && (
+                        <RecordSection
+                            title="Supervisor follow-up"
+                            className="lg:col-span-12"
+                        >
+                            <SupervisorFollowUp
+                                exception={exception}
+                                canFollowUp={can.follow_up}
+                            />
+                        </RecordSection>
+                    )}
                     {can.review && (
-                        <Panel title="Mark reviewed">
+                        <RecordSection title="Mark reviewed" className="lg:col-span-6">
                             <form
                                 className="space-y-3"
                                 onSubmit={(event) => {
@@ -171,10 +203,10 @@ export default function VisitExceptionsShow({
                                     Mark reviewed
                                 </Button>
                             </form>
-                        </Panel>
+                        </RecordSection>
                     )}
                     {can.resolve && (
-                        <Panel title="Resolve">
+                        <RecordSection title="Resolve" className="lg:col-span-6">
                             <form
                                 className="space-y-3"
                                 onSubmit={(event) => {
@@ -217,26 +249,11 @@ export default function VisitExceptionsShow({
                                     Resolve exception
                                 </Button>
                             </form>
-                        </Panel>
+                        </RecordSection>
                     )}
                 </div>
-            </div>
+            </RecordPage>
         </>
-    );
-}
-
-function Detail({
-    label,
-    value,
-}: {
-    label: string;
-    value: ReactNode;
-}) {
-    return (
-        <div>
-            <dt className="text-muted-foreground text-xs">{label}</dt>
-            <dd className="mt-0.5 whitespace-pre-wrap">{value}</dd>
-        </div>
     );
 }
 

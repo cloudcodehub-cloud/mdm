@@ -30,6 +30,7 @@ export type OperationsVisitRow = {
     handover_note: string | null;
     visit_notes: string | null;
     open_exception_count: number;
+    has_high_priority_open?: boolean;
     task_summary: OperationsTaskSummary;
     client: { id: number; name: string; client_number: string };
     employee: { id: number; name: string; employee_number: string };
@@ -65,6 +66,7 @@ export type VisitExceptionRecord = {
     service_type: string | null;
     priority: 'high' | 'standard';
     is_high_priority: boolean;
+    is_high_priority_open?: boolean;
 };
 
 export type OperationsBoard = {

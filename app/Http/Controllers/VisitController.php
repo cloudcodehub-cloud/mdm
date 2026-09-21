@@ -52,12 +52,15 @@ class VisitController extends Controller
                 'update_notes' => $user?->can('updateNotes', $visit) ?? false,
                 'clock_out' => $user?->can('clockOut', $visit) ?? false,
                 'view_exceptions' => $user?->can('viewAny', VisitException::class) ?? false,
+                'follow_up' => $visit->exceptions->contains(
+                    fn (VisitException $exception): bool => $user?->can('followUp', $exception) ?? false,
+                ),
             ],
         ]);
     }
 
     /**
-     * @return array{user_id: int, name: string, available: bool}|null
+     * @return array{user_id: int, name: string, role_label: string, available: bool}|null
      */
     private function supervisorContact(Client $client, ?User $viewer): ?array
     {
@@ -71,6 +74,7 @@ class VisitController extends Controller
         return [
             'user_id' => $supervisorUser->id,
             'name' => $supervisor->full_name,
+            'role_label' => 'Supervisor',
             'available' => $supervisorUser->canMessage() && $supervisorUser->id !== $viewer?->id,
         ];
     }

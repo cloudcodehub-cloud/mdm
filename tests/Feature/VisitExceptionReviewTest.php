@@ -158,4 +158,104 @@ class VisitExceptionReviewTest extends TestCase
             ])
             ->assertForbidden();
     }
+
+    public function test_supervisor_and_admin_can_add_follow_up_without_changing_dsp_notes(): void
+    {
+        ['supervisor' => $supervisor, 'exception' => $exception] = $this->scopedException();
+        $exception->update([
+            'message' => 'Client refused a required task.',
+            'context' => ['source' => 'task_skip', 'title' => 'Meal preparation'],
+        ]);
+        $originalMessage = $exception->message;
+        $originalContext = $exception->context;
+
+        $this->actingAs($supervisor->user()->firstOrFail())
+            ->patch(route('visit-exceptions.follow-up', $exception), [
+                'notes' => 'Called the DSP and documented next steps.',
+            ])
+            ->assertRedirect();
+
+        $exception->refresh();
+        $this->assertSame(VisitExceptionStatus::Open, $exception->status);
+        $this->assertSame($originalMessage, $exception->message);
+        $this->assertSame($originalContext, $exception->context);
+        $this->assertSame('Called the DSP and documented next steps.', $exception->status_history[0]['notes'] ?? null);
+        $this->assertSame($supervisor->user()->firstOrFail()->id, $exception->status_history[0]['user_id'] ?? null);
+
+        $admin = User::factory()->admin()->create();
+        $this->actingAs($admin)
+            ->patch(route('visit-exceptions.follow-up', $exception), [
+                'notes' => 'Admin confirmed caseload follow-up.',
+            ])
+            ->assertRedirect();
+
+        $this->assertCount(2, $exception->fresh()->status_history ?? []);
+    }
+
+    public function test_supervisor_cannot_add_follow_up_outside_caseload(): void
+    {
+        ['other' => $other, 'exception' => $exception] = $this->scopedException();
+
+        $this->actingAs($other->user()->firstOrFail())
+            ->patch(route('visit-exceptions.follow-up', $exception), [
+                'notes' => 'Out of scope follow-up',
+            ])
+            ->assertForbidden();
+
+        $this->assertNull($exception->fresh()->status_history);
+    }
+
+    public function test_dsp_cannot_add_supervisor_follow_up_notes(): void
+    {
+        ['exception' => $exception] = $this->scopedException();
+        $dsp = Employee::factory()->dsp()->create()->user()->firstOrFail();
+
+        $this->actingAs($dsp)
+            ->patch(route('visit-exceptions.follow-up', $exception), [
+                'notes' => 'DSP should not write this',
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_resolved_high_priority_exception_is_not_returned_as_high_priority_open(): void
+    {
+        ['supervisor' => $supervisor, 'exception' => $exception] = $this->scopedException();
+        $user = $supervisor->user()->firstOrFail();
+
+        $this->actingAs($user)
+            ->get(route('operations.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('operations.exceptions.high_priority_open.0.id', $exception->id)
+            );
+
+        $this->actingAs($user)
+            ->get(route('visits.show', $exception->visit_id))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('visit.has_high_priority_open', true)
+                ->where('visit.exceptions.0.is_high_priority_open', true)
+            );
+
+        $this->actingAs($user)
+            ->patch(route('visit-exceptions.resolve', $exception), [
+                'resolution_notes' => 'Closed.',
+            ])
+            ->assertRedirect();
+
+        $this->actingAs($user)
+            ->get(route('operations.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('operations.exceptions.high_priority_open', 0)
+            );
+
+        $this->actingAs($user)
+            ->get(route('visits.show', $exception->visit_id))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('visit.has_high_priority_open', false)
+                ->where('visit.exceptions.0.is_high_priority_open', false)
+            );
+    }
 }

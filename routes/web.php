@@ -103,6 +103,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('visit-exceptions/{visit_exception}', [VisitExceptionController::class, 'show'])->name('visit-exceptions.show');
     Route::patch('visit-exceptions/{visit_exception}/review', [VisitExceptionController::class, 'review'])->name('visit-exceptions.review');
     Route::patch('visit-exceptions/{visit_exception}/resolve', [VisitExceptionController::class, 'resolve'])->name('visit-exceptions.resolve');
+    Route::patch('visit-exceptions/{visit_exception}/follow-up', [VisitExceptionController::class, 'followUp'])->name('visit-exceptions.follow-up');
 
     Route::get('supervisors', [SupervisorController::class, 'index'])->name('supervisors.index');
     Route::get('supervisors/{employee}', [SupervisorController::class, 'show'])->name('supervisors.show');

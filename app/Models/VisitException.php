@@ -115,6 +115,11 @@ class VisitException extends Model
         return $this->status === VisitExceptionStatus::Resolved;
     }
 
+    public function isHighPriorityOpen(): bool
+    {
+        return $this->type->isHighPriority() && ! $this->isResolved();
+    }
+
     /**
      * @param  Builder<static>  $query
      * @return Builder<static>

@@ -107,6 +107,7 @@ export type SupervisorContact = {
     user_id: number;
     name: string;
     available: boolean;
+    role_label?: string;
 };
 
 export type DspWorkItem = {

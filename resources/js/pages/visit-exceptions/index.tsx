@@ -1,5 +1,6 @@
 import { Form, Head, Link, router } from '@inertiajs/react';
 import { Pagination, StatusBadge, controlClassName } from '@/components/mdm/directory';
+import { HighPriorityIndicator } from '@/components/mdm/priority-indicator';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
@@ -114,9 +115,16 @@ export default function VisitExceptionsIndex({
                                                 }
                                             >
                                                 <td className="py-3">
-                                                    <p className="font-medium">
-                                                        {exception.type_label}
-                                                    </p>
+                                                    <div className="flex items-center gap-2">
+                                                        <HighPriorityIndicator
+                                                            active={Boolean(
+                                                                exception.is_high_priority_open,
+                                                            )}
+                                                        />
+                                                        <p className="font-medium">
+                                                            {exception.type_label}
+                                                        </p>
+                                                    </div>
                                                     <p className="text-muted-foreground text-xs">
                                                         {exception.message}
                                                     </p>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\VisitExceptionStatus;
 use App\Enums\VisitExceptionType;
+use App\Http\Requests\FollowUpVisitExceptionRequest;
 use App\Http\Requests\ResolveVisitExceptionRequest;
 use App\Http\Requests\ReviewVisitExceptionRequest;
 use App\Models\VisitException;
@@ -82,6 +83,7 @@ class VisitExceptionController extends Controller
             'can' => [
                 'review' => $user?->can('review', $visitException) ?? false,
                 'resolve' => $user?->can('resolve', $visitException) ?? false,
+                'follow_up' => $user?->can('followUp', $visitException) ?? false,
             ],
         ]);
     }
@@ -108,5 +110,17 @@ class VisitExceptionController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Exception resolved.')]);
 
         return redirect()->route('visit-exceptions.show', $visitException);
+    }
+
+    public function followUp(FollowUpVisitExceptionRequest $request, VisitException $visitException, VisitExceptionService $exceptions): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+
+        $exceptions->followUp($visitException, $user, (string) $request->validated('notes'));
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Follow-up noted.')]);
+
+        return back();
     }
 }

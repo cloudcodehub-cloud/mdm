@@ -4,6 +4,7 @@ import { AnnouncementList } from '@/components/mdm/announcement-list';
 import { ClockInAction } from '@/components/mdm/clock-in-action';
 import { DashboardGreeting } from '@/components/mdm/dashboard-greeting';
 import { ActivityList, PersonList } from '@/components/mdm/person-list';
+import { ProfileHealthBadge } from '@/components/mdm/profile-health';
 import { ProfilePhoto } from '@/components/mdm/profile-photo';
 import { Panel, StatCard } from '@/components/mdm/stat-card';
 import { VisitList } from '@/components/mdm/visit-list';
@@ -250,8 +251,15 @@ function AdminDashboard({ data }: { data: DashboardPayload }) {
                                     <ProfilePhoto name={item.name} photoUrl={item.photo_url} initials={item.initials} size="sm" />
                                     <div className="min-w-0">
                                         <p className="text-sm font-medium">
-                                            {item.name} — {item.percent}%
+                                            {item.name}
                                         </p>
+                                        <ProfileHealthBadge
+                                            percent={item.percent}
+                                            status={item.status}
+                                            statusLabel={item.status_label}
+                                            tone={item.tone}
+                                            className="mt-0.5"
+                                        />
                                         <p className="text-muted-foreground truncate text-xs">
                                             {item.summary || 'Details remaining'}
                                         </p>
@@ -400,8 +408,15 @@ function SupervisorDashboard({ data }: { data: DashboardPayload }) {
                                     <ProfilePhoto name={item.name} photoUrl={item.photo_url} initials={item.initials} size="sm" />
                                     <div className="min-w-0">
                                         <p className="text-sm font-medium">
-                                            {item.name} — {item.percent}%
+                                            {item.name}
                                         </p>
+                                        <ProfileHealthBadge
+                                            percent={item.percent}
+                                            status={item.status}
+                                            statusLabel={item.status_label}
+                                            tone={item.tone}
+                                            className="mt-0.5"
+                                        />
                                         <p className="text-muted-foreground truncate text-xs">
                                             {item.summary || 'Details remaining'}
                                         </p>

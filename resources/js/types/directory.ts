@@ -53,6 +53,9 @@ export type ProfileCompletion = {
     missing: number;
     total: number;
     critical_missing: number;
+    status?: string;
+    status_label?: string;
+    tone?: string;
     items: ProfileCompletionItem[];
     summary: string;
 };
@@ -300,6 +303,7 @@ export type VisitRecord = {
     notes?: string | null;
     starts_at?: string | null;
     ends_at?: string | null;
+    starts_at_iso?: string | null;
     shift_template_id?: number | null;
     supervisor_id?: number | null;
     client?: {
@@ -347,29 +351,7 @@ export type VisitRecord = {
         included: boolean;
         exclusion_reason?: string | null;
     }>;
-    recorded_visit?: {
-        id: number;
-        status: string;
-        clocked_in_at_label: string | null;
-        clocked_out_at_label: string | null;
-        duration_label: string | null;
-        location_status_label: string | null;
-        visit_notes: string | null;
-        handover_note: string | null;
-        task_summary: {
-            total: number;
-            completed: number;
-            skipped: number;
-            pending: number;
-        };
-        tasks: Array<{
-            id: number;
-            title: string;
-            status: string;
-            status_label: string;
-        }>;
-        exceptions: Array<{ id: number }>;
-    } | null;
+    recorded_visit?: import('./visit').ActiveVisitRecord | null;
 };
 
 export type DspScheduleOption = OptionItem & {

@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { AlertTriangle, Check, CircleAlert } from 'lucide-react';
 import { useState } from 'react';
+import { ProfileHealthBadge } from '@/components/mdm/profile-health';
 import { ProgressRing } from '@/components/mdm/visual-summaries';
 import { cn } from '@/lib/utils';
 import type { ProfileCompletion } from '@/types/directory';
@@ -31,6 +32,12 @@ export function ProfileCompletionMeter({
                             ? 'Profile complete'
                             : `${remaining} item${remaining === 1 ? '' : 's'} remaining`
                     }
+                />
+                <ProfileHealthBadge
+                    percent={completion.percent}
+                    status={completion.status}
+                    statusLabel={completion.status_label}
+                    tone={completion.tone}
                 />
             </button>
             {complianceLabel ? (

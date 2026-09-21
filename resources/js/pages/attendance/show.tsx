@@ -1,9 +1,14 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import type { ReactNode } from 'react';
 import InputError from '@/components/input-error';
 import { ConfirmAction } from '@/components/mdm/confirm-action';
 import { StatusBadge } from '@/components/mdm/directory';
-import { Panel } from '@/components/mdm/stat-card';
+import {
+    FactGrid,
+    FactItem,
+    RecordHeader,
+    RecordPage,
+    RecordSection,
+} from '@/components/mdm/record-detail';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { dashboard } from '@/routes';
@@ -33,67 +38,71 @@ export default function AttendanceShow({
     return (
         <>
             <Head title={`Attendance · ${record.employee.name}`} />
-            <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
-                <div>
-                    <p className="text-muted-foreground text-sm">
+            <RecordPage>
+                <RecordHeader
+                    eyebrow={
                         <Link
                             href={attendanceIndex()}
                             className="hover:text-foreground"
                         >
                             Attendance
                         </Link>
-                    </p>
-                    <h1 className="text-xl font-semibold tracking-tight">
-                        {record.employee.name}
-                    </h1>
-                    <p className="text-muted-foreground text-sm">
-                        {record.client.name} · {record.service_date}
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <StatusBadge
-                            status={record.status}
-                            label={record.status_label}
-                        />
-                        {record.has_gps_issue && (
-                            <span className="text-muted-foreground text-sm">
-                                {record.gps_label ?? 'GPS issue'}
-                            </span>
-                        )}
-                        {record.has_exception && (
-                            <span className="text-sm">Exception on visit</span>
-                        )}
-                        {record.adjustment_label && (
-                            <span className="text-sm">
-                                {record.adjustment_label}
-                            </span>
-                        )}
-                    </div>
-                </div>
+                    }
+                    title={record.employee.name}
+                    meta={
+                        <>
+                            <StatusBadge
+                                status={record.status}
+                                label={record.status_label}
+                            />
+                            {record.has_gps_issue && (
+                                <span className="text-muted-foreground text-sm">
+                                    {record.gps_label ?? 'GPS issue'}
+                                </span>
+                            )}
+                            {record.has_exception && (
+                                <span className="text-sm">Exception on visit</span>
+                            )}
+                            {record.adjustment_label && (
+                                <span className="text-sm">
+                                    {record.adjustment_label}
+                                </span>
+                            )}
+                        </>
+                    }
+                    actions={
+                        record.visit_id ? (
+                            <Button asChild variant="secondary">
+                                <Link href={showVisit.url(record.visit_id)}>
+                                    Open visit
+                                </Link>
+                            </Button>
+                        ) : undefined
+                    }
+                />
 
-                <div className="grid gap-4 lg:grid-cols-2">
-                    <Panel title="Times">
-                        <dl className="grid gap-3 text-sm">
-                            <Detail
-                                label="Scheduled"
+                <div className="grid gap-4 lg:grid-cols-12">
+                    <RecordSection title="Times" className="lg:col-span-7">
+                        <FactGrid className="sm:grid-cols-2 xl:grid-cols-2">
+                            <FactItem
+                                label="Scheduled time"
                                 value={record.scheduled_time}
                             />
-                            <Detail
+                            <FactItem
                                 label="Original clock-in"
                                 value={record.original_clock_in ?? '—'}
                             />
-                            <Detail
+                            <FactItem
                                 label="Original clock-out"
                                 value={record.original_clock_out ?? '—'}
                             />
                             {record.is_adjusted && (
                                 <>
-                                    <Detail
+                                    <FactItem
                                         label="Adjusted clock-in"
-                                        value={
-                                            record.effective_clock_in ?? '—'
-                                        }
+                                        value={record.effective_clock_in ?? '—'}
                                     />
-                                    <Detail
+                                    <FactItem
                                         label="Adjusted clock-out"
                                         value={
                                             record.effective_clock_out ?? '—'
@@ -101,28 +110,23 @@ export default function AttendanceShow({
                                     />
                                 </>
                             )}
-                            <Detail
-                                label="Worked duration"
+                            <FactItem
+                                label="Duration"
                                 value={record.worked_duration ?? '—'}
                             />
                             {record.is_adjusted && record.original_duration && (
-                                <Detail
+                                <FactItem
                                     label="Original duration"
                                     value={record.original_duration}
                                 />
                             )}
-                        </dl>
-                        {record.visit_id && (
-                            <Button asChild variant="secondary" className="mt-4">
-                                <Link href={showVisit.url(record.visit_id)}>
-                                    Open visit
-                                </Link>
-                            </Button>
-                        )}
-                    </Panel>
+                            <FactItem label="Client" value={record.client.name} />
+                            <FactItem label="DSP" value={record.employee.name} />
+                        </FactGrid>
+                    </RecordSection>
 
                     {can.request_correction && (
-                        <Panel title="Attendance correction">
+                        <RecordSection title="Attendance correction" className="lg:col-span-5">
                             <p className="text-muted-foreground mb-3 text-sm">
                                 Original DSP clock events stay on the visit
                                 record. Approved adjustments are stored separately.
@@ -233,10 +237,10 @@ export default function AttendanceShow({
                                     Submit correction
                                 </Button>
                             </form>
-                        </Panel>
+                        </RecordSection>
                     )}
 
-                    <Panel title="Correction history" className="lg:col-span-2">
+                    <RecordSection title="Correction history" className="lg:col-span-12">
                         {(record.corrections ?? []).length === 0 ? (
                             <p className="text-muted-foreground text-sm">
                                 No correction requests for this record.
@@ -292,9 +296,9 @@ export default function AttendanceShow({
                                 ))}
                             </ul>
                         )}
-                    </Panel>
+                    </RecordSection>
                 </div>
-            </div>
+            </RecordPage>
         </>
     );
 }
@@ -347,15 +351,6 @@ function CorrectionReview({ id }: { id: number }) {
                     </Button>
                 </ConfirmAction>
             </div>
-        </div>
-    );
-}
-
-function Detail({ label, value }: { label: string; value: ReactNode }) {
-    return (
-        <div>
-            <dt className="text-muted-foreground text-xs">{label}</dt>
-            <dd className="mt-0.5">{value}</dd>
         </div>
     );
 }

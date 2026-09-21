@@ -67,7 +67,28 @@ export type ActiveVisitRecord = {
         status_label: string;
         message: string;
         task_title: string | null;
+        visit_task_id?: number | null;
+        review_notes?: string | null;
+        resolution_notes?: string | null;
+        reviewed_by_name?: string | null;
+        resolved_by_name?: string | null;
+        reviewed_at_label?: string | null;
+        resolved_at_label?: string | null;
+        status_history?: Array<{
+            status: string;
+            at: string;
+            user_id: number;
+            user_name: string;
+            notes: string | null;
+        }>;
+        is_high_priority?: boolean;
+        is_high_priority_open?: boolean;
     }>;
+    has_high_priority_open?: boolean;
+    supervisor?: {
+        id: number;
+        name: string;
+    } | null;
     client: {
         id: number;
         name: string;
@@ -84,6 +105,7 @@ export type ActiveVisitRecord = {
         time_label: string;
         shift_name: string | null;
         status: string;
+        starts_at_iso?: string | null;
     };
     tasks: ActiveVisitTask[];
 };

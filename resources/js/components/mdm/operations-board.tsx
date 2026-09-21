@@ -1,5 +1,6 @@
 import { Link, router } from '@inertiajs/react';
 import { StatusBadge } from '@/components/mdm/directory';
+import { HighPriorityIndicator } from '@/components/mdm/priority-indicator';
 import { EmptyState, Panel, StatCard } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { show as showClient } from '@/routes/clients';
@@ -47,20 +48,30 @@ export function OperationsBoardView({
                 ))}
             </div>
 
-            <div className="grid gap-4 xl:grid-cols-3">
+            <div className="grid gap-4 lg:grid-cols-12">
                 <Panel
                     title="Today's visits"
                     description="Scheduled, in progress, completed, late, and exceptions."
-                    className="xl:col-span-2"
+                    className="lg:col-span-12"
                 >
                     <OperationsVisitTable
                         visits={operations.today_visits}
                         empty="No visits on today's caseload."
                     />
                 </Panel>
-                <Panel title="Assigned DSPs">
+                <Panel
+                    title="Active visits"
+                    description="Currently clocked-in visits."
+                    className="lg:col-span-8"
+                >
+                    <OperationsVisitTable
+                        visits={operations.active_visits}
+                        empty="No active visits."
+                    />
+                </Panel>
+                <Panel title="Assigned DSPs" className="lg:col-span-4">
                     {operations.assigned_dsps.length === 0 ? (
-                        <EmptyState message="No assigned DSPs." />
+                        <EmptyState compact message="No assigned DSPs." />
                     ) : (
                         <ul className="space-y-1">
                             {operations.assigned_dsps.map((dsp) => (
@@ -79,19 +90,15 @@ export function OperationsBoardView({
                         </ul>
                     )}
                 </Panel>
-                <Panel
-                    title="Active visits"
-                    description="Currently clocked-in visits."
-                    className="xl:col-span-2"
-                >
+                <Panel title="Completed visits" className="lg:col-span-8">
                     <OperationsVisitTable
-                        visits={operations.active_visits}
-                        empty="No active visits."
+                        visits={operations.completed_visits}
+                        empty="No completed visits today."
                     />
                 </Panel>
-                <Panel title="Assigned clients">
+                <Panel title="Assigned clients" className="lg:col-span-4">
                     {operations.assigned_clients.length === 0 ? (
-                        <EmptyState message="No assigned clients." />
+                        <EmptyState compact message="No assigned clients." />
                     ) : (
                         <ul className="space-y-1">
                             {operations.assigned_clients.map((client) => (
@@ -110,15 +117,9 @@ export function OperationsBoardView({
                         </ul>
                     )}
                 </Panel>
-                <Panel title="Completed visits">
-                    <OperationsVisitTable
-                        visits={operations.completed_visits}
-                        empty="No completed visits today."
-                    />
-                </Panel>
-                <Panel title="Skipped tasks">
+                <Panel title="Skipped tasks" className="lg:col-span-6">
                     {operations.skipped_tasks.length === 0 ? (
-                        <EmptyState message="No skipped tasks today." />
+                        <EmptyState compact message="No skipped tasks today." />
                     ) : (
                         <ul className="space-y-2 text-sm">
                             {operations.skipped_tasks.map((task) => (
@@ -140,9 +141,9 @@ export function OperationsBoardView({
                         </ul>
                     )}
                 </Panel>
-                <Panel title="Handover notes">
+                <Panel title="Handover notes" className="lg:col-span-6">
                     {operations.handover_notes.length === 0 ? (
-                        <EmptyState message="No handover notes today." />
+                        <EmptyState compact message="No handover notes today." />
                     ) : (
                         <ul className="space-y-2 text-sm">
                             {operations.handover_notes.map((note) => (
@@ -161,25 +162,25 @@ export function OperationsBoardView({
                         </ul>
                     )}
                 </Panel>
-                <Panel title="GPS / location exceptions">
+                <Panel title="GPS / location exceptions" className="lg:col-span-6">
                     <ExceptionLinks
                         exceptions={operations.exceptions.gps}
                         empty="No open GPS exceptions."
                     />
                 </Panel>
-                <Panel title="Client refusals">
+                <Panel title="Client refusals" className="lg:col-span-6">
                     <ExceptionLinks
                         exceptions={operations.exceptions.client_refusals}
                         empty="No open client refusals."
                     />
                 </Panel>
-                <Panel title="Critical task skips">
+                <Panel title="Critical task skips" className="lg:col-span-6">
                     <ExceptionLinks
                         exceptions={operations.exceptions.critical_skips}
                         empty="No open critical task skips."
                     />
                 </Panel>
-                <Panel title="Unfinished-task exceptions">
+                <Panel title="Unfinished-task exceptions" className="lg:col-span-6">
                     <ExceptionLinks
                         exceptions={operations.exceptions.unfinished}
                         empty="No open unfinished-task exceptions."
@@ -198,7 +199,7 @@ export function OperationsVisitTable({
     empty: string;
 }) {
     if (visits.length === 0) {
-        return <EmptyState message={empty} />;
+        return <EmptyState compact message={empty} />;
     }
 
     return (
@@ -261,10 +262,16 @@ export function OperationsVisitTable({
                                     : ''}
                             </td>
                             <td className="py-3">
-                                <StatusBadge
-                                    status={visit.operational_status}
-                                    label={visit.operational_status_label}
-                                />
+                                <div className="flex items-center gap-2">
+                                    <HighPriorityIndicator
+                                        active={Boolean(visit.has_high_priority_open)}
+                                        label="Unresolved high-priority exception"
+                                    />
+                                    <StatusBadge
+                                        status={visit.operational_status}
+                                        label={visit.operational_status_label}
+                                    />
+                                </div>
                             </td>
                         </tr>
                     ))}
@@ -284,11 +291,12 @@ export function ExceptionLinks({
         message: string;
         client_name: string | null;
         dsp_name: string | null;
+        is_high_priority_open?: boolean;
     }>;
     empty: string;
 }) {
     if (exceptions.length === 0) {
-        return <EmptyState message={empty} />;
+        return <EmptyState compact message={empty} />;
     }
 
     return (
@@ -299,7 +307,10 @@ export function ExceptionLinks({
                         href={showException.url(exception.id)}
                         className="hover:text-foreground block text-sm"
                     >
-                        <span className="font-medium">
+                        <span className="flex items-center gap-2 font-medium">
+                            <HighPriorityIndicator
+                                active={Boolean(exception.is_high_priority_open)}
+                            />
                             {exception.type_label}
                         </span>
                         <span className="text-muted-foreground block text-xs">

@@ -51,10 +51,9 @@ class MessagingService
             ->first();
 
         return [
-            'recipient' => $this->serializeUser($recipient),
+            'recipient' => $this->serializeContact($recipient),
             'conversation' => $conversation === null ? null : [
                 'id' => $conversation->id,
-                'other_user' => $this->serializeUser($recipient),
             ],
             'messages' => $conversation === null ? [] : $this->messagesFor($conversation, $actor),
         ];
@@ -258,6 +257,20 @@ class MessagingService
                 ? app(ProfilePhotoService::class)->employeeUrl($user->employee)
                 : null,
             'initials' => $user->employee?->initials(),
+        ];
+    }
+
+    /**
+     * Limited contact payload for in-visit messaging previews.
+     *
+     * @return array{id: int, name: string, role: string}
+     */
+    public function serializeContact(User $user): array
+    {
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'role' => $user->role->value,
         ];
     }
 

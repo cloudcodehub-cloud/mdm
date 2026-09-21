@@ -154,6 +154,7 @@ class SupervisorOperationsService
             ->get();
 
         $openExceptions = $exceptions->filter(fn (VisitException $exception): bool => $exception->isOpen());
+        $highPriorityOpen = $exceptions->filter(fn (VisitException $exception): bool => $exception->isHighPriorityOpen());
 
         $assignedDsps = (clone $dspQuery)
             ->orderBy('last_name')
@@ -185,9 +186,7 @@ class SupervisorOperationsService
             'handover_notes' => $this->handovers($handovers),
             'exceptions' => [
                 'open' => DirectoryPresenter::visitExceptions($openExceptions),
-                'high_priority_open' => DirectoryPresenter::visitExceptions(
-                    $openExceptions->filter(fn (VisitException $exception): bool => $exception->type->isHighPriority()),
-                ),
+                'high_priority_open' => DirectoryPresenter::visitExceptions($highPriorityOpen),
                 'gps' => DirectoryPresenter::visitExceptions($this->exceptionsOfType($openExceptions, VisitExceptionType::GpsUnavailable)),
                 'client_refusals' => DirectoryPresenter::visitExceptions($this->exceptionsOfType($openExceptions, VisitExceptionType::ClientRefusal)),
                 'critical_skips' => DirectoryPresenter::visitExceptions($this->exceptionsOfType($openExceptions, VisitExceptionType::CriticalTaskSkipped)),
@@ -238,6 +237,7 @@ class SupervisorOperationsService
     private function serializeScheduled(ScheduledVisit $scheduled, CarbonInterface $now): array
     {
         $visit = $scheduled->visit;
+        $visit?->loadMissing('exceptions');
         $status = $this->operationsStatus->forScheduledVisit($scheduled, $now);
         $tasks = $visit === null ? collect() : $visit->tasks;
         $completed = $tasks->where('status', VisitTaskStatus::Completed)->count();
@@ -267,6 +267,8 @@ class SupervisorOperationsService
                 : $visit->exceptions
                     ->filter(fn (VisitException $exception): bool => $exception->status === VisitExceptionStatus::Open)
                     ->count(),
+            'has_high_priority_open' => $visit !== null
+                && $visit->exceptions->contains(fn (VisitException $exception): bool => $exception->isHighPriorityOpen()),
             'task_summary' => [
                 'total' => $tasks->count(),
                 'completed' => $completed,

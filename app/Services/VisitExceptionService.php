@@ -92,6 +92,29 @@ class VisitExceptionService
         return $exception->refresh();
     }
 
+    public function followUp(VisitException $exception, User $user, string $notes): VisitException
+    {
+        if ($exception->isResolved()) {
+            throw ValidationException::withMessages([
+                'status' => 'Resolved exceptions cannot receive additional follow-up notes.',
+            ]);
+        }
+
+        $notes = $this->normalizeNotes($notes);
+
+        if ($notes === null) {
+            throw ValidationException::withMessages([
+                'notes' => 'Enter a follow-up note.',
+            ]);
+        }
+
+        $exception->forceFill([
+            'status_history' => $this->appendHistory($exception, $exception->status, $user, $notes),
+        ])->save();
+
+        return $exception->refresh();
+    }
+
     /**
      * @return list<array<string, mixed>>
      */

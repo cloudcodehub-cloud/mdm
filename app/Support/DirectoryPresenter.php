@@ -31,6 +31,7 @@ use App\Services\SettingsService;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 final class DirectoryPresenter
 {
@@ -418,6 +419,7 @@ final class DirectoryPresenter
             'notes' => $visit->notes,
             'starts_at' => self::inputTime($visit->starts_at),
             'ends_at' => self::inputTime($visit->ends_at),
+            'starts_at_iso' => self::visitStartsAtIso($visit),
             'shift_template_id' => $visit->shift_template_id,
             'supervisor_id' => $visit->supervisor_id,
             'client' => [
@@ -494,6 +496,9 @@ final class DirectoryPresenter
             ->where('status', VisitTaskStatus::Pending)
             ->where('is_required', true)
             ->count();
+        $exceptions = $visit->relationLoaded('exceptions')
+            ? $visit->exceptions
+            : $visit->exceptions()->with(['visitTask', 'reviewedBy', 'resolvedBy'])->get();
 
         return [
             'id' => $visit->id,
@@ -540,15 +545,22 @@ final class DirectoryPresenter
                 'name' => $visit->employee->full_name,
                 'employee_number' => $visit->employee->employee_number,
             ],
+            'supervisor' => $visit->client->supervisor === null ? null : [
+                'id' => $visit->client->supervisor->id,
+                'name' => $visit->client->supervisor->full_name,
+            ],
             'scheduled_visit' => [
                 'id' => $scheduled->id,
                 'service_date' => self::date($scheduled->service_date),
                 'time_label' => self::visitTimeLabel($scheduled),
                 'shift_name' => $scheduled->shiftTemplate?->name,
                 'status' => $scheduled->status->value,
+                'starts_at_iso' => self::visitStartsAtIso($scheduled),
             ],
             'tasks' => self::visitTasks($tasks),
-            'exceptions' => self::visitExceptions($visit->relationLoaded('exceptions') ? $visit->exceptions : $visit->exceptions()->with(['visitTask', 'reviewedBy', 'resolvedBy'])->get()),
+            'exceptions' => self::visitExceptions($exceptions),
+            'has_high_priority_open' => $exceptions
+                ->contains(fn (VisitException $exception): bool => $exception->isHighPriorityOpen()),
         ];
     }
 
@@ -596,6 +608,7 @@ final class DirectoryPresenter
             'service_date' => self::date($visit->service_date),
             'service_type' => $visit->service_type,
             'time_label' => self::visitTimeLabel($visit),
+            'starts_at_iso' => self::visitStartsAtIso($visit),
             'client' => [
                 'id' => $visit->client->id,
                 'name' => $visit->client->full_name,
@@ -664,6 +677,7 @@ final class DirectoryPresenter
             'type_label' => $exception->type->label(),
             'priority' => $exception->type->priority(),
             'is_high_priority' => $exception->type->isHighPriority(),
+            'is_high_priority_open' => $exception->isHighPriorityOpen(),
             'status' => $exception->status->value,
             'status_label' => $exception->status->label(),
             'message' => $exception->message,
@@ -731,6 +745,15 @@ final class DirectoryPresenter
         }
 
         return $label;
+    }
+
+    public static function visitStartsAtIso(ScheduledVisit $visit): ?string
+    {
+        try {
+            return $visit->startsAtOn()->utc()->toIso8601String();
+        } catch (RuntimeException) {
+            return null;
+        }
     }
 
     /**

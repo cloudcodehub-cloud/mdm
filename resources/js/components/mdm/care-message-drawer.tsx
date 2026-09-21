@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import type { ChatMessage } from '@/types/messaging';
 
 type PreviewPayload = {
-    recipient: { id: number; name: string };
+    recipient: { id: number; name: string; role?: string };
     conversation: { id: number } | null;
     messages: ChatMessage[];
 };
@@ -29,6 +29,8 @@ export function CareMessageDrawer({
     clientId,
     visitId,
     taskTitle,
+    variant = 'message',
+    roleLabel,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -38,6 +40,8 @@ export function CareMessageDrawer({
     clientId?: number;
     visitId?: number;
     taskTitle?: string;
+    variant?: 'supervisor' | 'message';
+    roleLabel?: string;
 }) {
     const [preview, setPreview] = useState<PreviewPayload | null>(null);
     const [body, setBody] = useState('');
@@ -100,6 +104,12 @@ export function CareMessageDrawer({
     };
 
     const conversationId = preview?.conversation?.id;
+    const title =
+        variant === 'supervisor' ? 'Contact supervisor' : recipientName;
+    const description =
+        variant === 'supervisor'
+            ? `${recipientName}${roleLabel ? ` · ${roleLabel}` : ''}`
+            : 'Stay on this care page while you send a message.';
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -110,14 +120,12 @@ export function CareMessageDrawer({
                     mobile ? 'max-h-[85vh] sm:max-w-none' : 'sm:max-w-md',
                 )}
             >
-                <SheetHeader className="border-border/70 border-b">
-                    <SheetTitle>{recipientName}</SheetTitle>
-                    <SheetDescription>
-                        Stay on this care page while you send a message.
-                    </SheetDescription>
+                <SheetHeader className="border-border/70 pr-12 border-b">
+                    <SheetTitle>{title}</SheetTitle>
+                    <SheetDescription>{description}</SheetDescription>
                 </SheetHeader>
                 <div className="px-4">
-                    <p className="bg-primary/8 text-primary mt-3 inline-flex rounded-full px-2.5 py-1 text-xs font-medium">
+                    <p className="bg-primary/8 text-primary mt-3 inline-flex max-w-full rounded-full px-2.5 py-1 text-xs font-medium break-words">
                         {contextLabel}
                     </p>
                 </div>
@@ -170,13 +178,6 @@ export function CareMessageDrawer({
                                 </a>
                             </Button>
                         ) : null}
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => onOpenChange(false)}
-                        >
-                            Close
-                        </Button>
                     </div>
                 </SheetFooter>
             </SheetContent>
