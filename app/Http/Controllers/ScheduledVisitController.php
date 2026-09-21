@@ -291,6 +291,9 @@ class ScheduledVisitController extends Controller
                 'clock_in' => ($user?->can('clockIn', $scheduledVisit) ?? false)
                     && $phase === 'eligible',
             ],
+            'documents' => [
+                'visit_handout' => route('documents.visit-handout.preview', $scheduledVisit),
+            ],
             'activeVisit' => $activeVisit,
             'clockInVisit' => $clockInVisit,
             'dsps' => ($user !== null && ($user->can('update', $scheduledVisit) || $user->can('create', ScheduledVisit::class)))

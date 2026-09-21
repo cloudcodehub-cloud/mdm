@@ -11,6 +11,7 @@ import {
     RecordPage,
     RecordSection,
 } from '@/components/mdm/record-detail';
+import { PrintPdfAction } from '@/components/mdm/print-pdf-action';
 import { HighPriorityIndicator } from '@/components/mdm/priority-indicator';
 import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
@@ -31,12 +32,14 @@ export default function ScheduledVisitsShow({
     activeVisit,
     clockInVisit,
     dsps = [],
+    documents,
 }: {
     visit: VisitRecord;
     can: { update: boolean; clock_in: boolean; duplicate?: boolean; replace?: boolean };
     activeVisit: DashboardActiveVisit | null;
     clockInVisit: ClockInVisitSummary | null;
     dsps?: DspScheduleOption[];
+    documents?: { visit_handout?: string };
 }) {
     const role = usePage().props.auth.user.role;
     const canOpenDirectories = role === 'ADMIN' || role === 'SUPERVISOR';
@@ -82,6 +85,9 @@ export default function ScheduledVisitsShow({
                     }
                     actions={
                         <ActionGroup>
+                            {documents?.visit_handout && (
+                                <PrintPdfAction href={documents.visit_handout} />
+                            )}
                             {can.update && (
                                 <Button asChild variant="secondary">
                                     <Link href={edit(visit.id)}>Edit</Link>

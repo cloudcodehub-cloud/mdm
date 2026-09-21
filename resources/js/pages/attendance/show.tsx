@@ -1,6 +1,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import InputError from '@/components/input-error';
 import { ConfirmAction } from '@/components/mdm/confirm-action';
+import { PrintPdfAction } from '@/components/mdm/print-pdf-action';
 import { StatusBadge } from '@/components/mdm/directory';
 import {
     FactGrid,
@@ -24,9 +25,11 @@ import type { AttendanceRecord } from '@/types/attendance';
 export default function AttendanceShow({
     record,
     can,
+    documents,
 }: {
     record: AttendanceRecord;
     can: { request_correction: boolean; review_corrections: boolean };
+    documents?: { completed_visit?: string | null };
 }) {
     const correctionForm = useForm({
         requested_clocked_in_at: record.clock_in_input ?? '',
@@ -71,13 +74,18 @@ export default function AttendanceShow({
                         </>
                     }
                     actions={
-                        record.visit_id ? (
-                            <Button asChild variant="secondary">
-                                <Link href={showVisit.url(record.visit_id)}>
-                                    Open visit
-                                </Link>
-                            </Button>
-                        ) : undefined
+                        <>
+                            {documents?.completed_visit && (
+                                <PrintPdfAction href={documents.completed_visit} />
+                            )}
+                            {record.visit_id ? (
+                                <Button asChild variant="secondary">
+                                    <Link href={showVisit.url(record.visit_id)}>
+                                        Open visit
+                                    </Link>
+                                </Button>
+                            ) : undefined}
+                        </>
                     }
                 />
 

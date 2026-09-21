@@ -1,5 +1,11 @@
 # Upgrade notes
 
+## Phase 6C — Branded PDF / document output
+
+- Server-side PDFs use `barryvdh/laravel-dompdf` (DomPDF 3). No browser process and no third-party document SaaS.
+- One shared Blade document shell covers MDM mark, configured agency name, organization timezone, generated-by, confidentiality footer, and download filenames.
+- First documents: Client Visit & Task Handout (scheduled visit), Completed Visit Report (completed visit / attendance detail), Employee Hours & Attendance Report (Employee Attendance and Payroll Hours report screens). Authorization matches existing visit/report policies.
+
 ## Phase 6B — Agency identity and dashboard context
 
 - Agency identity is configuration-driven via existing `organization_settings` (`organization_name`). Admins edit **Agency Name** in General settings; it is not hard-coded in dashboard or layout UI.

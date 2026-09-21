@@ -58,7 +58,9 @@ This is the simplest Laravel approach for three application roles. Authorization
 
 ## Phase 3D-2 reports and payroll hours
 
-- Admin: organization-wide operational reports and CSV export, including payroll hours CSV. Payroll remains hours-only (no rates, pay, taxes, overtime, or processing).
+- Admin: organization-wide operational reports, CSV export (including payroll hours CSV), and hours/attendance PDFs. Payroll remains hours-only (no rates, pay, taxes, overtime, or processing).
+- Supervisor: caseload reports and hours/attendance PDFs for that caseload. Cannot export payroll hours CSV.
+- DSP: no Reports module and no hours/attendance PDFs. Visit handout and completed visit PDFs follow existing visit view rules.
 - Supervisor: reports for permitted caseload only. May view caseload work-hour totals. Cannot export payroll CSV.
 - DSP: no Reports module.
 

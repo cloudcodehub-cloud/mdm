@@ -73,7 +73,10 @@ class ReportService
                 'export' => $type === ReportType::PayrollHours
                     ? $user->can('exportPayroll', OperationalReport::class)
                     : $user->can('export', OperationalReport::class),
+                'hours_pdf' => $user->can('viewAny', OperationalReport::class)
+                    && in_array($type, [ReportType::EmployeeAttendance, ReportType::PayrollHours], true),
             ],
+            'hours_pdf_url' => $this->hoursPdfUrl($type, $filters),
         ];
     }
 
@@ -503,6 +506,20 @@ class ReportService
                 'employee_count' => count($rows),
             ],
         ];
+    }
+
+    /**
+     * @param  array{from: string, to: string, employee_id: string, client_id: string, supervisor_id: string, status: string}  $filters
+     */
+    private function hoursPdfUrl(ReportType $type, array $filters): ?string
+    {
+        if (! in_array($type, [ReportType::EmployeeAttendance, ReportType::PayrollHours], true)) {
+            return null;
+        }
+
+        $query = array_filter($filters, fn (string $value): bool => $value !== '');
+
+        return route('documents.hours-attendance.preview', $query);
     }
 
     /**

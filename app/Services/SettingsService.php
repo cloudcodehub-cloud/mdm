@@ -186,6 +186,14 @@ class SettingsService
         return $local->format($this->current()->date_format->value);
     }
 
+    /**
+     * Format a stored calendar date without shifting it through the operational timezone.
+     */
+    public function formatCalendarDate(CarbonInterface $value): string
+    {
+        return Carbon::parse($value->toDateString())->format($this->current()->date_format->value);
+    }
+
     public function formatTime(CarbonInterface $value): string
     {
         $local = $this->toLocal($value);

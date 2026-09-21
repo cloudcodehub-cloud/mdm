@@ -56,6 +56,11 @@ class VisitController extends Controller
                     fn (VisitException $exception): bool => $user?->can('followUp', $exception) ?? false,
                 ),
             ],
+            'documents' => [
+                'completed_visit' => $visit->status === VisitStatus::Completed
+                    ? route('documents.completed-visit.preview', $visit)
+                    : null,
+            ],
         ]);
     }
 

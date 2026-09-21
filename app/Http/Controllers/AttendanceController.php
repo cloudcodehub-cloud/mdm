@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\AttendanceStatus;
+use App\Enums\VisitStatus;
 use App\Models\ScheduledVisit;
 use App\Services\AttendanceService;
 use App\Services\SettingsService;
@@ -68,12 +69,18 @@ class AttendanceController extends Controller
         abort_unless($user !== null, 401);
 
         $record = $attendance->detail($scheduledVisit, $user);
+        $visit = $scheduledVisit->visit;
 
         return Inertia::render('attendance/show', [
             'record' => $record,
             'can' => [
                 'request_correction' => $record['can_request_correction'],
                 'review_corrections' => $user->isAdmin(),
+            ],
+            'documents' => [
+                'completed_visit' => ($visit !== null && $visit->status === VisitStatus::Completed)
+                    ? route('documents.completed-visit.preview', $visit)
+                    : null,
             ],
         ]);
     }

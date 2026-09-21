@@ -26,7 +26,7 @@ Specifications for each area live in sibling docs. Implementation comes after Ph
 - Compliance
 - Payroll-hour exports
 - Messaging / announcements — 1-to-1 internal chat, in-app notifications (polling), and role-scoped announcements. No WebSockets yet.
-- Reporting
+- Reporting, including branded PDF output of hours/attendance using the shared document framework
 - Audit / activity history
 
 ## Conventions

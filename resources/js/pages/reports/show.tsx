@@ -1,5 +1,6 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import { Pagination, StatusBadge, controlClassName } from '@/components/mdm/directory';
+import { PrintPdfAction } from '@/components/mdm/print-pdf-action';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
@@ -31,6 +32,7 @@ export default function ReportShow({
     statuses,
     timezone,
     can,
+    hours_pdf_url = null,
 }: {
     report: ReportSummary;
     columns: ReportColumn[];
@@ -43,7 +45,8 @@ export default function ReportShow({
     supervisors: OptionItem[];
     statuses: { value: string; label: string }[];
     timezone: string;
-    can: { export: boolean };
+    can: { export: boolean; hours_pdf?: boolean };
+    hours_pdf_url?: string | null;
 }) {
     const exportUrl = download.url(report.key, {
         query: {
@@ -77,11 +80,16 @@ export default function ReportShow({
                             {report.description} Times use {timezone}.
                         </p>
                     </div>
-                    {can.export && (
-                        <Button asChild variant="secondary">
-                            <a href={exportUrl}>Export CSV</a>
-                        </Button>
-                    )}
+                    <div className="flex flex-wrap gap-2">
+                        {can.hours_pdf && hours_pdf_url && (
+                            <PrintPdfAction href={hours_pdf_url} />
+                        )}
+                        {can.export && (
+                            <Button asChild variant="secondary">
+                                <a href={exportUrl}>Export CSV</a>
+                            </Button>
+                        )}
+                    </div>
                 </div>
 
                 <Panel title="Filters">

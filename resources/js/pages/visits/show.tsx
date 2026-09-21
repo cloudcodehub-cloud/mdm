@@ -15,6 +15,7 @@ import {
     hasHighPriorityOpen,
 } from '@/components/mdm/priority-indicator';
 import { SupervisorFollowUp } from '@/components/mdm/supervisor-follow-up';
+import { PrintPdfAction } from '@/components/mdm/print-pdf-action';
 import { VisitElapsedTimer } from '@/components/mdm/visit-elapsed-timer';
 import { VisitWorkflow } from '@/components/mdm/visit-workflow';
 import { ProgressRing } from '@/components/mdm/visual-summaries';
@@ -39,6 +40,7 @@ export default function VisitsShow({
     care_history = [],
     supervisor_contact = null,
     can,
+    documents,
 }: {
     visit: ActiveVisitRecord;
     skip_reasons?: SkipReasonOption[];
@@ -52,6 +54,7 @@ export default function VisitsShow({
         view_exceptions?: boolean;
         follow_up?: boolean;
     };
+    documents?: { completed_visit?: string | null };
 }) {
     const completed = visit.status === 'completed';
     const monitoring = !can?.record_tasks && !can?.clock_out;
@@ -109,6 +112,11 @@ export default function VisitsShow({
                                 {visit.service_type} · {visit.client.client_number}
                             </span>
                         </>
+                    }
+                    actions={
+                        documents?.completed_visit ? (
+                            <PrintPdfAction href={documents.completed_visit} />
+                        ) : undefined
                     }
                 />
 

@@ -11,6 +11,7 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientDspAssignmentController;
 use App\Http\Controllers\ComplianceController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DspAvailabilityController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\MessageController;
@@ -88,7 +89,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('time-off.reject');
     Route::post('scheduled-visits/{scheduled_visit}/clock-in', [VisitClockInController::class, 'store'])
         ->name('scheduled-visits.clock-in');
+    Route::get('scheduled-visits/{scheduled_visit}/documents/visit-handout', [DocumentController::class, 'visitHandoutPreview'])
+        ->name('documents.visit-handout.preview');
+    Route::get('scheduled-visits/{scheduled_visit}/documents/visit-handout/download', [DocumentController::class, 'visitHandoutPdf'])
+        ->name('documents.visit-handout.pdf');
     Route::get('visits/{visit}', [VisitController::class, 'show'])->name('visits.show');
+    Route::get('visits/{visit}/documents/completed-visit', [DocumentController::class, 'completedVisitPreview'])
+        ->name('documents.completed-visit.preview');
+    Route::get('visits/{visit}/documents/completed-visit/download', [DocumentController::class, 'completedVisitPdf'])
+        ->name('documents.completed-visit.pdf');
+    Route::get('reports/hours-attendance/documents', [DocumentController::class, 'hoursAttendancePreview'])
+        ->name('documents.hours-attendance.preview');
+    Route::get('reports/hours-attendance/documents/download', [DocumentController::class, 'hoursAttendancePdf'])
+        ->name('documents.hours-attendance.pdf');
     Route::patch('visits/{visit}/notes', [VisitClockOutController::class, 'updateNotes'])->name('visits.notes');
     Route::post('visits/{visit}/clock-out', [VisitClockOutController::class, 'store'])->name('visits.clock-out');
     Route::post('visits/{visit}/tasks/{visit_task}/complete', [VisitTaskController::class, 'complete'])

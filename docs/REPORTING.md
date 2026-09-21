@@ -21,7 +21,9 @@ Reports are database-backed views over existing attendance, visit, task, excepti
 
 Filters (where relevant): date range, employee/DSP, client, supervisor (admin), status.
 
-CSV export is available for these reports using the same filters. PDF is out of scope.
+CSV export is available for these reports using the same filters.
+
+Branded PDF output uses the shared MDM document framework (`barryvdh/laravel-dompdf` on the server). The first printable documents are the Client Visit & Task Handout, Completed Visit Report, and Employee Hours & Attendance Report. PDF routes reuse the same authorization and reporting scope as the matching screens.
 
 ## Permissions
 
