@@ -14,9 +14,12 @@ type Option = {
 };
 
 type Props = {
-    settings: {
-        organization_name: string;
-        timezone: string;
+        settings: {
+            organization_name: string;
+            city?: string | null;
+            state?: string | null;
+            postal_code?: string | null;
+            timezone: string;
         date_format: string;
         time_format: string;
         first_day_of_week: number;
@@ -77,6 +80,34 @@ export default function General({
                                     defaultValue={settings.organization_name}
                                 />
                                 <InputError message={errors.organization_name} />
+                            </div>
+
+                            <div className="grid gap-4 md:grid-cols-3">
+                                <Field label="City" htmlFor="city" error={errors.city}>
+                                    <Input
+                                        id="city"
+                                        name="city"
+                                        defaultValue={settings.city ?? ''}
+                                    />
+                                </Field>
+                                <Field label="State" htmlFor="state" error={errors.state}>
+                                    <Input
+                                        id="state"
+                                        name="state"
+                                        defaultValue={settings.state ?? ''}
+                                    />
+                                </Field>
+                                <Field
+                                    label="Postal code"
+                                    htmlFor="postal_code"
+                                    error={errors.postal_code}
+                                >
+                                    <Input
+                                        id="postal_code"
+                                        name="postal_code"
+                                        defaultValue={settings.postal_code ?? ''}
+                                    />
+                                </Field>
                             </div>
 
                             <Field

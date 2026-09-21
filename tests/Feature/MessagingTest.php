@@ -176,6 +176,8 @@ class MessagingTest extends TestCase
             ->getJson(route('inbox.activity', ['after' => now()->subMinute()->toIso8601String()]))
             ->assertOk()
             ->assertJsonPath('unread_notifications', 1)
+            ->assertJsonPath('notifications.0.id', $notification->id)
+            ->assertJsonPath('notifications.0.read_at', null)
             ->assertJsonPath('toasts.0.source_key', $notification->source_key);
 
         $this->actingAs($supervisor)

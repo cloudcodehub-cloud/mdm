@@ -308,10 +308,12 @@ function SupervisorDashboard({ data }: { data: DashboardPayload }) {
                         label="Completed"
                         value={data.today_visit_summary.completed}
                     />
-                    <MetricSummary
-                        label="Open exceptions"
-                        value={data.open_exceptions}
-                    />
+                    <Link href={exceptionsIndex()} className="hover:text-foreground">
+                        <MetricSummary
+                            label="Open exceptions"
+                            value={data.open_exceptions}
+                        />
+                    </Link>
                 </div>
                 <SegmentedStatusBar segments={visitStatusSegments(data)} />
             </Panel>
@@ -327,7 +329,12 @@ function SupervisorDashboard({ data }: { data: DashboardPayload }) {
                     <ul className="space-y-3">
                         {data.assigned_dsps.map((dsp) => (
                             <li key={dsp.id} className="text-sm">
-                                <p className="font-medium">{dsp.name}</p>
+                                <Link
+                                    href={dsp.href ?? showEmployee.url(dsp.id)}
+                                    className="hover:text-foreground font-medium"
+                                >
+                                    {dsp.name}
+                                </Link>
                                 <p className="text-muted-foreground text-xs">
                                     {dsp.visits_today ?? 0} visit
                                     {(dsp.visits_today ?? 0) === 1 ? '' : 's'}{' '}
@@ -335,9 +342,20 @@ function SupervisorDashboard({ data }: { data: DashboardPayload }) {
                                     {(dsp.in_progress ?? 0) > 0
                                         ? ` · ${dsp.in_progress} in progress`
                                         : ''}
-                                    {(dsp.attention ?? 0) > 0
-                                        ? ` · ${dsp.attention} need attention`
-                                        : ''}
+                                    {(dsp.attention ?? 0) > 0 ? (
+                                        <>
+                                            {' · '}
+                                            <Link
+                                                href={
+                                                    dsp.attention_href ??
+                                                    operationsIndex()
+                                                }
+                                                className="hover:text-foreground font-medium"
+                                            >
+                                                {dsp.attention} need attention
+                                            </Link>
+                                        </>
+                                    ) : null}
                                 </p>
                             </li>
                         ))}

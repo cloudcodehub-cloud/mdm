@@ -1,4 +1,4 @@
-import type { Auth, DemoWeather, OrganizationSettings } from '@/types/auth';
+import type { Auth, AgencyWeather, OrganizationSettings } from '@/types/auth';
 import type { DashboardActiveVisit } from '@/types/dashboard';
 import type { InboxActivity } from '@/types/messaging';
 
@@ -15,7 +15,8 @@ declare module '@inertiajs/core' {
             auth: Auth;
             organization: OrganizationSettings;
             sidebarOpen: boolean;
-            demoWeather: DemoWeather;
+            weather: AgencyWeather;
+            demoTools: { enabled: boolean };
             inbox: InboxActivity;
             activeWork: DashboardActiveVisit | null;
             [key: string]: unknown;

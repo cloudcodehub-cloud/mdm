@@ -18,4 +18,21 @@ enum VisitExceptionType: string
             self::OtherVisitException => 'Unfinished-task exception',
         };
     }
+
+    /**
+     * Presentation priority derived from existing exception types.
+     * Critical skips, client refusals, and unfinished required work are high.
+     */
+    public function isHighPriority(): bool
+    {
+        return match ($this) {
+            self::CriticalTaskSkipped, self::ClientRefusal, self::OtherVisitException => true,
+            self::GpsUnavailable => false,
+        };
+    }
+
+    public function priority(): string
+    {
+        return $this->isHighPriority() ? 'high' : 'standard';
+    }
 }

@@ -61,6 +61,7 @@ class InAppNotificationService
         return $this->values(
             InAppNotification::query()
                 ->where('user_id', $user->id)
+                ->orderByRaw('case when read_at is null then 0 else 1 end')
                 ->orderByDesc('created_at')
                 ->limit($limit)
                 ->get()

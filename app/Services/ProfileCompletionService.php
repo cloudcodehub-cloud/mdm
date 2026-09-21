@@ -9,6 +9,7 @@ use App\Enums\ClientStatus;
 use App\Enums\CredentialType;
 use App\Enums\EmploymentStatus;
 use App\Enums\JobType;
+use App\Enums\ProfileCompletenessStatus;
 use App\Enums\ProfileItemSeverity;
 use App\Models\Client;
 use App\Models\Employee;
@@ -272,6 +273,7 @@ class ProfileCompletionService
         $total = count($items);
         $missingItems = collect($items)->where('complete', false)->values();
         $percent = $total === 0 ? 100 : (int) round(($completed / $total) * 100);
+        $band = ProfileCompletenessStatus::fromPercent($percent);
 
         return [
             'percent' => $percent,
@@ -279,8 +281,25 @@ class ProfileCompletionService
             'missing' => $total - $completed,
             'total' => $total,
             'critical_missing' => $missingItems->where('severity', ProfileItemSeverity::Critical->value)->count(),
+            'status' => $band->value,
+            'status_label' => $band->label(),
+            'tone' => $band->tone(),
             'items' => $items,
             'summary' => $this->publicSummary($missingItems->all()),
+        ];
+    }
+
+    /**
+     * @return array{status: string, label: string, tone: string}
+     */
+    public function statusForPercent(int $percent): array
+    {
+        $status = ProfileCompletenessStatus::fromPercent($percent);
+
+        return [
+            'status' => $status->value,
+            'label' => $status->label(),
+            'tone' => $status->tone(),
         ];
     }
 

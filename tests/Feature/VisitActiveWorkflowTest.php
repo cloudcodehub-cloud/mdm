@@ -181,6 +181,62 @@ class VisitActiveWorkflowTest extends TestCase
         );
     }
 
+    public function test_skipping_multiple_required_tasks_records_task_specific_exceptions(): void
+    {
+        ['dsp' => $dsp, 'visit' => $visit, 'task' => $first] = $this->startedVisit();
+        $this->seedSkipReasons();
+        $plan = CarePlan::query()->where('client_id', $visit->client_id)->firstOrFail();
+        CarePlanTaskTemplate::factory()->forCarePlan($plan)->create([
+            'title' => 'Medication support',
+            'instructions' => 'Prompt medications as accepted.',
+            'recurrence' => TaskRecurrence::Daily,
+            'is_required' => true,
+            'is_critical' => true,
+            'can_skip' => true,
+            'sort_order' => 2,
+        ]);
+        app(\App\Services\VisitTaskGenerator::class)->generate($visit);
+        $tasks = VisitTask::query()->where('visit_id', $visit->id)->where('status', VisitTaskStatus::Pending)->get();
+        $this->assertGreaterThanOrEqual(2, $tasks->count());
+        $reason = SkipReason::query()->where('code', 'not_applicable')->firstOrFail();
+        $user = $dsp->user()->firstOrFail();
+
+        foreach ($tasks as $task) {
+            $this->actingAs($user)
+                ->post(route('visits.tasks.skip', [$visit, $task]), [
+                    'skip_reason_id' => $reason->id,
+                ])
+                ->assertRedirect()
+                ->assertSessionHasNoErrors();
+        }
+
+        $exceptions = VisitException::query()
+            ->where('visit_id', $visit->id)
+            ->where('type', VisitExceptionType::CriticalTaskSkipped)
+            ->get();
+
+        $this->assertSame($tasks->count(), $exceptions->count());
+        $this->assertEqualsCanonicalizing(
+            $tasks->pluck('id')->all(),
+            $exceptions->pluck('visit_task_id')->all(),
+        );
+        $this->assertTrue($exceptions->every(fn (VisitException $exception): bool => is_array($exception->context) && isset($exception->context['title'])));
+
+        $this->actingAs($user)
+            ->post(route('visits.tasks.skip', [$visit, $first]), [
+                'skip_reason_id' => $reason->id,
+            ])
+            ->assertRedirect();
+
+        $this->assertSame(
+            $tasks->count(),
+            VisitException::query()
+                ->where('visit_id', $visit->id)
+                ->where('type', VisitExceptionType::CriticalTaskSkipped)
+                ->count(),
+        );
+    }
+
     public function test_comment_required_skip_is_rejected_without_comment(): void
     {
         ['dsp' => $dsp, 'visit' => $visit, 'task' => $task] = $this->startedVisit();

@@ -662,6 +662,8 @@ final class DirectoryPresenter
             'visit_task_id' => $exception->visit_task_id,
             'type' => $exception->type->value,
             'type_label' => $exception->type->label(),
+            'priority' => $exception->type->priority(),
+            'is_high_priority' => $exception->type->isHighPriority(),
             'status' => $exception->status->value,
             'status_label' => $exception->status->label(),
             'message' => $exception->message,

@@ -1,11 +1,13 @@
-import { useForm } from '@inertiajs/react';
+import { useForm, usePage } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import { Field, controlClassName } from '@/components/mdm/directory';
+import { FillDemoDataButton } from '@/components/mdm/fill-demo-data-button';
 import {
     EMPLOYEE_ONBOARDING_STEPS,
     OnboardingStepper,
 } from '@/components/mdm/onboarding-stepper';
 import { ProfilePhoto } from '@/components/mdm/profile-photo';
+import { demoEmployeeFill } from '@/lib/demo-form-fill';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -101,6 +103,7 @@ export function EmployeeOnboardingForm({
     submitLabel: string;
 }) {
     const creating = !employee;
+    const demoEnabled = Boolean(usePage().props.demoTools?.enabled) && creating;
     const [step, setStep] = useState(1);
     const form = useForm({
         first_name: employee?.first_name ?? '',
@@ -270,11 +273,23 @@ export function EmployeeOnboardingForm({
 
     return (
         <form onSubmit={submit} className="space-y-6">
-            <OnboardingStepper
-                currentStep={step}
-                steps={EMPLOYEE_ONBOARDING_STEPS}
-                ariaLabel="Employee onboarding progress"
-            />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <OnboardingStepper
+                    currentStep={step}
+                    steps={EMPLOYEE_ONBOARDING_STEPS}
+                    ariaLabel="Employee onboarding progress"
+                />
+                <FillDemoDataButton
+                    enabled={demoEnabled}
+                    onFill={() => {
+                        form.setData({
+                            ...form.data,
+                            ...(demoEmployeeFill(supervisors) as typeof form.data),
+                        });
+                        setStep(1);
+                    }}
+                />
+            </div>
 
             {step === 1 && (
                 <section className="surface-panel grid gap-4 p-4 md:grid-cols-2 md:p-5">

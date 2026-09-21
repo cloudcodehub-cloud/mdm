@@ -1,7 +1,7 @@
 import { usePage } from '@inertiajs/react';
 import { BrandMark } from '@/components/brand-mark';
 import { AlertsMenu } from '@/components/mdm/alerts-menu';
-import { DemoWeather } from '@/components/mdm/demo-weather';
+import { AgencyWeather } from '@/components/mdm/demo-weather';
 import { LiveClock } from '@/components/mdm/live-clock';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -21,7 +21,7 @@ export function AppSidebarHeader({
 }: {
     breadcrumbs?: BreadcrumbItemType[];
 }) {
-    const { auth, demoWeather, title: pageHeading } = usePage().props;
+    const { auth, weather, title: pageHeading } = usePage().props;
     const getInitials = useInitials();
     const pageTitle =
         typeof pageHeading === 'string' && pageHeading.length > 0
@@ -54,7 +54,7 @@ export function AppSidebarHeader({
 
             <div className="flex items-center gap-1 sm:gap-2">
                 <LiveClock />
-                {demoWeather && <DemoWeather weather={demoWeather} />}
+                {weather && <AgencyWeather weather={weather} />}
                 <AlertsMenu />
                 {auth.user && (
                     <DropdownMenu>

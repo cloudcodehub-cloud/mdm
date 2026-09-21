@@ -2,9 +2,11 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\AgencyWeatherService;
 use App\Services\InboxActivityService;
 use App\Services\SettingsService;
 use App\Services\VisitClockInService;
+use App\Support\DemoEnvironment;
 use App\Support\DirectoryPresenter;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -49,11 +51,11 @@ class HandleInertiaRequests extends Middleware
             ],
             'organization' => app(SettingsService::class)->shared(),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
-            'demoWeather' => [
-                'source' => 'Local demo',
-                'location' => 'Lakeside, OH',
-                'condition' => 'Partly cloudy',
-                'temperature' => '68°F',
+            'weather' => function (): array {
+                return app(AgencyWeatherService::class)->shared();
+            },
+            'demoTools' => [
+                'enabled' => DemoEnvironment::toolsEnabled(),
             ],
             'inbox' => function () use ($user): array {
                 if ($user === null) {

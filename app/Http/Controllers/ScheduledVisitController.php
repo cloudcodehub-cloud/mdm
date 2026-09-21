@@ -140,6 +140,7 @@ class ScheduledVisitController extends Controller
                 'create' => $user->can('create', ScheduledVisit::class),
                 'filter_dsps' => ! $user->isDsp(),
             ],
+            'list_url' => route('scheduled-visits.index'),
         ]);
     }
 

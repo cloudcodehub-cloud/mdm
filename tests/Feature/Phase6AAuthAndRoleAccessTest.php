@@ -198,6 +198,7 @@ class Phase6AAuthAndRoleAccessTest extends TestCase
                 ->component('scheduled-visits/calendar')
                 ->has('supervisors', 0)
                 ->where('can.create', false)
-                ->where('can.filter_dsps', false));
+                ->where('can.filter_dsps', false)
+                ->where('list_url', route('scheduled-visits.index')));
     }
 }

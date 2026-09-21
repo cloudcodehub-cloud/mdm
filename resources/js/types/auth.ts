@@ -26,13 +26,18 @@ export type OrganizationSettings = {
     time_format: string;
     first_day_of_week: number;
     now: string;
+    city?: string;
+    state?: string;
+    postal_code?: string;
+    location_label?: string;
 };
 
-export type DemoWeather = {
-    source: string;
+export type AgencyWeather = {
+    available: boolean;
+    temperature: string | null;
+    condition: string | null;
     location: string;
-    condition: string;
-    temperature: string;
+    source: string | null;
 };
 
 export type Passkey = {

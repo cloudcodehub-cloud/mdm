@@ -20,6 +20,9 @@ class GeneralSettingsController extends Controller
         return Inertia::render('settings/general', [
             'settings' => [
                 'organization_name' => $this->settings->current()->organization_name,
+                'city' => $this->settings->current()->city,
+                'state' => $this->settings->current()->state,
+                'postal_code' => $this->settings->current()->postal_code,
                 'timezone' => $this->settings->timezone(),
                 'date_format' => $this->settings->current()->date_format->value,
                 'time_format' => $this->settings->current()->time_format->value,

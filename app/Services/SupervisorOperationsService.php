@@ -170,11 +170,11 @@ class SupervisorOperationsService
             'timezone' => $this->settings->timezone(),
             'timezone_label' => $this->settings->timezoneLabel($this->settings->timezone()),
             'metrics' => [
-                $this->metric('assigned_dsps', 'Assigned DSPs', $assignedDsps->count(), 'Active DSP reports on this caseload'),
-                $this->metric('assigned_clients', 'Assigned clients', $assignedClients->count(), 'Active clients on this caseload'),
-                $this->metric('visits_today', "Today's scheduled visits", $todayVisits->count(), 'Service date in the operational timezone'),
-                $this->metric('active_visits', 'Active visits', $activeVisits->count(), 'Currently clocked-in visits'),
-                $this->metric('open_exceptions', 'Open exceptions', $openExceptions->count(), 'Exceptions awaiting review or resolution'),
+                $this->metric('assigned_dsps', 'Assigned DSPs', $assignedDsps->count(), 'Active DSP reports on this caseload', route('employees.index')),
+                $this->metric('assigned_clients', 'Assigned clients', $assignedClients->count(), 'Active clients on this caseload', route('clients.index')),
+                $this->metric('visits_today', "Today's scheduled visits", $todayVisits->count(), 'Service date in the operational timezone', route('scheduled-visits.index')),
+                $this->metric('active_visits', 'Active visits', $activeVisits->count(), 'Currently clocked-in visits', route('operations.index')),
+                $this->metric('open_exceptions', 'Open exceptions', $openExceptions->count(), 'Exceptions awaiting review or resolution', route('visit-exceptions.index')),
             ],
             'assigned_dsps' => $this->people($assignedDsps),
             'assigned_clients' => $this->clients($assignedClients),
@@ -185,6 +185,9 @@ class SupervisorOperationsService
             'handover_notes' => $this->handovers($handovers),
             'exceptions' => [
                 'open' => DirectoryPresenter::visitExceptions($openExceptions),
+                'high_priority_open' => DirectoryPresenter::visitExceptions(
+                    $openExceptions->filter(fn (VisitException $exception): bool => $exception->type->isHighPriority()),
+                ),
                 'gps' => DirectoryPresenter::visitExceptions($this->exceptionsOfType($openExceptions, VisitExceptionType::GpsUnavailable)),
                 'client_refusals' => DirectoryPresenter::visitExceptions($this->exceptionsOfType($openExceptions, VisitExceptionType::ClientRefusal)),
                 'critical_skips' => DirectoryPresenter::visitExceptions($this->exceptionsOfType($openExceptions, VisitExceptionType::CriticalTaskSkipped)),
@@ -194,15 +197,16 @@ class SupervisorOperationsService
     }
 
     /**
-     * @return array{key: string, label: string, value: int, hint: string}
+     * @return array{key: string, label: string, value: int, hint: string, href: string|null}
      */
-    private function metric(string $key, string $label, int $value, string $hint): array
+    private function metric(string $key, string $label, int $value, string $hint, ?string $href = null): array
     {
         return [
             'key' => $key,
             'label' => $label,
             'value' => $value,
             'hint' => $hint,
+            'href' => $href,
         ];
     }
 

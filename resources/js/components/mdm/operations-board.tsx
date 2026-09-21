@@ -42,6 +42,7 @@ export function OperationsBoardView({
                         label={metric.label}
                         value={metric.value}
                         hint={metric.hint}
+                        href={metric.href}
                     />
                 ))}
             </div>

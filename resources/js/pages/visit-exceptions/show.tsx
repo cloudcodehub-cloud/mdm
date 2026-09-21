@@ -150,6 +150,7 @@ export default function VisitExceptionsShow({
                                     <textarea
                                         id="review_notes"
                                         rows={4}
+                                        placeholder="Document what was reviewed, action taken, and any follow-up required"
                                         value={reviewForm.data.review_notes}
                                         onChange={(event) =>
                                             reviewForm.setData(
@@ -191,6 +192,7 @@ export default function VisitExceptionsShow({
                                     <textarea
                                         id="resolution_notes"
                                         rows={4}
+                                        placeholder="Document what was reviewed, action taken, and any follow-up required"
                                         value={
                                             resolveForm.data.resolution_notes
                                         }

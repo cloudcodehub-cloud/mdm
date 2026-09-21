@@ -63,13 +63,21 @@ export type VisitExceptionRecord = {
     client_name: string | null;
     dsp_name: string | null;
     service_type: string | null;
+    priority: 'high' | 'standard';
+    is_high_priority: boolean;
 };
 
 export type OperationsBoard = {
     today: string;
     timezone: string;
     timezone_label: string;
-    metrics: Array<{ key: string; label: string; value: number; hint: string }>;
+    metrics: Array<{
+        key: string;
+        label: string;
+        value: number;
+        hint: string;
+        href?: string | null;
+    }>;
     assigned_dsps: OperationsPerson[];
     assigned_clients: OperationsPerson[];
     today_visits: OperationsVisitRow[];
@@ -95,6 +103,7 @@ export type OperationsBoard = {
     }>;
     exceptions: {
         open: VisitExceptionRecord[];
+        high_priority_open: VisitExceptionRecord[];
         gps: VisitExceptionRecord[];
         client_refusals: VisitExceptionRecord[];
         critical_skips: VisitExceptionRecord[];

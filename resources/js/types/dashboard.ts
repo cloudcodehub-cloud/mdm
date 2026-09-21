@@ -24,6 +24,8 @@ export type DashboardEmployee = {
     visits_today?: number;
     in_progress?: number;
     attention?: number;
+    attention_href?: string | null;
+    href?: string | null;
     photo_url?: string | null;
     initials?: string;
 };
@@ -130,6 +132,9 @@ export type DashboardPayload = {
         percent: number;
         summary: string;
         href: string;
+        status?: string;
+        status_label?: string;
+        tone?: string;
         photo_url?: string | null;
         initials?: string;
     }>;

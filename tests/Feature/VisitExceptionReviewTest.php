@@ -91,6 +91,18 @@ class VisitExceptionReviewTest extends TestCase
         $this->assertCount(2, $exception->status_history ?? []);
     }
 
+    public function test_resolution_notes_remain_optional(): void
+    {
+        ['supervisor' => $supervisor, 'exception' => $exception] = $this->scopedException();
+
+        $this->actingAs($supervisor->user()->firstOrFail())
+            ->patch(route('visit-exceptions.resolve', $exception), [])
+            ->assertRedirect(route('visit-exceptions.show', $exception));
+
+        $this->assertSame(VisitExceptionStatus::Resolved, $exception->fresh()->status);
+        $this->assertNull($exception->fresh()->resolution_notes);
+    }
+
     public function test_out_of_scope_supervisor_cannot_access_exception(): void
     {
         ['other' => $other, 'exception' => $exception] = $this->scopedException();

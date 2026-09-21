@@ -108,6 +108,8 @@ class DashboardTest extends TestCase
                 ->has('dashboard.today_visits', 3)
                 ->has('dashboard.today_visit_summary')
                 ->has('dashboard.open_exceptions')
+                ->has('dashboard.attention_items')
+                ->has('dashboard.attention_items.0.href')
             );
     }
 

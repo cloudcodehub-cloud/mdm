@@ -23,6 +23,8 @@ use App\Enums\ScheduledVisitStatus;
 use App\Enums\TaskPreferredTiming;
 use App\Enums\TaskRecurrence;
 use App\Enums\TrainingStatus;
+use App\Enums\VisitExceptionStatus;
+use App\Enums\VisitExceptionType;
 use App\Enums\VisitRecurrencePattern;
 use App\Enums\VisitStatus;
 use App\Enums\VisitTaskStatus;
@@ -36,6 +38,7 @@ use App\Models\ClientAuthorization;
 use App\Models\ClientDspAssignment;
 use App\Models\Conversation;
 use App\Models\ConversationMessage;
+use App\Models\DemoSeedRecord;
 use App\Models\DspAvailabilityException;
 use App\Models\DspAvailabilityRequest;
 use App\Models\DspWeeklyAvailability;
@@ -51,6 +54,7 @@ use App\Models\ShiftTemplate;
 use App\Models\SkipReason;
 use App\Models\User;
 use App\Models\Visit;
+use App\Models\VisitException;
 use App\Models\VisitTask;
 use App\Services\SettingsService;
 use App\Services\VisitTaskGenerator;
@@ -63,11 +67,20 @@ class DemoDataSeeder extends Seeder
     /**
      * Marker prefix used to upsert demo operational rows without touching unrelated local data.
      */
+    /**
+     * Marker prefix retained only to locate rows seeded before demo_seed_records existed.
+     */
     public const MARKER_PREFIX = '[[mdm-demo:';
 
     public const AGENCY_NAME = 'Ultimate Care Supported Living';
 
     public const TIMEZONE = 'America/New_York';
+
+    public const AGENCY_CITY = 'Reynoldsburg';
+
+    public const AGENCY_STATE = 'OH';
+
+    public const AGENCY_POSTAL = '43068';
 
     /**
      * Seed a coherent local/demo agency. Skipped in production.
@@ -103,6 +116,7 @@ class DemoDataSeeder extends Seeder
         $this->seedAvailability($people, $today);
         $this->seedTimeOff($people, $today);
         $this->seedScheduleAndVisits($people, $clients, $plans, $today);
+        $this->seedOpenVisitExceptions();
         $this->seedAnnouncements($people, $today);
         $this->seedMessages($people, $today);
 
@@ -136,6 +150,9 @@ class DemoDataSeeder extends Seeder
         $service->updateOrganization([
             'organization_name' => self::AGENCY_NAME,
             'timezone' => self::TIMEZONE,
+            'city' => self::AGENCY_CITY,
+            'state' => self::AGENCY_STATE,
+            'postal_code' => self::AGENCY_POSTAL,
         ]);
     }
 
@@ -701,27 +718,34 @@ class DemoDataSeeder extends Seeder
         $evening = ShiftTemplate::query()->where('code', 'evening_3_11')->firstOrFail();
         $overnight = ShiftTemplate::query()->where('code', 'overnight_11_7')->firstOrFail();
         $admin = $people['admin'];
+        $series = $this->findSeeded('series-maya-elena-weekly', ScheduledVisitSeries::class)
+            ?? ScheduledVisitSeries::query()->where('notes', 'like', '%'.$this->legacyMarker('series-maya-elena-weekly').'%')->first();
 
-        $series = ScheduledVisitSeries::query()->updateOrCreate(
-            ['notes' => $this->marker('series-maya-elena-weekly')],
-            [
-                'client_id' => $clients['elena']->id,
-                'employee_id' => $people['maya']->id,
-                'supervisor_id' => $people['jordan']->id,
-                'shift_template_id' => $day->id,
-                'service_type' => 'Residential Habilitation',
-                'starts_at' => null,
-                'ends_at' => null,
-                'pattern' => VisitRecurrencePattern::Weekly,
-                'interval' => 1,
-                'days_of_week' => [$today->dayOfWeek],
-                'starts_on' => $today->copy()->subWeeks(2)->toDateString(),
-                'ends_on' => $today->copy()->addWeeks(2)->toDateString(),
-                'occurrence_count' => 5,
-                'created_by_user_id' => $admin->id,
-                'notes' => $this->marker('series-maya-elena-weekly'),
-            ],
-        );
+        $seriesPayload = [
+            'client_id' => $clients['elena']->id,
+            'employee_id' => $people['maya']->id,
+            'supervisor_id' => $people['jordan']->id,
+            'shift_template_id' => $day->id,
+            'service_type' => 'Residential Habilitation',
+            'starts_at' => null,
+            'ends_at' => null,
+            'pattern' => VisitRecurrencePattern::Weekly,
+            'interval' => 1,
+            'days_of_week' => [$today->dayOfWeek],
+            'starts_on' => $today->copy()->subWeeks(2)->toDateString(),
+            'ends_on' => $today->copy()->addWeeks(2)->toDateString(),
+            'occurrence_count' => 5,
+            'created_by_user_id' => $admin->id,
+            'notes' => 'Weekly residential morning support for Elena.',
+        ];
+
+        if ($series instanceof ScheduledVisitSeries) {
+            $series->update($seriesPayload);
+        } else {
+            $series = ScheduledVisitSeries::query()->create($seriesPayload);
+        }
+
+        $this->remember('series-maya-elena-weekly', $series);
 
         $pastTwo = $this->upsertScheduledVisit('maya-elena-week-past-2', [
             'client_id' => $clients['elena']->id,
@@ -1417,8 +1441,8 @@ class DemoDataSeeder extends Seeder
         string $key,
         string $note,
     ): void {
-        $marker = $this->marker($key);
-        $existing = DspAvailabilityException::query()->where('note', 'like', '%'.$marker.'%')->first();
+        $existing = $this->findSeeded($key, DspAvailabilityException::class)
+            ?? DspAvailabilityException::query()->where('note', 'like', '%'.$this->legacyMarker($key).'%')->first();
 
         $payload = [
             'employee_id' => $employee->id,
@@ -1426,16 +1450,17 @@ class DemoDataSeeder extends Seeder
             'is_available' => $available,
             'starts_at' => $startsAt,
             'ends_at' => $endsAt,
-            'note' => $marker.' '.$note,
+            'note' => $note,
         ];
 
-        if ($existing !== null) {
+        if ($existing instanceof DspAvailabilityException) {
             $existing->update($payload);
+            $this->remember($key, $existing);
 
             return;
         }
 
-        DspAvailabilityException::query()->create($payload);
+        $this->remember($key, DspAvailabilityException::query()->create($payload));
     }
 
     /**
@@ -1453,8 +1478,8 @@ class DemoDataSeeder extends Seeder
         array $payload,
         ?CarbonInterface $reviewedAt = null,
     ): void {
-        $marker = $this->marker($key);
-        $existing = DspAvailabilityRequest::query()->where('reason', 'like', '%'.$marker.'%')->first();
+        $existing = $this->findSeeded($key, DspAvailabilityRequest::class)
+            ?? DspAvailabilityRequest::query()->where('reason', 'like', '%'.$this->legacyMarker($key).'%')->first();
 
         $attributes = [
             'employee_id' => $employee->id,
@@ -1462,7 +1487,7 @@ class DemoDataSeeder extends Seeder
             'type' => $type,
             'effective_on' => $effectiveOn,
             'payload' => $payload,
-            'reason' => $marker.' '.$reason,
+            'reason' => $reason,
             'status' => $status,
             'submitted_at' => ($reviewedAt ?? now())->copy()->subHours(6),
             'reviewed_by_user_id' => $status === ReviewStatus::Pending ? null : $reviewer?->id,
@@ -1470,13 +1495,14 @@ class DemoDataSeeder extends Seeder
             'review_note' => $status === ReviewStatus::Rejected ? 'Weekday mornings are already covered.' : ($status === ReviewStatus::Approved ? 'Approved for the stated window.' : null),
         ];
 
-        if ($existing !== null) {
+        if ($existing instanceof DspAvailabilityRequest) {
             $existing->update($attributes);
+            $this->remember($key, $existing);
 
             return;
         }
 
-        DspAvailabilityRequest::query()->create($attributes);
+        $this->remember($key, DspAvailabilityRequest::query()->create($attributes));
     }
 
     private function upsertTimeOff(
@@ -1490,14 +1516,14 @@ class DemoDataSeeder extends Seeder
         string $reason,
         CarbonInterface $submittedAt,
     ): void {
-        $marker = $this->marker($key);
-        $existing = EmployeeTimeOff::query()->where('reason', 'like', '%'.$marker.'%')->first();
+        $existing = $this->findSeeded($key, EmployeeTimeOff::class)
+            ?? EmployeeTimeOff::query()->where('reason', 'like', '%'.$this->legacyMarker($key).'%')->first();
 
         $attributes = [
             'employee_id' => $employee->id,
             'starts_on' => $startsOn,
             'ends_on' => $endsOn,
-            'reason' => $marker.' '.$reason,
+            'reason' => $reason,
             'status' => $status,
             'requested_by_user_id' => $requester->id,
             'reviewed_by_user_id' => $status === ReviewStatus::Pending ? null : $reviewer?->id,
@@ -1506,13 +1532,14 @@ class DemoDataSeeder extends Seeder
             'submitted_at' => $submittedAt,
         ];
 
-        if ($existing !== null) {
+        if ($existing instanceof EmployeeTimeOff) {
             $existing->update($attributes);
+            $this->remember($key, $existing);
 
             return;
         }
 
-        EmployeeTimeOff::query()->create($attributes);
+        $this->remember($key, EmployeeTimeOff::query()->create($attributes));
     }
 
     /**
@@ -1520,18 +1547,22 @@ class DemoDataSeeder extends Seeder
      */
     private function upsertScheduledVisit(string $key, array $attributes): ScheduledVisit
     {
-        $marker = $this->marker($key);
-        $notes = trim($marker.' '.($attributes['notes'] ?? ''));
-        $existing = ScheduledVisit::query()->where('notes', 'like', '%'.$marker.'%')->first();
+        $existing = $this->findSeeded($key, ScheduledVisit::class)
+            ?? ScheduledVisit::query()->where('notes', 'like', '%'.$this->legacyMarker($key).'%')->first();
+        $notes = $this->stripMarkers((string) ($attributes['notes'] ?? ''));
         $payload = [...$attributes, 'notes' => $notes];
 
-        if ($existing !== null) {
+        if ($existing instanceof ScheduledVisit) {
             $existing->update($payload);
+            $this->remember($key, $existing);
 
             return $existing->refresh();
         }
 
-        return ScheduledVisit::query()->create($payload);
+        $visit = ScheduledVisit::query()->create($payload);
+        $this->remember($key, $visit);
+
+        return $visit;
     }
 
     private function completeVisit(
@@ -1616,8 +1647,8 @@ class DemoDataSeeder extends Seeder
     ): void {
         $settings = app(SettingsService::class);
         $date = $visit->scheduledVisit->service_date->toDateString();
-        $marker = $this->marker($key);
-        $existing = AttendanceCorrection::query()->where('reason', 'like', '%'.$marker.'%')->first();
+        $existing = $this->findSeeded($key, AttendanceCorrection::class)
+            ?? AttendanceCorrection::query()->where('reason', 'like', '%'.$this->legacyMarker($key).'%')->first();
 
         $attributes = [
             'scheduled_visit_id' => $visit->scheduled_visit_id,
@@ -1627,20 +1658,21 @@ class DemoDataSeeder extends Seeder
             'original_clocked_out_at' => $visit->clocked_out_at,
             'requested_clocked_in_at' => $settings->at($date, $requestedIn),
             'requested_clocked_out_at' => $settings->at($date, $requestedOut),
-            'reason' => $marker.' '.$reason,
+            'reason' => $reason,
             'requested_by_user_id' => $requestedBy->id,
             'reviewed_by_user_id' => $status === AttendanceCorrectionStatus::Pending ? null : $reviewedBy?->id,
             'reviewed_at' => $status === AttendanceCorrectionStatus::Pending ? null : now()->subDay(),
             'review_note' => $status === AttendanceCorrectionStatus::Approved ? 'Approved. Original clock values remain on the visit.' : null,
         ];
 
-        if ($existing !== null) {
+        if ($existing instanceof AttendanceCorrection) {
             $existing->update($attributes);
+            $this->remember($key, $existing);
 
             return;
         }
 
-        AttendanceCorrection::query()->create($attributes);
+        $this->remember($key, AttendanceCorrection::query()->create($attributes));
     }
 
     /**
@@ -1703,7 +1735,192 @@ class DemoDataSeeder extends Seeder
         $message->save();
     }
 
-    private function marker(string $key): string
+    private function seedOpenVisitExceptions(): void
+    {
+        $mayaYesterday = $this->findSeeded('maya-elena-yesterday', ScheduledVisit::class);
+        $danaCorrected = $this->findSeeded('dana-theo-corrected', ScheduledVisit::class);
+        $ninaCompleted = $this->findSeeded('nina-malik-completed', ScheduledVisit::class);
+        $tessCompleted = $this->findSeeded('tess-ruby-completed', ScheduledVisit::class);
+
+        if ($mayaYesterday instanceof ScheduledVisit && $mayaYesterday->visit) {
+            $task = VisitTask::query()
+                ->where('visit_id', $mayaYesterday->visit->id)
+                ->where('is_required', true)
+                ->where('can_skip', true)
+                ->orderBy('sort_order')
+                ->first();
+
+            if ($task instanceof VisitTask) {
+                $reason = SkipReason::query()->where('code', 'not_applicable')->first()
+                    ?? SkipReason::query()->first();
+
+                $task->update([
+                    'status' => VisitTaskStatus::Skipped,
+                    'skipped_at' => $mayaYesterday->visit->clocked_in_at?->copy()->addMinutes(35),
+                    'skip_reason_id' => $reason?->id,
+                    'skip_comment' => 'Client was already dressed when the DSP arrived.',
+                    'completed_at' => null,
+                    'completion_note' => null,
+                ]);
+
+                $this->upsertOpenException(
+                    'exception-maya-critical-skip',
+                    $mayaYesterday->visit,
+                    VisitExceptionType::CriticalTaskSkipped,
+                    'A required care-plan task was skipped.',
+                    $task,
+                    [
+                        'skip_reason_code' => $reason?->code,
+                        'title' => $task->title,
+                    ],
+                );
+            }
+        }
+
+        if ($danaCorrected instanceof ScheduledVisit && $danaCorrected->visit) {
+            $skipped = VisitTask::query()
+                ->where('visit_id', $danaCorrected->visit->id)
+                ->where('status', VisitTaskStatus::Skipped)
+                ->orderBy('sort_order')
+                ->first();
+
+            if ($skipped instanceof VisitTask) {
+                $this->upsertOpenException(
+                    'exception-dana-client-refusal',
+                    $danaCorrected->visit,
+                    VisitExceptionType::ClientRefusal,
+                    'Client refused a care-plan task.',
+                    $skipped,
+                    [
+                        'skip_reason_code' => SkipReason::CLIENT_REFUSED,
+                        'explanation' => $skipped->skip_comment,
+                        'title' => $skipped->title,
+                    ],
+                );
+            }
+        }
+
+        if ($ninaCompleted instanceof ScheduledVisit && $ninaCompleted->visit) {
+            $pending = VisitTask::query()
+                ->where('visit_id', $ninaCompleted->visit->id)
+                ->where('is_required', true)
+                ->orderByDesc('sort_order')
+                ->first();
+
+            if ($pending instanceof VisitTask) {
+                $pending->update([
+                    'status' => VisitTaskStatus::Pending,
+                    'completed_at' => null,
+                    'completion_note' => null,
+                ]);
+                $ninaCompleted->visit->update(['unfinished_required_acknowledged' => true]);
+            }
+
+            $this->upsertOpenException(
+                'exception-nina-unfinished',
+                $ninaCompleted->visit,
+                VisitExceptionType::OtherVisitException,
+                'The DSP clocked out with unfinished required tasks.',
+                null,
+                [
+                    'task_ids' => $pending instanceof VisitTask ? [$pending->id] : [],
+                    'titles' => $pending instanceof VisitTask ? [$pending->title] : [],
+                ],
+            );
+        }
+
+        if ($tessCompleted instanceof ScheduledVisit && $tessCompleted->visit) {
+            $this->upsertOpenException(
+                'exception-tess-gps',
+                $tessCompleted->visit,
+                VisitExceptionType::GpsUnavailable,
+                'Clock-out GPS was not captured.',
+                null,
+                [
+                    'location_status' => ClockInLocationStatus::Unavailable->value,
+                    'reason' => 'GPS unavailable in local demo.',
+                ],
+            );
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $context
+     */
+    private function upsertOpenException(
+        string $key,
+        Visit $visit,
+        VisitExceptionType $type,
+        string $message,
+        ?VisitTask $task,
+        ?array $context,
+    ): void {
+        $existing = $this->findSeeded($key, VisitException::class);
+
+        $payload = [
+            'visit_id' => $visit->id,
+            'visit_task_id' => $task?->id,
+            'type' => $type,
+            'status' => VisitExceptionStatus::Open,
+            'message' => $message,
+            'context' => $context,
+            'reviewed_by_user_id' => null,
+            'reviewed_at' => null,
+            'review_notes' => null,
+            'resolved_by_user_id' => null,
+            'resolved_at' => null,
+            'resolution_notes' => null,
+            'status_history' => null,
+        ];
+
+        if ($existing instanceof VisitException) {
+            $existing->update($payload);
+            $this->remember($key, $existing);
+
+            return;
+        }
+
+        $this->remember($key, VisitException::query()->create($payload));
+    }
+
+    /**
+     * @template T of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  class-string<T>  $class
+     * @return T|null
+     */
+    private function findSeeded(string $key, string $class): ?\Illuminate\Database\Eloquent\Model
+    {
+        $record = DemoSeedRecord::query()->where('key', $key)->first();
+
+        if ($record === null) {
+            return null;
+        }
+
+        $model = $record->seedable;
+
+        return $model instanceof $class ? $model : null;
+    }
+
+    private function remember(string $key, \Illuminate\Database\Eloquent\Model $model): void
+    {
+        DemoSeedRecord::query()->updateOrCreate(
+            ['key' => $key],
+            [
+                'seedable_type' => $model->getMorphClass(),
+                'seedable_id' => $model->getKey(),
+            ],
+        );
+    }
+
+    private function stripMarkers(string $text): string
+    {
+        $stripped = preg_replace('/\[\[mdm-demo:[^\]]+\]\]/', '', $text) ?? $text;
+
+        return trim((string) preg_replace('/\s+/', ' ', $stripped));
+    }
+
+    private function legacyMarker(string $key): string
     {
         return self::MARKER_PREFIX.$key.']]';
     }

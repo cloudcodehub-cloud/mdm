@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'weather' => [
+        'enabled' => env('WEATHER_ENABLED', true),
+        'cache_ttl' => env('WEATHER_CACHE_TTL', 900),
+        'geocode_url' => env('WEATHER_GEOCODE_URL', 'https://geocoding-api.open-meteo.com/v1/search'),
+        'forecast_url' => env('WEATHER_FORECAST_URL', 'https://api.open-meteo.com/v1/forecast'),
+    ],
+
 ];

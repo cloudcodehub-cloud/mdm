@@ -23,6 +23,9 @@ class UpdateOrganizationSettingsRequest extends FormRequest
     {
         return [
             'organization_name' => ['required', 'string', 'max:255'],
+            'city' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'state' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'postal_code' => ['sometimes', 'nullable', 'string', 'max:20'],
             'timezone' => ['required', 'string', 'timezone:all'],
             'date_format' => ['required', Rule::enum(DateFormat::class)],
             'time_format' => ['required', Rule::enum(TimeFormat::class)],

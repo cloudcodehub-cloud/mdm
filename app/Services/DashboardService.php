@@ -89,7 +89,7 @@ class DashboardService
                 $this->metric('assigned_dsps', 'Assigned DSPs', $this->dspReportsQuery($employee)->count(), 'Active DSP reports'),
                 $this->metric('assigned_clients', 'Assigned clients', $this->supervisedClientsQuery($employee)->count(), 'Active clients on this caseload'),
                 $this->metric('visits_today', "Today's scheduled visits", $this->visitQuery($user)->whereDate('service_date', $today)->count(), 'Visits for assigned DSPs or clients', route('attendance.index', ['from' => $today, 'to' => $today])),
-                $this->metric('operational_attention', 'Attention items', count($this->attentionItems($user, $employee)), 'Compliance and schedule exceptions'),
+                $this->metric('operational_attention', 'Attention items', count($this->attentionItems($user, $employee)), 'Compliance and schedule exceptions', route('operations.index')),
             ];
         }
 
@@ -350,7 +350,7 @@ class DashboardService
 
         foreach ($todayOperational as $visit) {
             $id = $visit->employee_id;
-            $activity[$id] ??= ['visits_today' => 0, 'in_progress' => 0, 'attention' => 0];
+            $activity[$id] ??= ['visits_today' => 0, 'in_progress' => 0, 'attention' => 0, 'attention_href' => null];
             $activity[$id]['visits_today']++;
             $status = $this->operations->statusForScheduledVisit($visit);
 
@@ -364,6 +364,17 @@ class DashboardService
                 OperationalVisitStatus::Exception,
             ], true)) {
                 $activity[$id]['attention']++;
+
+                if ($activity[$id]['attention_href'] === null) {
+                    $execution = $visit->relationLoaded('visit') ? $visit->visit : $visit->visit;
+                    $openException = $execution?->exceptions?->first(fn ($exception): bool => $exception->isOpen());
+
+                    $activity[$id]['attention_href'] = $openException !== null
+                        ? route('visit-exceptions.show', $openException)
+                        : ($execution !== null
+                            ? route('visits.show', $execution)
+                            : route('scheduled-visits.show', $visit));
+                }
             }
         }
 
@@ -379,6 +390,8 @@ class DashboardService
                 'visits_today' => $activity[$dsp->id]['visits_today'] ?? 0,
                 'in_progress' => $activity[$dsp->id]['in_progress'] ?? 0,
                 'attention' => $activity[$dsp->id]['attention'] ?? 0,
+                'attention_href' => $activity[$dsp->id]['attention_href'] ?? route('employees.show', $dsp),
+                'href' => route('employees.show', $dsp),
                 'photo_url' => app(ProfilePhotoService::class)->employeeUrl($dsp),
                 'initials' => $dsp->initials(),
             ]));
@@ -447,6 +460,7 @@ class DashboardService
                 'tone' => $authorization->status === AuthorizationStatus::Expired ? 'danger' : 'warning',
                 'title' => $authorization->service_type.' authorization',
                 'detail' => $authorization->client->full_name.' · '.$authorization->status->value,
+                'href' => route('clients.show', $authorization->client_id),
             ];
         }
 
@@ -463,7 +477,28 @@ class DashboardService
                 'tone' => 'neutral',
                 'title' => 'Cancelled visit',
                 'detail' => $visit->client->full_name.' · '.$visit->service_date->toFormattedDateString(),
+                'href' => route('scheduled-visits.show', $visit),
             ];
+        }
+
+        if ($user->can('viewAny', VisitException::class)) {
+            $exceptions = VisitException::query()
+                ->visibleTo($user)
+                ->open()
+                ->with(['visit.client', 'visit.employee', 'visitTask'])
+                ->latest()
+                ->limit(6)
+                ->get();
+
+            foreach ($exceptions as $exception) {
+                $items[] = [
+                    'id' => 'exception-'.$exception->id,
+                    'tone' => $exception->type->isHighPriority() ? 'danger' : 'warning',
+                    'title' => $exception->type->label(),
+                    'detail' => ($exception->visit?->client?->full_name ?? 'Visit').' · '.$exception->message,
+                    'href' => route('visit-exceptions.show', $exception),
+                ];
+            }
         }
 
         return array_slice($items, 0, 10);

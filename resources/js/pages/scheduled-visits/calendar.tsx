@@ -350,6 +350,7 @@ export default function ScheduledVisitsCalendar({
     dsps,
     supervisors,
     can,
+    list_url,
 }: {
     board: {
         view: string;
@@ -370,6 +371,7 @@ export default function ScheduledVisitsCalendar({
     dsps: OptionItem[];
     supervisors: OptionItem[];
     can: { create: boolean; filter_dsps?: boolean };
+    list_url: string;
 }) {
     const days = board.days ?? datesInRange(board.start, board.end);
     const weekdayLabels = board.weekday_labels ?? [
@@ -418,7 +420,7 @@ export default function ScheduledVisitsCalendar({
                             </>
                         )}
                         <Button asChild variant="secondary">
-                            <Link href={visitsIndex()}>List</Link>
+                            <Link href={list_url}>List View</Link>
                         </Button>
                         {can.create && (
                             <Button asChild>

@@ -77,6 +77,33 @@ class SettingsService
     }
 
     /**
+     * Configured agency location used for weather and display. Not device GPS.
+     *
+     * @return array{city: string, state: string, postal_code: string, label: string}
+     */
+    public function agencyLocation(): array
+    {
+        $settings = $this->current();
+        $city = trim((string) $settings->city);
+        $state = trim((string) $settings->state);
+        $postal = trim((string) $settings->postal_code);
+
+        $label = match (true) {
+            $city !== '' && $state !== '' => $city.', '.$state,
+            $city !== '' => $city,
+            $state !== '' => $state,
+            default => '',
+        };
+
+        return [
+            'city' => $city,
+            'state' => $state,
+            'postal_code' => $postal,
+            'label' => $label,
+        ];
+    }
+
+    /**
      * Dashboard greeting for the organization-local hour.
      *
      * 05:00–11:59 Good morning
@@ -233,6 +260,7 @@ class SettingsService
     public function shared(): array
     {
         $settings = $this->current();
+        $location = $this->agencyLocation();
 
         return [
             'organization_name' => $this->agencyName(),
@@ -242,6 +270,10 @@ class SettingsService
             'time_format' => $settings->time_format->value,
             'first_day_of_week' => $settings->first_day_of_week,
             'now' => $this->now()->utc()->toIso8601String(),
+            'city' => $location['city'],
+            'state' => $location['state'],
+            'postal_code' => $location['postal_code'],
+            'location_label' => $location['label'],
         ];
     }
 

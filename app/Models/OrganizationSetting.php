@@ -11,6 +11,9 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property string $organization_name
+ * @property string|null $city
+ * @property string|null $state
+ * @property string|null $postal_code
  * @property string $timezone
  * @property DateFormat $date_format
  * @property TimeFormat $time_format
@@ -21,6 +24,9 @@ use Illuminate\Support\Carbon;
  */
 #[Fillable([
     'organization_name',
+    'city',
+    'state',
+    'postal_code',
     'timezone',
     'date_format',
     'time_format',

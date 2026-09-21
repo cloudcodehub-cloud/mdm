@@ -19,9 +19,42 @@ const emptyInbox: InboxActivity = {
     notifications: [],
 };
 
-const InboxActivityContext = createContext<InboxActivity>(emptyInbox);
+type InboxActivityContextValue = InboxActivity & {
+    refresh: () => Promise<void>;
+};
+
+const InboxActivityContext = createContext<InboxActivityContextValue>({
+    ...emptyInbox,
+    refresh: async () => {},
+});
 
 const toastedKeys = new Set<string>();
+
+async function fetchInbox(after?: string): Promise<InboxActivity | null> {
+    try {
+        const url = new URL(activity.url(), window.location.origin);
+
+        if (after) {
+            url.searchParams.set('after', after);
+        }
+
+        const response = await fetch(url.toString(), {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+        });
+
+        if (!response.ok) {
+            return null;
+        }
+
+        return (await response.json()) as InboxActivity;
+    } catch {
+        return null;
+    }
+}
 
 export function InboxActivityProvider({ children }: { children: ReactNode }) {
     const { inbox: sharedInbox, auth } = usePage().props;
@@ -60,6 +93,28 @@ export function InboxActivityProvider({ children }: { children: ReactNode }) {
         });
     }, []);
 
+    const applyPayload = useCallback((payload: InboxActivity) => {
+        setInbox({
+            unread_messages: payload.unread_messages,
+            unread_notifications: payload.unread_notifications,
+            notifications: payload.notifications ?? [],
+        });
+        showToasts(payload.toasts ?? []);
+        afterRef.current = new Date().toISOString();
+    }, [showToasts]);
+
+    const refresh = useCallback(async () => {
+        if (!auth.user) {
+            return;
+        }
+
+        const payload = await fetchInbox();
+
+        if (payload) {
+            applyPayload(payload);
+        }
+    }, [applyPayload, auth.user]);
+
     useEffect(() => {
         if (!auth.user) {
             return;
@@ -72,33 +127,13 @@ export function InboxActivityProvider({ children }: { children: ReactNode }) {
                 return;
             }
 
-            try {
-                const url = new URL(activity.url(), window.location.origin);
-                url.searchParams.set('after', afterRef.current);
+            const payload = await fetchInbox(afterRef.current);
 
-                const response = await fetch(url.toString(), {
-                        headers: {
-                            Accept: 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
-                        credentials: 'same-origin',
-                    },
-                );
-
-                if (!response.ok || cancelled) {
-                    return;
-                }
-
-                const payload = (await response.json()) as InboxActivity;
-                setInbox({
-                    unread_messages: payload.unread_messages,
-                    unread_notifications: payload.unread_notifications,
-                    notifications: payload.notifications,
-                });
-                showToasts(payload.toasts ?? []);
-            } catch {
-                // Keep the last known inbox state if a poll fails.
+            if (cancelled || payload === null) {
+                return;
             }
+
+            applyPayload(payload);
         };
 
         const first = window.setTimeout(poll, 4000);
@@ -109,9 +144,16 @@ export function InboxActivityProvider({ children }: { children: ReactNode }) {
             window.clearTimeout(first);
             window.clearInterval(interval);
         };
-    }, [auth.user, showToasts]);
+    }, [auth.user, applyPayload]);
 
-    const value = useMemo(() => inbox, [inbox]);
+    const value = useMemo(
+        () => ({
+            ...inbox,
+            notifications: inbox.notifications ?? [],
+            refresh,
+        }),
+        [inbox, refresh],
+    );
 
     return (
         <InboxActivityContext.Provider value={value}>
@@ -120,6 +162,6 @@ export function InboxActivityProvider({ children }: { children: ReactNode }) {
     );
 }
 
-export function useInboxActivity(): InboxActivity {
+export function useInboxActivity(): InboxActivityContextValue {
     return useContext(InboxActivityContext);
 }
