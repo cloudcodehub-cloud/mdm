@@ -14,6 +14,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (DB::connection()->getDriverName() === 'mysql') {
+            return;
+        }
+
         DB::statement('DROP INDEX IF EXISTS visit_exceptions_task_unique');
         DB::statement('DROP INDEX IF EXISTS visit_exceptions_visit_unique');
 
@@ -26,6 +30,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (DB::connection()->getDriverName() === 'mysql') {
+            return;
+        }
+
         DB::statement('DROP INDEX IF EXISTS visit_exceptions_task_unique');
         DB::statement('DROP INDEX IF EXISTS visit_exceptions_visit_unique');
 
