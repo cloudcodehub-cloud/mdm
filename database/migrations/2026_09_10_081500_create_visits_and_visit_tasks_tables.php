@@ -35,7 +35,12 @@ return new class extends Migration
             $table->index(['employee_id', 'status']);
         });
 
-        DB::statement("CREATE UNIQUE INDEX visits_one_active_per_employee ON visits (employee_id) WHERE status = 'in_progress'");
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE visits ADD COLUMN active_employee_id BIGINT UNSIGNED GENERATED ALWAYS AS (CASE WHEN status = 'in_progress' THEN employee_id ELSE NULL END) STORED");
+            DB::statement('CREATE UNIQUE INDEX visits_one_active_per_employee ON visits (active_employee_id)');
+        } else {
+            DB::statement("CREATE UNIQUE INDEX visits_one_active_per_employee ON visits (employee_id) WHERE status = 'in_progress'");
+        }
 
         Schema::create('visit_tasks', function (Blueprint $table) {
             $table->id();
