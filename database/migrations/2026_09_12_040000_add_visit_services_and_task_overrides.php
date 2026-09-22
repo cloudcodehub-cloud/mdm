@@ -23,7 +23,11 @@ return new class extends Migration
         Schema::create('scheduled_visit_task_overrides', function (Blueprint $table) {
             $table->id();
             $table->foreignId('scheduled_visit_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('care_plan_task_template_id')->constrained()->restrictOnDelete();
+            $table->foreignId('care_plan_task_template_id');
+            $table->foreign('care_plan_task_template_id', 'svto_care_plan_task_fk')
+                ->references('id')
+                ->on('care_plan_task_templates')
+                ->restrictOnDelete();
             $table->boolean('included');
             $table->text('exclusion_reason')->nullable();
             $table->timestamps();
