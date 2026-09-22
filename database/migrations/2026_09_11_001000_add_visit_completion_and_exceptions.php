@@ -47,9 +47,10 @@ return new class extends Migration
         });
 
         if (DB::connection()->getDriverName() === 'mysql') {
+            // MariaDB does not support the partial unique indexes used by SQLite.
+            // This still enforces task-scoped uniqueness. Visit-level duplicate
+            // prevention remains handled by the application workflow on demo/MySQL.
             DB::statement('CREATE UNIQUE INDEX visit_exceptions_task_unique ON visit_exceptions (visit_id, type, visit_task_id)');
-            DB::statement("ALTER TABLE visit_exceptions ADD COLUMN visit_level_unique_key VARCHAR(255) GENERATED ALWAYS AS (CASE WHEN visit_task_id IS NULL THEN CONCAT(visit_id, ':', type) ELSE NULL END) STORED");
-            DB::statement('CREATE UNIQUE INDEX visit_exceptions_visit_unique ON visit_exceptions (visit_level_unique_key)');
         } else {
             DB::statement('CREATE UNIQUE INDEX visit_exceptions_task_unique ON visit_exceptions (visit_id, type, visit_task_id) WHERE visit_task_id IS NOT NULL');
             DB::statement('CREATE UNIQUE INDEX visit_exceptions_visit_unique ON visit_exceptions (visit_id, type) WHERE visit_task_id IS NULL');
