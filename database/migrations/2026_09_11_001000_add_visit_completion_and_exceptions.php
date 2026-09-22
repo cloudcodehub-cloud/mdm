@@ -46,8 +46,14 @@ return new class extends Migration
             $table->index(['visit_id', 'type']);
         });
 
-        DB::statement('CREATE UNIQUE INDEX visit_exceptions_task_unique ON visit_exceptions (visit_id, type, visit_task_id) WHERE visit_task_id IS NOT NULL');
-        DB::statement('CREATE UNIQUE INDEX visit_exceptions_visit_unique ON visit_exceptions (visit_id, type) WHERE visit_task_id IS NULL');
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement('CREATE UNIQUE INDEX visit_exceptions_task_unique ON visit_exceptions (visit_id, type, visit_task_id)');
+            DB::statement("ALTER TABLE visit_exceptions ADD COLUMN visit_level_unique_key VARCHAR(255) GENERATED ALWAYS AS (CASE WHEN visit_task_id IS NULL THEN CONCAT(visit_id, ':', type) ELSE NULL END) STORED");
+            DB::statement('CREATE UNIQUE INDEX visit_exceptions_visit_unique ON visit_exceptions (visit_level_unique_key)');
+        } else {
+            DB::statement('CREATE UNIQUE INDEX visit_exceptions_task_unique ON visit_exceptions (visit_id, type, visit_task_id) WHERE visit_task_id IS NOT NULL');
+            DB::statement('CREATE UNIQUE INDEX visit_exceptions_visit_unique ON visit_exceptions (visit_id, type) WHERE visit_task_id IS NULL');
+        }
     }
 
     /**
