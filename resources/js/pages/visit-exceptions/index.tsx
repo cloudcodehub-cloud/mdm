@@ -65,6 +65,7 @@ export default function VisitExceptionsIndex({
                             <option value="gps_unavailable">
                                 GPS / location
                             </option>
+                            <option value="late_start">Late start</option>
                             <option value="client_refusal">
                                 Client refusal
                             </option>

@@ -4,9 +4,12 @@ namespace Tests\Feature;
 
 use App\Enums\ClockInLocationMethod;
 use App\Enums\ClockInLocationStatus;
+use App\Enums\DateFormat;
 use App\Enums\EmploymentStatus;
+use App\Enums\GpsFallbackReason;
 use App\Enums\ScheduledVisitStatus;
 use App\Enums\TaskRecurrence;
+use App\Enums\TimeFormat;
 use App\Enums\VisitStatus;
 use App\Models\CarePlan;
 use App\Models\CarePlanTaskTemplate;
@@ -27,6 +30,20 @@ use Tests\TestCase;
 class VisitClockInTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        app(SettingsService::class)->updateOrganization([
+            'organization_name' => 'MDM - Magic Data Management',
+            'timezone' => 'UTC',
+            'date_format' => DateFormat::MonthDayYear->value,
+            'time_format' => TimeFormat::TwelveHour->value,
+            'first_day_of_week' => 0,
+            'credential_expiring_soon_days' => 30,
+        ]);
+        Carbon::setTestNow('2026-09-10 12:00:00');
+    }
 
     /**
      * @return array<string, mixed>
@@ -50,7 +67,7 @@ class VisitClockInTest extends TestCase
         return [
             'location_method' => ClockInLocationMethod::GpsUnavailable->value,
             'location_status' => ClockInLocationStatus::Denied->value,
-            'unavailable_reason' => 'Browser GPS permission denied for local demo.',
+            'gps_fallback_reason' => GpsFallbackReason::PermissionDenied->value,
         ];
     }
 
@@ -141,6 +158,8 @@ class VisitClockInTest extends TestCase
 
     public function test_second_active_visit_is_blocked(): void
     {
+        Carbon::setTestNow('2026-09-10 09:00:00');
+
         $dsp = Employee::factory()->dsp()->create();
         $first = ScheduledVisit::factory()->forDsp($dsp)->create([
             'service_date' => app(SettingsService::class)->today(),
@@ -231,7 +250,7 @@ class VisitClockInTest extends TestCase
         $this->assertNull($visit->clock_in_longitude);
         $this->assertSame(ClockInLocationMethod::GpsUnavailable, $visit->clock_in_location_method);
         $this->assertSame(ClockInLocationStatus::Denied, $visit->clock_in_location_status);
-        $this->assertSame('Browser GPS permission denied for local demo.', $visit->clock_in_unavailable_reason);
+        $this->assertSame(GpsFallbackReason::PermissionDenied->label(), $visit->clock_in_unavailable_reason);
     }
 
     public function test_care_plan_task_instances_are_generated_from_active_templates(): void
@@ -273,7 +292,7 @@ class VisitClockInTest extends TestCase
 
     public function test_admin_and_supervisor_visibility_remains_appropriate(): void
     {
-        Carbon::setTestNow('2026-09-11 09:00:00');
+        Carbon::setTestNow('2026-09-11 14:00:00');
         $this->seed(DemoSeeder::class);
 
         $maya = User::query()->where('email', 'maya.chen@mdm.test')->firstOrFail();

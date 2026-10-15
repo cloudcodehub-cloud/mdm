@@ -465,6 +465,6 @@ class ScheduledVisitController extends Controller
             return null;
         }
 
-        return 'Start Visit becomes available on '.$visit->service_date->toDateString().' during '.DirectoryPresenter::visitTimeLabel($visit).'. Future visits cannot be started early.';
+        return 'Start Visit becomes available up to '.$visit->earlyStartMinutes().' minutes before '.$visit->service_date->toDateString().' '.DirectoryPresenter::visitTimeLabel($visit).'.';
     }
 }

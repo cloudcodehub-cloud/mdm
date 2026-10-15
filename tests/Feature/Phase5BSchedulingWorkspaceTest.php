@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Enums\DateFormat;
 use App\Enums\ScheduledVisitStatus;
 use App\Enums\TaskRecurrence;
+use App\Enums\TimeFormat;
 use App\Models\CarePlan;
 use App\Models\CarePlanTaskTemplate;
 use App\Models\CareService;
@@ -13,6 +15,7 @@ use App\Models\Employee;
 use App\Models\ScheduledVisit;
 use App\Models\User;
 use App\Models\VisitTask;
+use App\Services\SettingsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -25,6 +28,14 @@ class Phase5BSchedulingWorkspaceTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
+        app(SettingsService::class)->updateOrganization([
+            'organization_name' => 'MDM - Magic Data Management',
+            'timezone' => 'UTC',
+            'date_format' => DateFormat::MonthDayYear->value,
+            'time_format' => TimeFormat::TwelveHour->value,
+            'first_day_of_week' => 0,
+            'credential_expiring_soon_days' => 30,
+        ]);
     }
 
     public function test_visit_persists_multiple_client_services(): void
@@ -128,7 +139,7 @@ class Phase5BSchedulingWorkspaceTest extends TestCase
             ->post(route('scheduled-visits.clock-in', $scheduled), [
                 'location_method' => 'gps_unavailable',
                 'location_status' => 'denied',
-                'unavailable_reason' => 'Test clock-in',
+                'gps_fallback_reason' => 'permission_denied',
             ])
             ->assertRedirect();
 

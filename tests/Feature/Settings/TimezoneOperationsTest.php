@@ -45,7 +45,7 @@ class TimezoneOperationsTest extends TestCase
     public function test_timezone_change_moves_operational_today_without_rewriting_timestamps(): void
     {
         $settings = $this->setOrganizationTimezone('UTC');
-        Carbon::setTestNow('2026-09-11 02:00:00');
+        Carbon::setTestNow('2026-09-11 12:00:00');
 
         $this->assertSame('2026-09-11', $settings->today());
 
@@ -64,18 +64,19 @@ class TimezoneOperationsTest extends TestCase
             [
                 'location_method' => 'gps_unavailable',
                 'location_status' => 'denied',
-                'unavailable_reason' => 'Timezone persistence check.',
+                'gps_fallback_reason' => 'permission_denied',
             ],
         );
 
         $clockedInAt = $visit->clocked_in_at->copy();
-        $this->assertSame('2026-09-11 02:00:00', $clockedInAt->timezone('UTC')->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-09-11 12:00:00', $clockedInAt->timezone('UTC')->format('Y-m-d H:i:s'));
 
+        Carbon::setTestNow('2026-09-11 02:00:00');
         $this->setOrganizationTimezone('America/New_York');
 
         $this->assertSame('2026-09-10', app(SettingsService::class)->today());
         $this->assertSame(
-            '2026-09-11 02:00:00',
+            '2026-09-11 12:00:00',
             $visit->fresh()->clocked_in_at->timezone('UTC')->format('Y-m-d H:i:s'),
         );
         $this->assertTrue($clockedInAt->eq($visit->fresh()->clocked_in_at));

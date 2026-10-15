@@ -32,7 +32,6 @@ import { index as operationsIndex } from '@/routes/operations';
 import {
     create as createScheduledVisit,
     index as scheduledVisitsIndex,
-    show as showScheduledVisit,
 } from '@/routes/scheduled-visits';
 import { index as exceptionsIndex } from '@/routes/visit-exceptions';
 import { show as showVisit } from '@/routes/visits';
@@ -121,20 +120,6 @@ function RoleQuickActions({ data }: { data: DashboardPayload }) {
                 <Button size="sm" className="min-h-10" asChild>
                     <Link href={showVisit(data.active_visit.id)}>
                         Continue Visit
-                    </Link>
-                </Button>
-            )}
-            {data.active_visit && (
-                <Button size="sm" variant="secondary" className="min-h-10" asChild>
-                    <Link href={showVisit(data.active_visit.id)}>
-                        Complete Tasks
-                    </Link>
-                </Button>
-            )}
-            {!data.active_visit && data.clock_in_visit && (
-                <Button size="sm" className="min-h-10" asChild>
-                    <Link href={showScheduledVisit(data.clock_in_visit.id)}>
-                        Start Visit
                     </Link>
                 </Button>
             )}
@@ -439,84 +424,111 @@ function SupervisorDashboard({ data }: { data: DashboardPayload }) {
 }
 
 function DspDashboard({ data }: { data: DashboardPayload }) {
-    const workItems = data.work_items ?? [];
-    const hasAction =
+    const laterToday = data.later_today_visits ?? [];
+    const nextFuture = data.next_future_visit ?? null;
+    const hasPrimary =
         Boolean(data.active_visit) || Boolean(data.clock_in_visit);
 
     return (
         <div className="grid gap-4 lg:grid-cols-3">
             <div className="space-y-4 lg:col-span-2">
-                {hasAction && (
+                {hasPrimary && (
                     <ClockInAction
                         activeVisit={data.active_visit}
                         clockInVisit={data.clock_in_visit}
+                        gpsFallbackReasons={data.gps_fallback_reasons}
                         hideEmpty
                     />
                 )}
-                <Panel
-                    title="Your clients and visits"
-                    description="Work is organized by client and visit — never one shared checklist."
-                >
-                    {workItems.length === 0 ? (
-                        <p className="text-muted-foreground text-sm">
-                            No assigned clients or visits right now.
-                        </p>
-                    ) : (
-                        <ul className="space-y-3">
-                            {workItems.map((item) => (
+                {laterToday.length > 0 && (
+                    <Panel
+                        title="Later today"
+                        description="Additional shifts scheduled later on today’s calendar."
+                    >
+                        <ul className="space-y-2">
+                            {laterToday.map((visit) => (
                                 <li
-                                    key={item.key}
-                                    className="surface-panel flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+                                    key={visit.id}
+                                    className="flex flex-col gap-2 rounded-xl border border-border/70 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
                                 >
                                     <div>
-                                        <p className="font-semibold">
-                                            {item.client.name}
+                                        <p className="font-medium">
+                                            {visit.client.name}
                                         </p>
                                         <p className="text-muted-foreground text-sm">
-                                            {item.service_type}
-                                            {item.scheduled_time
-                                                ? ` · ${item.scheduled_time}`
-                                                : ''}
-                                        </p>
-                                        <p className="text-muted-foreground mt-1 text-xs">
-                                            {item.state_label}
-                                            {item.has_exception
-                                                ? ' · Exception'
-                                                : ''}
-                                            {item.task_progress
-                                                ? ` · ${item.task_progress.completed}/${item.task_progress.total} tasks`
+                                            {visit.time_label}
+                                            {visit.service_type
+                                                ? ` · ${visit.service_type}`
                                                 : ''}
                                         </p>
                                     </div>
                                     <Button
-                                        className="min-h-11 w-full sm:w-auto"
+                                        variant="secondary"
+                                        className="min-h-10 w-full sm:w-auto"
                                         asChild
                                     >
-                                        <Link href={item.href}>
-                                            {item.action_label}
+                                        <Link href={visit.href}>
+                                            View details
                                         </Link>
                                     </Button>
                                 </li>
                             ))}
                         </ul>
+                    </Panel>
+                )}
+                {nextFuture && (
+                    <Panel
+                        title="Coming up"
+                        description="Next scheduled shift after today."
+                    >
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <p className="font-medium">
+                                    {nextFuture.client.name}
+                                </p>
+                                <p className="text-muted-foreground text-sm">
+                                    {nextFuture.service_date}
+                                    {nextFuture.time_label
+                                        ? ` · ${nextFuture.time_label}`
+                                        : ''}
+                                    {nextFuture.service_type
+                                        ? ` · ${nextFuture.service_type}`
+                                        : ''}
+                                </p>
+                            </div>
+                            <Button
+                                variant="secondary"
+                                className="min-h-10 w-full sm:w-auto"
+                                asChild
+                            >
+                                <Link href={nextFuture.href}>View Visit</Link>
+                            </Button>
+                        </div>
+                    </Panel>
+                )}
+                {!hasPrimary &&
+                    laterToday.length === 0 &&
+                    nextFuture === null && (
+                        <Panel title="Today's work">
+                            <p className="text-muted-foreground text-sm">
+                                No assigned clients or visits right now.
+                            </p>
+                        </Panel>
                     )}
-                </Panel>
             </div>
             <div className="space-y-4">
-                {!(
-                    data.assigned_clients.length === 0 && workItems.length === 0
-                ) && (
-                <Panel title="Assigned clients">
-                    <PersonList
-                        people={data.assigned_clients.map((client) => ({
-                            id: client.id,
-                            name: client.name,
-                            detail: 'View client',
-                            href: showClient.url(client.id),
-                        }))}
-                        empty="No active client assignments."
-                    />
-                </Panel>
+                {data.assigned_clients.length > 0 && (
+                    <Panel title="Assigned clients">
+                        <PersonList
+                            people={data.assigned_clients.map((client) => ({
+                                id: client.id,
+                                name: client.name,
+                                detail: 'View client',
+                                href: showClient.url(client.id),
+                            }))}
+                            empty="No active client assignments."
+                        />
+                    </Panel>
                 )}
                 <Panel title="Announcements" viewAllHref={announcementsIndex()}>
                     <AnnouncementList announcements={data.announcements} />

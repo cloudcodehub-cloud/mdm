@@ -636,17 +636,76 @@ final class DirectoryPresenter
      */
     public static function clockInVisitSummary(ScheduledVisit $visit): array
     {
+        $visit->loadMissing(['client.supervisor', 'supervisor', 'shiftTemplate']);
+        $settings = app(SettingsService::class);
+        $now = $settings->now();
+        $canStart = $visit->isEligibleToStart($now);
+        $isEarly = $visit->isEarlyStart($now);
+
         return [
             'id' => $visit->id,
             'service_date' => self::date($visit->service_date),
             'service_type' => $visit->service_type,
             'time_label' => self::visitTimeLabel($visit),
             'starts_at_iso' => self::visitStartsAtIso($visit),
+            'can_start' => $canStart,
+            'is_early_start' => $isEarly,
+            'is_late_start' => $canStart && $visit->isLateRelativeToStart($now),
+            'early_start_minutes' => $visit->earlyStartMinutes(),
+            'location_label' => self::clientLocationLabel($visit->client),
+            'supervisor_name' => $visit->supervisor?->full_name
+                ?? $visit->client->supervisor?->full_name,
             'client' => [
                 'id' => $visit->client->id,
                 'name' => $visit->client->full_name,
                 'client_number' => $visit->client->client_number,
             ],
+        ];
+    }
+
+    public static function clientLocationLabel(Client $client): ?string
+    {
+        $parts = array_values(array_filter([
+            $client->address_line_1,
+            $client->address_line_2,
+            trim(implode(', ', array_filter([
+                $client->city,
+                $client->state,
+            ]))),
+            $client->postal_code,
+        ], fn (?string $part): bool => filled($part)));
+
+        if ($parts === []) {
+            return null;
+        }
+
+        return implode(', ', $parts);
+    }
+
+    /**
+     * Compact scheduled-visit preview for DSP dashboard secondary lists.
+     *
+     * @return array<string, mixed>
+     */
+    public static function dspVisitPreview(ScheduledVisit $visit): array
+    {
+        $visit->loadMissing(['client.supervisor', 'supervisor', 'shiftTemplate']);
+
+        return [
+            'id' => $visit->id,
+            'service_date' => self::date($visit->service_date),
+            'service_type' => $visit->service_type,
+            'time_label' => self::visitTimeLabel($visit),
+            'starts_at_iso' => self::visitStartsAtIso($visit),
+            'location_label' => self::clientLocationLabel($visit->client),
+            'supervisor_name' => $visit->supervisor?->full_name
+                ?? $visit->client->supervisor?->full_name,
+            'client' => [
+                'id' => $visit->client->id,
+                'name' => $visit->client->full_name,
+                'client_number' => $visit->client->client_number,
+            ],
+            'href' => route('scheduled-visits.show', $visit),
         ];
     }
 

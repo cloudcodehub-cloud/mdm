@@ -285,7 +285,7 @@ class Phase6BAuthorizationSweepTest extends TestCase
             ->post(route('scheduled-visits.clock-in', $scheduled), [
                 'location_method' => 'gps_unavailable',
                 'location_status' => 'denied',
-                'unavailable_reason' => 'Browser GPS permission denied for local demo.',
+                'gps_fallback_reason' => 'permission_denied',
             ])
             ->assertRedirect(route('login'));
         $this->assertGuest();

@@ -62,6 +62,9 @@ class DashboardService
             'activity' => $this->activity($user),
             'active_visit' => $this->activeVisit($user, $employee),
             'clock_in_visit' => $this->clockInVisit($user, $employee),
+            'later_today_visits' => $this->laterTodayVisits($user, $employee),
+            'next_future_visit' => $this->nextFutureVisit($user, $employee),
+            'gps_fallback_reasons' => \App\Enums\GpsFallbackReason::options(),
             'announcements' => $this->announcements->serializeForUser($user, 5),
             'today_visit_summary' => $this->todayVisitSummary($todayOperational),
             'compliance_health' => $user->isDsp() ? null : $this->complianceCatalog->healthForUser($user),
@@ -116,6 +119,9 @@ class DashboardService
         $items = [];
         $seenClients = [];
         $active = $this->clockIn->activeVisitFor($employee);
+        $primaryId = $active === null
+            ? $this->clockIn->primaryScheduledVisitFor($employee)?->id
+            : null;
 
         if ($active !== null) {
             $summary = DirectoryPresenter::activeVisitSummary($active);
@@ -141,10 +147,18 @@ class DashboardService
             ->whereDate('service_date', $today)
             ->where('status', '!=', ScheduledVisitStatus::Cancelled)
             ->orderBy('id')
-            ->get();
+            ->get()
+            ->sortBy(fn (ScheduledVisit $visit): int => $visit->startsAtOn()->getTimestamp())
+            ->values();
 
         foreach ($todayVisits as $visit) {
             if ($active !== null && $visit->visit?->id === $active->id) {
+                continue;
+            }
+
+            // Primary eligible/next shift is shown via ClockInAction — avoid a second Start Visit.
+            if ($primaryId !== null && $visit->id === $primaryId && $visit->visit === null) {
+                $seenClients[$visit->client_id] = true;
                 continue;
             }
 
@@ -172,10 +186,10 @@ class DashboardService
                 $state = 'in_progress';
                 $stateLabel = 'In progress';
             } elseif ($eligible) {
-                $action = 'Start Visit';
-                $priority = 2;
-                $kind = 'eligible_visit';
-                $stateLabel = 'Ready to start';
+                $action = 'View details';
+                $priority = 3;
+                $kind = 'later_today_visit';
+                $stateLabel = 'Later today';
             } elseif ($recordedVisit !== null || $visit->status === ScheduledVisitStatus::Completed) {
                 $action = 'View Visit Summary';
                 $href = $recordedVisit !== null
@@ -204,22 +218,24 @@ class DashboardService
             $seenClients[$visit->client_id] = true;
         }
 
-        foreach ($this->upcomingVisits($user, $today) as $visit) {
+        $future = $this->clockIn->nextFutureScheduledVisit($employee);
+
+        if ($future !== null) {
             $items[] = [
-                'key' => 'upcoming-'.$visit->id,
+                'key' => 'upcoming-'.$future->id,
                 'priority' => 4,
                 'kind' => 'upcoming_visit',
-                'client' => $this->clientSummary($visit->client),
-                'service_type' => $visit->service_type,
-                'scheduled_time' => $visit->service_date->toDateString().' · '.$this->visitTimeLabel($visit),
-                'state' => $visit->status->value,
+                'client' => $this->clientSummary($future->client),
+                'service_type' => $future->service_type,
+                'scheduled_time' => $future->service_date->toDateString().' · '.$this->visitTimeLabel($future),
+                'state' => $future->status->value,
                 'state_label' => 'Upcoming',
                 'has_exception' => false,
                 'task_progress' => null,
                 'action_label' => 'View Visit',
-                'href' => route('scheduled-visits.show', $visit->id),
+                'href' => route('scheduled-visits.show', $future->id),
             ];
-            $seenClients[$visit->client_id] = true;
+            $seenClients[$future->client_id] = true;
         }
 
         foreach ($this->assignedClients($user, $employee) as $client) {
@@ -335,9 +351,42 @@ class DashboardService
             return null;
         }
 
-        $visit = $this->clockIn->eligibleScheduledVisitFor($employee);
+        $visit = $this->clockIn->primaryScheduledVisitFor($employee);
 
         return $visit === null ? null : DirectoryPresenter::clockInVisitSummary($visit);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function laterTodayVisits(User $user, ?Employee $employee): array
+    {
+        if (! $user->isDsp() || $employee === null) {
+            return [];
+        }
+
+        $primary = $this->clockIn->activeVisitFor($employee) !== null
+            ? null
+            : $this->clockIn->primaryScheduledVisitFor($employee);
+
+        return $this->values(
+            $this->clockIn->laterTodayScheduledVisits($employee, $primary)
+                ->map(fn (ScheduledVisit $visit): array => DirectoryPresenter::dspVisitPreview($visit))
+        );
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function nextFutureVisit(User $user, ?Employee $employee): ?array
+    {
+        if (! $user->isDsp() || $employee === null) {
+            return null;
+        }
+
+        $visit = $this->clockIn->nextFutureScheduledVisit($employee);
+
+        return $visit === null ? null : DirectoryPresenter::dspVisitPreview($visit);
     }
 
     /**

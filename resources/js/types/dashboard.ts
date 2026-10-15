@@ -97,7 +97,31 @@ export type ClockInVisitSummary = {
     service_type: string;
     time_label: string;
     starts_at_iso?: string | null;
+    can_start?: boolean;
+    is_early_start?: boolean;
+    is_late_start?: boolean;
+    early_start_minutes?: number;
+    location_label?: string | null;
+    supervisor_name?: string | null;
     client: DashboardClient;
+};
+
+export type DspVisitPreview = {
+    id: number;
+    service_date: string | null;
+    service_type: string;
+    time_label: string;
+    starts_at_iso?: string | null;
+    location_label?: string | null;
+    supervisor_name?: string | null;
+    client: DashboardClient;
+    href: string;
+};
+
+export type GpsFallbackReasonOption = {
+    value: string;
+    label: string;
+    requires_note: boolean;
 };
 
 export type TodayVisitSummary = {
@@ -136,6 +160,9 @@ export type DashboardPayload = {
     activity: DashboardActivityItem[];
     active_visit: DashboardActiveVisit | null;
     clock_in_visit: ClockInVisitSummary | null;
+    later_today_visits?: DspVisitPreview[];
+    next_future_visit?: DspVisitPreview | null;
+    gps_fallback_reasons?: GpsFallbackReasonOption[];
     announcements: import('./messaging').AnnouncementRecord[];
     today_visit_summary: TodayVisitSummary;
     compliance_health: ComplianceHealth | null;

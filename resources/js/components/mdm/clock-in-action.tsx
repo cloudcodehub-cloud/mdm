@@ -4,6 +4,14 @@ import { useState } from 'react';
 import InputError from '@/components/input-error';
 import { ProgressRing } from '@/components/mdm/visual-summaries';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { clockIn } from '@/routes/scheduled-visits';
 import { show as showVisit } from '@/routes/visits';
@@ -19,6 +27,35 @@ type LocationStatus =
     | 'unavailable'
     | 'unsupported';
 
+type GpsFallbackOption = {
+    value: string;
+    label: string;
+    requires_note: boolean;
+};
+
+const DEFAULT_GPS_FALLBACK_REASONS: GpsFallbackOption[] = [
+    {
+        value: 'permission_denied',
+        label: 'Location permission denied',
+        requires_note: false,
+    },
+    {
+        value: 'gps_unavailable',
+        label: 'GPS unavailable / weak signal',
+        requires_note: false,
+    },
+    {
+        value: 'device_issue',
+        label: 'Device issue',
+        requires_note: false,
+    },
+    {
+        value: 'other',
+        label: 'Other',
+        requires_note: true,
+    },
+];
+
 export function ClockInAction({
     activeVisit,
     clockInVisit,
@@ -27,6 +64,7 @@ export function ClockInAction({
     hideEmpty = false,
     emptyTitle,
     emptyDetail,
+    gpsFallbackReasons,
 }: {
     activeVisit?: DashboardActiveVisit | null;
     clockInVisit?: ClockInVisitSummary | null;
@@ -35,6 +73,7 @@ export function ClockInAction({
     hideEmpty?: boolean;
     emptyTitle?: string;
     emptyDetail?: string;
+    gpsFallbackReasons?: GpsFallbackOption[];
 }) {
     if (activeVisit) {
         const continueThisVisit =
@@ -65,7 +104,8 @@ export function ClockInAction({
                         </p>
                         {continueThisVisit && activeVisit.task_progress && (
                             <p className="text-muted-foreground mt-1 text-xs">
-                                {activeVisit.task_progress.completed} / {activeVisit.task_progress.total} tasks complete
+                                {activeVisit.task_progress.completed} /{' '}
+                                {activeVisit.task_progress.total} tasks complete
                             </p>
                         )}
                         {continueThisVisit && activeVisit.next_task?.title && (
@@ -95,13 +135,13 @@ export function ClockInAction({
     }
 
     const targetId = scheduledVisitId ?? clockInVisit?.id;
-    const showStart =
-        targetId !== undefined &&
-        (scheduledVisitId !== undefined
+    const canStart =
+        scheduledVisitId !== undefined
             ? Boolean(canClockIn)
-            : Boolean(clockInVisit));
+            : Boolean(clockInVisit?.can_start);
+    const showCard = targetId !== undefined && clockInVisit != null;
 
-    if (!showStart || targetId === undefined) {
+    if (!showCard || targetId === undefined) {
         if (hideEmpty) {
             return null;
         }
@@ -113,7 +153,23 @@ export function ClockInAction({
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
                     {emptyDetail ??
-                        'Start Visit becomes available on the scheduled service date during the visit window.'}
+                        'Start Visit becomes available during the early-start window before the scheduled visit.'}
+                </p>
+            </div>
+        );
+    }
+
+    if (!canStart) {
+        return (
+            <div className="surface-panel border-primary/20 from-primary/8 via-card to-brand-cyan/15 bg-gradient-to-br p-5 md:p-6">
+                <p className="text-primary text-xs font-medium tracking-wide uppercase">
+                    Next visit
+                </p>
+                <PrimaryVisitDetails visit={clockInVisit} />
+                <VisitCountdown startsAtIso={clockInVisit?.starts_at_iso} />
+                <p className="text-muted-foreground mt-3 text-sm">
+                    {emptyDetail ??
+                        `Start Visit becomes available up to ${clockInVisit?.early_start_minutes ?? 30} minutes before the scheduled start.`}
                 </p>
             </div>
         );
@@ -122,34 +178,69 @@ export function ClockInAction({
     return (
         <StartVisitForm
             scheduledVisitId={targetId}
-            clientName={clockInVisit?.client.name}
-            serviceType={clockInVisit?.service_type}
-            timeLabel={clockInVisit?.time_label}
-            startsAtIso={clockInVisit?.starts_at_iso}
+            visit={clockInVisit}
+            gpsFallbackReasons={
+                gpsFallbackReasons ?? DEFAULT_GPS_FALLBACK_REASONS
+            }
         />
+    );
+}
+
+function PrimaryVisitDetails({
+    visit,
+}: {
+    visit?: ClockInVisitSummary | null;
+}) {
+    if (!visit) {
+        return null;
+    }
+
+    return (
+        <div className="mt-2 space-y-1">
+            <p className="text-lg font-semibold tracking-tight">
+                {visit.client.name}
+            </p>
+            <p className="text-muted-foreground text-sm">
+                {visit.time_label}
+                {visit.service_type ? ` · ${visit.service_type}` : ''}
+            </p>
+            {visit.location_label && (
+                <p className="text-muted-foreground text-sm">
+                    {visit.location_label}
+                </p>
+            )}
+            {visit.supervisor_name && (
+                <p className="text-muted-foreground text-sm">
+                    Supervisor: {visit.supervisor_name}
+                </p>
+            )}
+        </div>
     );
 }
 
 function StartVisitForm({
     scheduledVisitId,
-    clientName,
-    serviceType,
-    timeLabel,
-    startsAtIso,
+    visit,
+    gpsFallbackReasons,
 }: {
     scheduledVisitId: number;
-    clientName?: string;
-    serviceType?: string;
-    timeLabel?: string;
-    startsAtIso?: string | null;
+    visit?: ClockInVisitSummary | null;
+    gpsFallbackReasons: GpsFallbackOption[];
 }) {
     const pageErrors = usePage().props.errors;
     const [needsAttestation, setNeedsAttestation] = useState(false);
+    const [earlyConfirmOpen, setEarlyConfirmOpen] = useState(false);
     const [locating, setLocating] = useState(false);
     const form = useForm({
-        unavailable_reason: '',
+        gps_fallback_reason: '',
+        gps_fallback_note: '',
         location_status: 'unavailable' as LocationStatus,
+        early_start_confirmed: false,
     });
+
+    const selectedReason = gpsFallbackReasons.find(
+        (reason) => reason.value === form.data.gps_fallback_reason,
+    );
 
     const postClockIn = (payload: {
         latitude?: number | null;
@@ -157,16 +248,28 @@ function StartVisitForm({
         accuracy?: number | null;
         location_method: 'browser_gps' | 'gps_unavailable';
         location_status: LocationStatus;
-        unavailable_reason?: string | null;
+        gps_fallback_reason?: string | null;
+        gps_fallback_note?: string | null;
+        early_start_confirmed?: boolean;
     }) => {
-        router.post(clockIn.url(scheduledVisitId), payload);
+        router.post(clockIn.url(scheduledVisitId), {
+            ...payload,
+            early_start_confirmed:
+                payload.early_start_confirmed ??
+                Boolean(visit?.is_early_start),
+        });
     };
 
-    const startVisit = () => {
+    const captureAndStart = (earlyConfirmed: boolean) => {
         setLocating(true);
+        setEarlyConfirmOpen(false);
 
         if (!navigator.geolocation) {
-            form.setData('location_status', 'unsupported');
+            form.setData((data) => ({
+                ...data,
+                location_status: 'unsupported',
+                early_start_confirmed: earlyConfirmed,
+            }));
             setNeedsAttestation(true);
             setLocating(false);
             return;
@@ -180,16 +283,23 @@ function StartVisitForm({
                     accuracy: position.coords.accuracy ?? null,
                     location_method: 'browser_gps',
                     location_status: 'captured',
+                    early_start_confirmed: earlyConfirmed,
                 });
                 setLocating(false);
             },
             (error) => {
-                form.setData(
-                    'location_status',
-                    error.code === error.PERMISSION_DENIED
-                        ? 'denied'
-                        : 'unavailable',
-                );
+                form.setData((data) => ({
+                    ...data,
+                    location_status:
+                        error.code === error.PERMISSION_DENIED
+                            ? 'denied'
+                            : 'unavailable',
+                    early_start_confirmed: earlyConfirmed,
+                    gps_fallback_reason:
+                        error.code === error.PERMISSION_DENIED
+                            ? 'permission_denied'
+                            : data.gps_fallback_reason,
+                }));
                 setNeedsAttestation(true);
                 setLocating(false);
             },
@@ -197,17 +307,22 @@ function StartVisitForm({
         );
     };
 
+    const startVisit = () => {
+        if (visit?.is_early_start && !form.data.early_start_confirmed) {
+            setEarlyConfirmOpen(true);
+            return;
+        }
+
+        captureAndStart(Boolean(visit?.is_early_start));
+    };
+
     return (
         <div className="surface-panel border-primary/20 from-primary/8 via-card to-brand-cyan/15 bg-gradient-to-br p-5 md:p-6">
             <p className="text-primary text-xs font-medium tracking-wide uppercase">
                 Next visit action
             </p>
-            <p className="text-muted-foreground mt-1 text-sm">
-                {clientName
-                    ? `Start visit for ${clientName}${serviceType ? ` · ${serviceType}` : ''}${timeLabel ? ` · ${timeLabel}` : ''}.`
-                    : 'Clock in to start this scheduled visit. Browser GPS is used when available.'}
-            </p>
-            <VisitCountdown startsAtIso={startsAtIso} />
+            <PrimaryVisitDetails visit={visit} />
+            <VisitCountdown startsAtIso={visit?.starts_at_iso} />
             {!needsAttestation ? (
                 <Button
                     className="mt-4 w-full sm:w-auto"
@@ -215,7 +330,7 @@ function StartVisitForm({
                     disabled={locating || form.processing}
                 >
                     <MapPin className="size-4" />
-                    {locating ? 'Getting location…' : 'Start Visit / Clock In'}
+                    {locating ? 'Getting location…' : 'Start Visit'}
                 </Button>
             ) : (
                 <form
@@ -228,41 +343,79 @@ function StartVisitForm({
                             accuracy: null,
                             location_method: 'gps_unavailable',
                             location_status: form.data.location_status,
-                            unavailable_reason: form.data.unavailable_reason,
+                            gps_fallback_reason: form.data.gps_fallback_reason,
+                            gps_fallback_note: selectedReason?.requires_note
+                                ? form.data.gps_fallback_note
+                                : null,
+                            early_start_confirmed:
+                                form.data.early_start_confirmed ||
+                                Boolean(visit?.is_early_start),
                         });
                     }}
                 >
                     <p className="text-muted-foreground text-sm">
-                        GPS is not available. Record a reason to clock in
-                        without coordinates. Location will not be faked.
+                        GPS is not available. Choose a reason to start without
+                        coordinates. Location will not be faked.
                     </p>
                     <div className="grid gap-2">
-                        <Label htmlFor="unavailable_reason">
-                            GPS unavailable reason
+                        <Label htmlFor="gps_fallback_reason">
+                            Why is GPS unavailable?
                         </Label>
-                        <textarea
-                            id="unavailable_reason"
+                        <select
+                            id="gps_fallback_reason"
                             required
-                            rows={3}
-                            value={form.data.unavailable_reason}
+                            value={form.data.gps_fallback_reason}
                             onChange={(event) =>
                                 form.setData(
-                                    'unavailable_reason',
+                                    'gps_fallback_reason',
                                     event.target.value,
                                 )
                             }
-                            className="border-input flex min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-                        />
+                            className="border-input flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                        >
+                            <option value="">Select a reason</option>
+                            {gpsFallbackReasons.map((reason) => (
+                                <option key={reason.value} value={reason.value}>
+                                    {reason.label}
+                                </option>
+                            ))}
+                        </select>
                         <InputError
                             message={
-                                form.errors.unavailable_reason ||
-                                pageErrors.unavailable_reason
+                                form.errors.gps_fallback_reason ||
+                                pageErrors.gps_fallback_reason
                             }
                         />
                     </div>
+                    {selectedReason?.requires_note && (
+                        <div className="grid gap-2">
+                            <Label htmlFor="gps_fallback_note">
+                                Brief note
+                            </Label>
+                            <textarea
+                                id="gps_fallback_note"
+                                required
+                                rows={3}
+                                value={form.data.gps_fallback_note}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'gps_fallback_note',
+                                        event.target.value,
+                                    )
+                                }
+                                className="border-input flex min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                            />
+                            <InputError
+                                message={
+                                    form.errors.gps_fallback_note ||
+                                    pageErrors.gps_fallback_note
+                                }
+                            />
+                        </div>
+                    )}
                     <div className="flex flex-wrap gap-2">
                         <Button type="submit" disabled={form.processing}>
-                            Clock in without GPS
+                            Start without GPS
                         </Button>
                         <Button
                             type="button"
@@ -276,8 +429,41 @@ function StartVisitForm({
             )}
             <InputError
                 className="mt-2"
-                message={pageErrors.scheduled_visit}
+                message={
+                    pageErrors.scheduled_visit ||
+                    pageErrors.early_start_confirmed
+                }
             />
+
+            <Dialog open={earlyConfirmOpen} onOpenChange={setEarlyConfirmOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Starting early</DialogTitle>
+                        <DialogDescription>
+                            You’re starting this shift early. Do you still want
+                            to start?
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:justify-end">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setEarlyConfirmOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={() => {
+                                form.setData('early_start_confirmed', true);
+                                captureAndStart(true);
+                            }}
+                        >
+                            Start Visit
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

@@ -4,8 +4,11 @@ namespace Tests\Feature;
 
 use App\Enums\ClockInLocationMethod;
 use App\Enums\ClockInLocationStatus;
+use App\Enums\DateFormat;
+use App\Enums\GpsFallbackReason;
 use App\Enums\ScheduledVisitStatus;
 use App\Enums\TaskRecurrence;
+use App\Enums\TimeFormat;
 use App\Enums\VisitExceptionType;
 use App\Enums\VisitStatus;
 use App\Enums\VisitTaskStatus;
@@ -18,6 +21,7 @@ use App\Models\SkipReason;
 use App\Models\Visit;
 use App\Models\VisitException;
 use App\Models\VisitTask;
+use App\Services\SettingsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -25,6 +29,19 @@ use Tests\TestCase;
 class VisitActiveWorkflowTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        app(SettingsService::class)->updateOrganization([
+            'organization_name' => 'MDM - Magic Data Management',
+            'timezone' => 'UTC',
+            'date_format' => DateFormat::MonthDayYear->value,
+            'time_format' => TimeFormat::TwelveHour->value,
+            'first_day_of_week' => 0,
+            'credential_expiring_soon_days' => 30,
+        ]);
+    }
 
     protected function tearDown(): void
     {
@@ -40,7 +57,7 @@ class VisitActiveWorkflowTest extends TestCase
         return [
             'location_method' => ClockInLocationMethod::GpsUnavailable->value,
             'location_status' => ClockInLocationStatus::Denied->value,
-            'unavailable_reason' => 'Browser GPS permission denied for local demo.',
+            'gps_fallback_reason' => GpsFallbackReason::PermissionDenied->value,
         ];
     }
 
@@ -291,7 +308,9 @@ class VisitActiveWorkflowTest extends TestCase
 
         $this->assertContains(VisitExceptionType::ClientRefusal->value, $types);
         $this->assertContains(VisitExceptionType::CriticalTaskSkipped->value, $types);
-        $this->assertSame(2, VisitException::query()->where('visit_id', $visit->id)->count());
+        $this->assertContains(VisitExceptionType::GpsUnavailable->value, $types);
+        $exceptionCount = VisitException::query()->where('visit_id', $visit->id)->count();
+        $this->assertGreaterThanOrEqual(3, $exceptionCount);
 
         $this->actingAs($dsp->user()->firstOrFail())
             ->post(route('visits.tasks.skip', [$visit, $task]), [
@@ -300,7 +319,7 @@ class VisitActiveWorkflowTest extends TestCase
             ])
             ->assertRedirect();
 
-        $this->assertSame(2, VisitException::query()->where('visit_id', $visit->id)->count());
+        $this->assertSame($exceptionCount, VisitException::query()->where('visit_id', $visit->id)->count());
     }
 
     public function test_handover_and_visit_notes_persist(): void

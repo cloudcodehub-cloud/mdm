@@ -5,6 +5,7 @@ namespace App\Enums;
 enum VisitExceptionType: string
 {
     case GpsUnavailable = 'gps_unavailable';
+    case LateStart = 'late_start';
     case ClientRefusal = 'client_refusal';
     case CriticalTaskSkipped = 'critical_task_skipped';
     case OtherVisitException = 'other_visit_exception';
@@ -13,6 +14,7 @@ enum VisitExceptionType: string
     {
         return match ($this) {
             self::GpsUnavailable => 'GPS / location',
+            self::LateStart => 'Late start',
             self::ClientRefusal => 'Client refusal',
             self::CriticalTaskSkipped => 'Critical task skipped',
             self::OtherVisitException => 'Unfinished-task exception',
@@ -27,7 +29,7 @@ enum VisitExceptionType: string
     {
         return match ($this) {
             self::CriticalTaskSkipped, self::ClientRefusal, self::OtherVisitException => true,
-            self::GpsUnavailable => false,
+            self::GpsUnavailable, self::LateStart => false,
         };
     }
 

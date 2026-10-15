@@ -287,19 +287,65 @@ class ScheduledVisit extends Model
         $clock = app(SettingsService::class);
         $now = $now ?? $clock->now();
 
-        if ($this->service_date->toDateString() === $clock->today($now)) {
-            return true;
+        if ($this->shift_template_id !== null) {
+            $this->loadMissing('shiftTemplate');
         }
+
+        try {
+            $start = $this->startsAtOn();
+            $end = $this->endsAtOn();
+        } catch (RuntimeException) {
+            return false;
+        }
+
+        $earliest = $start->copy()->subMinutes($this->earlyStartMinutes());
+
+        return $now->gte($earliest) && $now->lte($end);
+    }
+
+    public function isEarlyStart(?CarbonInterface $now = null): bool
+    {
+        if ($this->status !== ScheduledVisitStatus::Scheduled) {
+            return false;
+        }
+
+        $clock = app(SettingsService::class);
+        $now = $now ?? $clock->now();
 
         if ($this->shift_template_id !== null) {
             $this->loadMissing('shiftTemplate');
         }
 
         try {
-            return $now->gte($this->startsAtOn()) && $now->lte($this->endsAtOn());
+            $start = $this->startsAtOn();
         } catch (RuntimeException) {
             return false;
         }
+
+        $earliest = $start->copy()->subMinutes($this->earlyStartMinutes());
+
+        return $now->gte($earliest) && $now->lt($start);
+    }
+
+    public function isLateRelativeToStart(?CarbonInterface $now = null): bool
+    {
+        $clock = app(SettingsService::class);
+        $now = $now ?? $clock->now();
+
+        if ($this->shift_template_id !== null) {
+            $this->loadMissing('shiftTemplate');
+        }
+
+        try {
+            return $now->gt($this->startsAtOn());
+        } catch (RuntimeException) {
+            return false;
+        }
+    }
+
+    public function earlyStartMinutes(): int
+    {
+        return max(0, (int) config('mdm.visit.early_start_minutes', 30));
     }
 
     /**

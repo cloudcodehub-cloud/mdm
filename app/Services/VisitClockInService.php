@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Enums\ClockInLocationMethod;
 use App\Enums\ClockInLocationStatus;
+use App\Enums\GpsFallbackReason;
 use App\Enums\ScheduledVisitStatus;
+use App\Enums\VisitExceptionType;
 use App\Enums\VisitStatus;
 use App\Models\Employee;
 use App\Models\ScheduledVisit;
@@ -16,7 +18,11 @@ use Illuminate\Validation\ValidationException;
 
 class VisitClockInService
 {
-    public function __construct(private VisitTaskGenerator $tasks) {}
+    public function __construct(
+        private VisitTaskGenerator $tasks,
+        private VisitExceptionService $exceptions,
+        private SettingsService $settings,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $payload
@@ -59,9 +65,17 @@ class VisitClockInService
                 ]);
             }
 
-            if ($scheduledVisit->status === ScheduledVisitStatus::Scheduled && ! $scheduledVisit->isEligibleToStart()) {
+            $now = $this->settings->now();
+
+            if ($scheduledVisit->status === ScheduledVisitStatus::Scheduled && ! $scheduledVisit->isEligibleToStart($now)) {
                 throw ValidationException::withMessages([
-                    'scheduled_visit' => 'This scheduled visit is not eligible to start now.',
+                    'scheduled_visit' => $this->ineligibleMessage($scheduledVisit, $now),
+                ]);
+            }
+
+            if ($scheduledVisit->isEarlyStart($now) && ! filter_var($payload['early_start_confirmed'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                throw ValidationException::withMessages([
+                    'early_start_confirmed' => 'Confirm that you still want to start this shift early.',
                 ]);
             }
 
@@ -78,7 +92,7 @@ class VisitClockInService
             }
 
             try {
-                $visit = Visit::query()->create($this->visitAttributes($scheduledVisit, $employee, $payload));
+                $visit = Visit::query()->create($this->visitAttributes($scheduledVisit, $employee, $payload, $now));
             } catch (UniqueConstraintViolationException $exception) {
                 $existing = Visit::query()
                     ->where('scheduled_visit_id', $scheduledVisit->id)
@@ -100,6 +114,7 @@ class VisitClockInService
             ]);
 
             $this->tasks->generate($visit);
+            $this->recordStartExceptions($visit, $scheduledVisit, $payload, $now);
 
             return $visit;
         });
@@ -118,24 +133,81 @@ class VisitClockInService
 
     public function eligibleScheduledVisitFor(Employee $employee): ?ScheduledVisit
     {
+        return $this->todayScheduledVisits($employee)
+            ->first(fn (ScheduledVisit $visit): bool => $visit->isEligibleToStart());
+    }
+
+    public function primaryScheduledVisitFor(Employee $employee): ?ScheduledVisit
+    {
+        $todayVisits = $this->todayScheduledVisits($employee);
+
+        if ($todayVisits->isEmpty()) {
+            return null;
+        }
+
+        return $todayVisits->first(fn (ScheduledVisit $visit): bool => $visit->isEligibleToStart())
+            ?? $todayVisits->first();
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, ScheduledVisit>
+     */
+    public function laterTodayScheduledVisits(Employee $employee, ?ScheduledVisit $primary = null): \Illuminate\Support\Collection
+    {
+        $primaryId = $primary?->id;
+
+        return $this->todayScheduledVisits($employee)
+            ->reject(fn (ScheduledVisit $visit): bool => $visit->id === $primaryId)
+            ->values();
+    }
+
+    public function nextFutureScheduledVisit(Employee $employee): ?ScheduledVisit
+    {
+        $today = $this->settings->today();
+
         return ScheduledVisit::query()
-            ->with(['client', 'employee', 'shiftTemplate'])
+            ->with(['client', 'employee', 'supervisor', 'shiftTemplate'])
             ->where('employee_id', $employee->id)
             ->scheduled()
+            ->whereDate('service_date', '>', $today)
             ->orderBy('service_date')
             ->orderBy('id')
             ->get()
-            ->first(fn (ScheduledVisit $visit): bool => $visit->isEligibleToStart());
+            ->sortBy(fn (ScheduledVisit $visit): int => $visit->startsAtOn()->getTimestamp())
+            ->first();
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, ScheduledVisit>
+     */
+    private function todayScheduledVisits(Employee $employee): \Illuminate\Support\Collection
+    {
+        $today = $this->settings->today();
+
+        return ScheduledVisit::query()
+            ->with(['client', 'employee', 'supervisor', 'shiftTemplate'])
+            ->where('employee_id', $employee->id)
+            ->scheduled()
+            ->whereDate('service_date', $today)
+            ->orderBy('id')
+            ->get()
+            ->sortBy(fn (ScheduledVisit $visit): int => $visit->startsAtOn()->getTimestamp())
+            ->values();
     }
 
     /**
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
-    private function visitAttributes(ScheduledVisit $scheduledVisit, Employee $employee, array $payload): array
-    {
+    private function visitAttributes(
+        ScheduledVisit $scheduledVisit,
+        Employee $employee,
+        array $payload,
+        \Carbon\CarbonInterface $now,
+    ): array {
         $status = ClockInLocationStatus::from((string) $payload['location_status']);
         $captured = $status === ClockInLocationStatus::Captured;
+        $unavailableReason = $captured ? null : $this->unavailableReasonFrom($payload);
 
         return [
             'scheduled_visit_id' => $scheduledVisit->id,
@@ -143,13 +215,102 @@ class VisitClockInService
             'client_id' => $scheduledVisit->client_id,
             'service_type' => $scheduledVisit->service_type,
             'status' => VisitStatus::InProgress,
-            'clocked_in_at' => now(),
+            'clocked_in_at' => $now,
             'clock_in_latitude' => $captured ? $payload['latitude'] : null,
             'clock_in_longitude' => $captured ? $payload['longitude'] : null,
             'clock_in_accuracy' => $captured ? ($payload['accuracy'] ?? null) : null,
             'clock_in_location_method' => ClockInLocationMethod::from((string) $payload['location_method']),
             'clock_in_location_status' => $status,
-            'clock_in_unavailable_reason' => $captured ? null : $payload['unavailable_reason'],
+            'clock_in_unavailable_reason' => $unavailableReason,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function unavailableReasonFrom(array $payload): ?string
+    {
+        $reasonCode = isset($payload['gps_fallback_reason'])
+            ? GpsFallbackReason::tryFrom((string) $payload['gps_fallback_reason'])
+            : null;
+
+        if ($reasonCode === null) {
+            return isset($payload['unavailable_reason'])
+                ? (is_string($payload['unavailable_reason']) ? trim($payload['unavailable_reason']) : null)
+                : null;
+        }
+
+        if ($reasonCode->requiresNote()) {
+            $note = $payload['gps_fallback_note'] ?? $payload['unavailable_reason'] ?? null;
+
+            return is_string($note) && trim($note) !== '' ? trim($note) : null;
+        }
+
+        return $reasonCode->label();
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function recordStartExceptions(
+        Visit $visit,
+        ScheduledVisit $scheduledVisit,
+        array $payload,
+        \Carbon\CarbonInterface $now,
+    ): void {
+        $status = ClockInLocationStatus::from((string) $payload['location_status']);
+
+        if ($status !== ClockInLocationStatus::Captured) {
+            $reasonCode = isset($payload['gps_fallback_reason'])
+                ? GpsFallbackReason::tryFrom((string) $payload['gps_fallback_reason'])
+                : null;
+
+            $this->exceptions->record(
+                $visit,
+                VisitExceptionType::GpsUnavailable,
+                'Clock-in GPS was not captured.',
+                null,
+                [
+                    'location_status' => $status->value,
+                    'reason' => $payload['unavailable_reason'] ?? null,
+                    'reason_code' => $reasonCode?->value,
+                    'reason_note' => $payload['gps_fallback_note'] ?? null,
+                ],
+            );
+        }
+
+        if ($scheduledVisit->isLateRelativeToStart($now)) {
+            $this->exceptions->record(
+                $visit,
+                VisitExceptionType::LateStart,
+                'Visit started after the scheduled start time.',
+                null,
+                [
+                    'scheduled_start' => $scheduledVisit->startsAtOn()->toIso8601String(),
+                    'clocked_in_at' => $now->toIso8601String(),
+                ],
+            );
+        }
+    }
+
+    private function ineligibleMessage(ScheduledVisit $scheduledVisit, \Carbon\CarbonInterface $now): string
+    {
+        try {
+            $start = $scheduledVisit->startsAtOn();
+            $end = $scheduledVisit->endsAtOn();
+            $earliest = $start->copy()->subMinutes($scheduledVisit->earlyStartMinutes());
+        } catch (\RuntimeException) {
+            return 'This scheduled visit is not eligible to start now.';
+        }
+
+        if ($now->lt($earliest)) {
+            return 'This visit can be started up to '.$scheduledVisit->earlyStartMinutes().' minutes before the scheduled start.';
+        }
+
+        if ($now->gt($end)) {
+            return 'This scheduled visit window has ended and cannot be started.';
+        }
+
+        return 'This scheduled visit is not eligible to start now.';
     }
 }
