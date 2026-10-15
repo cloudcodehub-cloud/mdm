@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\ClockInLocationMethod;
 use App\Enums\ClockInLocationStatus;
+use App\Enums\GpsFallbackReason;
 use App\Enums\ScheduledVisitStatus;
 use App\Enums\VisitExceptionType;
 use App\Enums\VisitStatus;
@@ -78,6 +79,10 @@ class VisitClockOutService
 
             $status = ClockInLocationStatus::from((string) $payload['location_status']);
             $captured = $status === ClockInLocationStatus::Captured;
+            $unavailableReason = $captured ? null : GpsFallbackReason::storedReasonFrom($payload);
+            $reasonCode = isset($payload['gps_fallback_reason'])
+                ? GpsFallbackReason::tryFrom((string) $payload['gps_fallback_reason'])
+                : null;
 
             $visit->update([
                 'status' => VisitStatus::Completed,
@@ -87,7 +92,7 @@ class VisitClockOutService
                 'clock_out_accuracy' => $captured ? ($payload['accuracy'] ?? null) : null,
                 'clock_out_location_method' => ClockInLocationMethod::from((string) $payload['location_method']),
                 'clock_out_location_status' => $status,
-                'clock_out_unavailable_reason' => $captured ? null : $payload['unavailable_reason'],
+                'clock_out_unavailable_reason' => $unavailableReason,
                 'visit_notes' => array_key_exists('visit_notes', $payload)
                     ? $payload['visit_notes']
                     : $visit->visit_notes,
@@ -109,7 +114,9 @@ class VisitClockOutService
                     null,
                     [
                         'location_status' => $status->value,
-                        'reason' => $payload['unavailable_reason'] ?? null,
+                        'reason' => $unavailableReason,
+                        'reason_code' => $reasonCode?->value,
+                        'reason_note' => $payload['gps_fallback_note'] ?? null,
                     ],
                 );
             }

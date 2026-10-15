@@ -36,17 +36,32 @@ type GpsFallbackOption = {
 const DEFAULT_GPS_FALLBACK_REASONS: GpsFallbackOption[] = [
     {
         value: 'permission_denied',
-        label: 'Location permission denied',
+        label: 'Location permission unavailable',
         requires_note: false,
     },
     {
         value: 'gps_unavailable',
-        label: 'GPS unavailable / weak signal',
+        label: 'GPS/location service unavailable',
+        requires_note: false,
+    },
+    {
+        value: 'poor_signal',
+        label: 'Poor/no signal',
         requires_note: false,
     },
     {
         value: 'device_issue',
         label: 'Device issue',
+        requires_note: false,
+    },
+    {
+        value: 'indoor_accuracy',
+        label: 'Indoor/location accuracy issue',
+        requires_note: false,
+    },
+    {
+        value: 'app_technical_issue',
+        label: 'MDM/app technical issue',
         requires_note: false,
     },
     {

@@ -525,11 +525,12 @@ final class DirectoryPresenter
             'duration_label' => self::visitDurationLabel($visit),
             'location_method' => $visit->clock_in_location_method->value,
             'location_status' => $visit->clock_in_location_status->value,
-            'location_status_label' => self::gpsStatusLabel($visit->clock_in_location_status->value),
+            'location_status_label' => self::locationStatusLabel($visit),
             'unavailable_reason' => $visit->clock_in_unavailable_reason,
             'latitude' => $visit->clock_in_latitude,
             'longitude' => $visit->clock_in_longitude,
             'accuracy' => $visit->clock_in_accuracy,
+            'low_location_accuracy' => self::isLowLocationAccuracy($visit->clock_in_accuracy),
             'clock_out_location_method' => $visit->clock_out_location_method?->value,
             'clock_out_location_status' => $visit->clock_out_location_status?->value,
             'clock_out_location_status_label' => $visit->clock_out_location_status === null
@@ -921,7 +922,28 @@ final class DirectoryPresenter
 
     public static function locationStatusLabel(Visit $visit): string
     {
-        return self::gpsStatusLabel($visit->clock_in_location_status->value);
+        $base = self::gpsStatusLabel($visit->clock_in_location_status->value);
+
+        if (self::isLowLocationAccuracy($visit->clock_in_accuracy)) {
+            return $base.' · Low Location Accuracy';
+        }
+
+        return $base;
+    }
+
+    public static function isLowLocationAccuracy(mixed $accuracyMeters): bool
+    {
+        if ($accuracyMeters === null || $accuracyMeters === '') {
+            return false;
+        }
+
+        if (! is_numeric($accuracyMeters)) {
+            return false;
+        }
+
+        $threshold = max(0, (int) config('mdm.visit.low_accuracy_meters', 100));
+
+        return (float) $accuracyMeters > $threshold;
     }
 
     public static function gpsStatusLabel(string $status): string

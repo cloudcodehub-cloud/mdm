@@ -31,6 +31,7 @@ import { dashboard } from '@/routes';
 import { show as showException } from '@/routes/visit-exceptions';
 import { show as showScheduled } from '@/routes/scheduled-visits';
 import { show } from '@/routes/visits';
+import type { GpsFallbackReasonOption } from '@/types/dashboard';
 import type {
     ActiveVisitRecord,
     SkipReasonOption,
@@ -43,11 +44,13 @@ export default function VisitsShow({
     skip_reasons = [],
     care_history = [],
     supervisor_contact = null,
+    gps_fallback_reasons = [],
     can,
     documents,
 }: {
     visit: ActiveVisitRecord;
     skip_reasons?: SkipReasonOption[];
+    gps_fallback_reasons?: GpsFallbackReasonOption[];
     care_history?: CareHistoryItem[];
     supervisor_contact?: SupervisorContact | null;
     can?: {
@@ -170,6 +173,7 @@ export default function VisitsShow({
                         can={can}
                         careHistory={care_history}
                         supervisor={supervisor_contact}
+                        gpsFallbackReasons={gps_fallback_reasons}
                         onMessagePrevious={(item) => {
                             if (item.previous_dsp_user_id) {
                                 openMessage(
@@ -218,6 +222,7 @@ function ActiveVisit({
     can,
     careHistory,
     supervisor,
+    gpsFallbackReasons,
     onMessagePrevious,
     onContactSupervisor,
 }: {
@@ -230,6 +235,7 @@ function ActiveVisit({
     };
     careHistory: CareHistoryItem[];
     supervisor: SupervisorContact | null;
+    gpsFallbackReasons?: GpsFallbackReasonOption[];
     onMessagePrevious: (item: CareHistoryItem) => void;
     onContactSupervisor: () => void;
 }) {
@@ -371,6 +377,7 @@ function ActiveVisit({
                         <VisitClockOutReview
                             visit={visit}
                             canClockOut={Boolean(can?.clock_out)}
+                            gpsFallbackReasons={gpsFallbackReasons}
                         />
                     </div>
                 </div>

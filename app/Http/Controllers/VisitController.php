@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\GpsFallbackReason;
 use App\Enums\VisitStatus;
 use App\Models\Client;
 use App\Models\User;
@@ -46,6 +47,7 @@ class VisitController extends Controller
             'skip_reasons' => $canRecord ? DirectoryPresenter::skipReasons() : [],
             'care_history' => $user !== null ? $overview->forClient($visit->client, $user)['history'] : [],
             'supervisor_contact' => $this->supervisorContact($visit->client, $user),
+            'gps_fallback_reasons' => GpsFallbackReason::options(),
             'can' => [
                 'clock_in' => $user?->can('clockIn', $visit->scheduledVisit) ?? false,
                 'record_tasks' => $canRecord,

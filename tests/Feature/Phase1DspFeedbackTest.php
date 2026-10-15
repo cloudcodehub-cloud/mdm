@@ -435,10 +435,15 @@ class Phase1DspFeedbackTest extends TestCase
             ->post(route('visits.clock-out', $fallbackVisit), [
                 'location_method' => ClockInLocationMethod::GpsUnavailable->value,
                 'location_status' => ClockInLocationStatus::Denied->value,
-                'unavailable_reason' => 'Still no GPS at clock-out.',
+                'gps_fallback_reason' => GpsFallbackReason::PoorSignal->value,
                 'acknowledge_unfinished_required' => false,
             ])
             ->assertRedirect();
+
+        $this->assertSame(
+            GpsFallbackReason::PoorSignal->label(),
+            $fallbackVisit->fresh()->clock_out_unavailable_reason,
+        );
 
         $other = ScheduledVisit::factory()->forDsp($dsp)->create([
             'service_date' => '2026-09-11',
@@ -473,5 +478,44 @@ class Phase1DspFeedbackTest extends TestCase
             ->assertForbidden();
 
         $this->assertSame(0, Visit::query()->count());
+    }
+
+    public function test_gps_fallback_catalog_matches_frozen_reasons_and_low_accuracy_is_labeled(): void
+    {
+        $values = array_map(
+            fn (GpsFallbackReason $reason): string => $reason->value,
+            GpsFallbackReason::cases(),
+        );
+
+        $this->assertSame([
+            'permission_denied',
+            'gps_unavailable',
+            'poor_signal',
+            'device_issue',
+            'indoor_accuracy',
+            'app_technical_issue',
+            'other',
+        ], $values);
+
+        $dsp = Employee::factory()->dsp()->create();
+        $scheduled = ScheduledVisit::factory()->forDsp($dsp)->create([
+            'service_date' => '2026-09-11',
+            'starts_at' => '09:00:00',
+            'ends_at' => '12:00:00',
+        ]);
+
+        $this->actingAs($dsp->user()->firstOrFail())
+            ->post(route('scheduled-visits.clock-in', $scheduled), $this->gpsPayload([
+                'accuracy' => 150,
+            ]))
+            ->assertRedirect();
+
+        $visit = Visit::query()->where('scheduled_visit_id', $scheduled->id)->firstOrFail();
+        $this->assertEqualsWithDelta(150.0, (float) $visit->clock_in_accuracy, 0.01);
+        $this->assertTrue(\App\Support\DirectoryPresenter::isLowLocationAccuracy($visit->clock_in_accuracy));
+        $this->assertStringContainsString(
+            'Low Location Accuracy',
+            \App\Support\DirectoryPresenter::locationStatusLabel($visit),
+        );
     }
 }

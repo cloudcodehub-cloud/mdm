@@ -207,7 +207,7 @@ class VisitClockInService
     ): array {
         $status = ClockInLocationStatus::from((string) $payload['location_status']);
         $captured = $status === ClockInLocationStatus::Captured;
-        $unavailableReason = $captured ? null : $this->unavailableReasonFrom($payload);
+        $unavailableReason = $captured ? null : GpsFallbackReason::storedReasonFrom($payload);
 
         return [
             'scheduled_visit_id' => $scheduledVisit->id,
@@ -223,30 +223,6 @@ class VisitClockInService
             'clock_in_location_status' => $status,
             'clock_in_unavailable_reason' => $unavailableReason,
         ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function unavailableReasonFrom(array $payload): ?string
-    {
-        $reasonCode = isset($payload['gps_fallback_reason'])
-            ? GpsFallbackReason::tryFrom((string) $payload['gps_fallback_reason'])
-            : null;
-
-        if ($reasonCode === null) {
-            return isset($payload['unavailable_reason'])
-                ? (is_string($payload['unavailable_reason']) ? trim($payload['unavailable_reason']) : null)
-                : null;
-        }
-
-        if ($reasonCode->requiresNote()) {
-            $note = $payload['gps_fallback_note'] ?? $payload['unavailable_reason'] ?? null;
-
-            return is_string($note) && trim($note) !== '' ? trim($note) : null;
-        }
-
-        return $reasonCode->label();
     }
 
     /**
@@ -272,7 +248,7 @@ class VisitClockInService
                 null,
                 [
                     'location_status' => $status->value,
-                    'reason' => $payload['unavailable_reason'] ?? null,
+                    'reason' => GpsFallbackReason::storedReasonFrom($payload),
                     'reason_code' => $reasonCode?->value,
                     'reason_note' => $payload['gps_fallback_note'] ?? null,
                 ],

@@ -2,10 +2,12 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\GpsFallbackReason;
 use App\Models\Visit;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class ClockOutRequest extends FormRequest
 {
@@ -21,6 +23,23 @@ class ClockOutRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $status = $this->input('location_status');
+
+        if ($status !== null && $status !== 'captured') {
+            $code = $this->input('gps_fallback_reason');
+            $reason = is_string($code) ? GpsFallbackReason::tryFrom($code) : null;
+            $note = $this->blankToNull($this->input('gps_fallback_note'));
+
+            if ($reason !== null) {
+                $this->merge([
+                    'gps_fallback_note' => $reason->requiresNote() ? $note : null,
+                    'unavailable_reason' => $reason->requiresNote()
+                        ? $note
+                        : $reason->label(),
+                ]);
+            }
+        }
+
         $this->prepareLocationAttestation();
 
         $merge = [
@@ -43,8 +62,22 @@ class ClockOutRequest extends FormRequest
      */
     public function rules(): array
     {
+        $captured = $this->input('location_status') === 'captured';
+
         return [
             ...$this->locationAttestationRules(),
+            'gps_fallback_reason' => [
+                Rule::excludeIf($captured),
+                'required_unless:location_status,captured',
+                Rule::enum(GpsFallbackReason::class),
+            ],
+            'gps_fallback_note' => [
+                'nullable',
+                'string',
+                'max:500',
+                Rule::requiredIf(fn (): bool => ! $captured
+                    && $this->input('gps_fallback_reason') === GpsFallbackReason::Other->value),
+            ],
             'visit_notes' => ['sometimes', 'nullable', 'string', 'max:5000'],
             'handover_note' => ['sometimes', 'nullable', 'string', 'max:5000'],
             'acknowledge_unfinished_required' => ['sometimes', 'boolean'],

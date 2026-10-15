@@ -45,6 +45,7 @@ export type ActiveVisitRecord = {
     latitude: string | null;
     longitude: string | null;
     accuracy: string | null;
+    low_location_accuracy?: boolean;
     clock_out_location_method: string | null;
     clock_out_location_status: string | null;
     clock_out_location_status_label: string | null;

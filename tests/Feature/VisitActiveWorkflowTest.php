@@ -83,7 +83,7 @@ class VisitActiveWorkflowTest extends TestCase
         return [
             'location_method' => ClockInLocationMethod::GpsUnavailable->value,
             'location_status' => ClockInLocationStatus::Unavailable->value,
-            'unavailable_reason' => 'GPS unavailable at clock-out.',
+            'gps_fallback_reason' => GpsFallbackReason::GpsUnavailable->value,
         ];
     }
 
@@ -392,7 +392,7 @@ class VisitActiveWorkflowTest extends TestCase
         $this->assertNull($visit->clock_out_latitude);
         $this->assertNull($visit->clock_out_longitude);
         $this->assertSame(ClockInLocationMethod::GpsUnavailable, $visit->clock_out_location_method);
-        $this->assertSame('GPS unavailable at clock-out.', $visit->clock_out_unavailable_reason);
+        $this->assertSame(GpsFallbackReason::GpsUnavailable->label(), $visit->clock_out_unavailable_reason);
         $this->assertTrue(
             VisitException::query()
                 ->where('visit_id', $visit->id)

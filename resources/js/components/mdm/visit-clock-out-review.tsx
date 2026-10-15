@@ -6,29 +6,75 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { clockOut } from '@/routes/visits';
+import type { GpsFallbackReasonOption } from '@/types/dashboard';
 import type { ActiveVisitRecord } from '@/types/visit';
 
 type LocationStatus = 'captured' | 'denied' | 'unavailable' | 'unsupported';
 
+const DEFAULT_GPS_FALLBACK_REASONS: GpsFallbackReasonOption[] = [
+    {
+        value: 'permission_denied',
+        label: 'Location permission unavailable',
+        requires_note: false,
+    },
+    {
+        value: 'gps_unavailable',
+        label: 'GPS/location service unavailable',
+        requires_note: false,
+    },
+    {
+        value: 'poor_signal',
+        label: 'Poor/no signal',
+        requires_note: false,
+    },
+    {
+        value: 'device_issue',
+        label: 'Device issue',
+        requires_note: false,
+    },
+    {
+        value: 'indoor_accuracy',
+        label: 'Indoor/location accuracy issue',
+        requires_note: false,
+    },
+    {
+        value: 'app_technical_issue',
+        label: 'MDM/app technical issue',
+        requires_note: false,
+    },
+    {
+        value: 'other',
+        label: 'Other',
+        requires_note: true,
+    },
+];
+
 export function VisitClockOutReview({
     visit,
     canClockOut,
+    gpsFallbackReasons,
 }: {
     visit: ActiveVisitRecord;
     canClockOut: boolean;
+    gpsFallbackReasons?: GpsFallbackReasonOption[];
 }) {
     const [open, setOpen] = useState(false);
     const [needsAttestation, setNeedsAttestation] = useState(false);
     const [locating, setLocating] = useState(false);
     const pageErrors = usePage().props.errors;
+    const reasons = gpsFallbackReasons ?? DEFAULT_GPS_FALLBACK_REASONS;
     const form = useForm({
-        unavailable_reason: '',
+        gps_fallback_reason: '',
+        gps_fallback_note: '',
         location_status: 'unavailable' as LocationStatus,
         visit_notes: visit.visit_notes ?? '',
         handover_note: visit.handover_note ?? '',
         acknowledge_unfinished_required: false,
     });
 
+    const selectedReason = reasons.find(
+        (reason) => reason.value === form.data.gps_fallback_reason,
+    );
     const skipped = visit.tasks.filter((task) => task.status === 'skipped');
     const pendingRequired = visit.task_summary.pending_required;
 
@@ -38,7 +84,8 @@ export function VisitClockOutReview({
         accuracy?: number | null;
         location_method: 'browser_gps' | 'gps_unavailable';
         location_status: LocationStatus;
-        unavailable_reason?: string | null;
+        gps_fallback_reason?: string | null;
+        gps_fallback_note?: string | null;
     }) => {
         router.post(clockOut.url(visit.id), {
             ...payload,
@@ -71,12 +118,17 @@ export function VisitClockOutReview({
                 setLocating(false);
             },
             (error) => {
-                form.setData(
-                    'location_status',
-                    error.code === error.PERMISSION_DENIED
-                        ? 'denied'
-                        : 'unavailable',
-                );
+                form.setData((data) => ({
+                    ...data,
+                    location_status:
+                        error.code === error.PERMISSION_DENIED
+                            ? 'denied'
+                            : 'unavailable',
+                    gps_fallback_reason:
+                        error.code === error.PERMISSION_DENIED
+                            ? 'permission_denied'
+                            : data.gps_fallback_reason,
+                }));
                 setNeedsAttestation(true);
                 setLocating(false);
             },
@@ -175,11 +227,11 @@ export function VisitClockOutReview({
             )}
 
             {!needsAttestation ? (
-                    <div className="flex flex-wrap gap-2">
-                        <Button
-                            type="button"
-                            className="min-h-11 w-full sm:w-auto"
-                            onClick={startClockOut}
+                <div className="flex flex-wrap gap-2">
+                    <Button
+                        type="button"
+                        className="min-h-11 w-full sm:w-auto"
+                        onClick={startClockOut}
                         disabled={
                             locating ||
                             (pendingRequired > 0 &&
@@ -208,38 +260,73 @@ export function VisitClockOutReview({
                             accuracy: null,
                             location_method: 'gps_unavailable',
                             location_status: form.data.location_status,
-                            unavailable_reason: form.data.unavailable_reason,
+                            gps_fallback_reason: form.data.gps_fallback_reason,
+                            gps_fallback_note: selectedReason?.requires_note
+                                ? form.data.gps_fallback_note
+                                : null,
                         });
                     }}
                 >
                     <p className="text-sm">
-                        GPS is not available. Record a reason to clock out
+                        GPS is not available. Choose a reason to clock out
                         without coordinates. Location will not be faked.
                     </p>
                     <div className="grid gap-2">
-                        <Label htmlFor="clock_out_unavailable_reason">
-                            GPS unavailable reason
+                        <Label htmlFor="clock_out_gps_fallback_reason">
+                            Why is GPS unavailable?
                         </Label>
-                        <textarea
-                            id="clock_out_unavailable_reason"
+                        <select
+                            id="clock_out_gps_fallback_reason"
                             required
-                            rows={3}
-                            value={form.data.unavailable_reason}
+                            value={form.data.gps_fallback_reason}
                             onChange={(event) =>
                                 form.setData(
-                                    'unavailable_reason',
+                                    'gps_fallback_reason',
                                     event.target.value,
                                 )
                             }
-                            className="border-input flex min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-                        />
+                            className="border-input flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                        >
+                            <option value="">Select a reason</option>
+                            {reasons.map((reason) => (
+                                <option key={reason.value} value={reason.value}>
+                                    {reason.label}
+                                </option>
+                            ))}
+                        </select>
                         <InputError
                             message={
-                                form.errors.unavailable_reason ||
-                                pageErrors.unavailable_reason
+                                form.errors.gps_fallback_reason ||
+                                pageErrors.gps_fallback_reason
                             }
                         />
                     </div>
+                    {selectedReason?.requires_note && (
+                        <div className="grid gap-2">
+                            <Label htmlFor="clock_out_gps_fallback_note">
+                                Brief note
+                            </Label>
+                            <textarea
+                                id="clock_out_gps_fallback_note"
+                                required
+                                rows={3}
+                                value={form.data.gps_fallback_note}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'gps_fallback_note',
+                                        event.target.value,
+                                    )
+                                }
+                                className="border-input flex min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                            />
+                            <InputError
+                                message={
+                                    form.errors.gps_fallback_note ||
+                                    pageErrors.gps_fallback_note
+                                }
+                            />
+                        </div>
+                    )}
                     <div className="flex flex-wrap gap-2">
                         <Button type="submit" disabled={form.processing}>
                             Clock out without GPS
@@ -254,7 +341,6 @@ export function VisitClockOutReview({
                     </div>
                 </form>
             )}
-            <InputError className="mt-2" message={pageErrors.visit} />
         </div>
     );
 }
@@ -262,8 +348,10 @@ export function VisitClockOutReview({
 function ReviewItem({ label, value }: { label: string; value: string }) {
     return (
         <div>
-            <dt className="text-muted-foreground text-xs">{label}</dt>
-            <dd className="mt-0.5 whitespace-pre-wrap">{value}</dd>
+            <dt className="text-muted-foreground text-xs tracking-wide uppercase">
+                {label}
+            </dt>
+            <dd className="mt-0.5 font-medium">{value}</dd>
         </div>
     );
 }
