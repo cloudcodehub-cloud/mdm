@@ -110,5 +110,8 @@ export type OperationsBoard = {
         client_refusals: VisitExceptionRecord[];
         critical_skips: VisitExceptionRecord[];
         unfinished: VisitExceptionRecord[];
+        missed_safety: VisitExceptionRecord[];
+        extended_visits: VisitExceptionRecord[];
+        open_escalations: VisitExceptionRecord[];
     };
 };

@@ -368,6 +368,8 @@ final class DirectoryPresenter
             'status' => $plan->status->value,
             'status_label' => Str::headline($plan->status->value),
             'notes' => $plan->notes,
+            'timed_check_interval_minutes' => $plan->timed_check_interval_minutes,
+            'supervision_instruction' => $plan->supervision_instruction,
             'tasks' => self::values($plan->taskTemplates
                 ->where('is_active', true)
                 ->map(fn (CarePlanTaskTemplate $task): array => [
@@ -534,7 +536,14 @@ final class DirectoryPresenter
     /**
      * @return array<string, mixed>
      */
-    public static function visitDetail(Visit $visit): array
+    /**
+     * @param  array{
+     *     minutes_past_scheduled_end?: int|null,
+     *     requires_extended_visit_reason?: bool,
+     *     past_scheduled_end?: bool
+     * }  $attention
+     */
+    public static function visitDetail(Visit $visit, array $attention = []): array
     {
         $scheduled = $visit->scheduledVisit;
         $tasks = $visit->tasks;
@@ -548,6 +557,10 @@ final class DirectoryPresenter
         $exceptions = $visit->relationLoaded('exceptions')
             ? $visit->exceptions
             : $visit->exceptions()->with(['visitTask', 'reviewedBy', 'resolvedBy'])->get();
+        $safetyChecks = $visit->relationLoaded('safetyChecks')
+            ? $visit->safetyChecks
+            : $visit->safetyChecks()->get();
+        $settings = app(SettingsService::class);
 
         return [
             'id' => $visit->id,
@@ -555,11 +568,11 @@ final class DirectoryPresenter
             'status_label' => Str::headline($visit->status->value),
             'service_type' => $visit->service_type,
             'clocked_in_at' => $visit->clocked_in_at->toIso8601String(),
-            'clocked_in_at_label' => app(SettingsService::class)->formatTime($visit->clocked_in_at),
+            'clocked_in_at_label' => $settings->formatTime($visit->clocked_in_at),
             'clocked_out_at' => $visit->clocked_out_at?->toIso8601String(),
             'clocked_out_at_label' => $visit->clocked_out_at === null
                 ? null
-                : app(SettingsService::class)->formatTime($visit->clocked_out_at),
+                : $settings->formatTime($visit->clocked_out_at),
             'duration_label' => self::visitDurationLabel($visit),
             'location_method' => $visit->clock_in_location_method->value,
             'location_status' => $visit->clock_in_location_status->value,
@@ -577,7 +590,17 @@ final class DirectoryPresenter
             'clock_out_unavailable_reason' => $visit->clock_out_unavailable_reason,
             'visit_notes' => $visit->visit_notes,
             'handover_note' => $visit->handover_note,
+            'extended_visit_reason' => $visit->extended_visit_reason,
             'unfinished_required_acknowledged' => $visit->unfinished_required_acknowledged,
+            'safety_check_interval_minutes' => $visit->safety_check_interval_minutes,
+            'supervision_instruction' => $visit->supervision_instruction,
+            'general_safety_confirmed_at' => $visit->general_safety_confirmed_at?->toIso8601String(),
+            'general_safety_confirmed' => $visit->general_safety_confirmed_at !== null,
+            'requires_general_safety_confirmation' => $visit->requiresGeneralSafetyConfirmation(),
+            'past_scheduled_end' => (bool) ($attention['past_scheduled_end'] ?? false),
+            'minutes_past_scheduled_end' => $attention['minutes_past_scheduled_end'] ?? null,
+            'requires_extended_visit_reason' => (bool) ($attention['requires_extended_visit_reason'] ?? false),
+            'safety_checks' => self::visitSafetyChecks($safetyChecks),
             'task_summary' => [
                 'total' => $tasks->count(),
                 'completed' => $completed,
@@ -613,6 +636,35 @@ final class DirectoryPresenter
                 ->contains(fn (VisitException $exception): bool => $exception->isHighPriorityOpen()),
             'timeline' => self::visitTimeline($visit),
         ];
+    }
+
+    /**
+     * @param  iterable<\App\Models\VisitSafetyCheck>  $checks
+     * @return list<array<string, mixed>>
+     */
+    public static function visitSafetyChecks(iterable $checks): array
+    {
+        $settings = app(SettingsService::class);
+        $grace = (int) config('mdm.safety_check.grace_minutes', 2);
+
+        return self::values(collect($checks)->map(function ($check) use ($settings, $grace): array {
+            return [
+                'id' => $check->id,
+                'sequence' => $check->sequence,
+                'due_at' => $check->due_at->toIso8601String(),
+                'due_at_label' => $settings->formatTime($check->due_at),
+                'grace_ends_at' => $check->due_at->copy()->addMinutes($grace)->toIso8601String(),
+                'status' => $check->status->value,
+                'status_label' => $check->status->label(),
+                'completed_at' => $check->completed_at?->toIso8601String(),
+                'completed_at_label' => $check->completed_at === null
+                    ? null
+                    : $settings->formatTime($check->completed_at),
+                'outcome_reason' => $check->outcome_reason,
+                'is_documented' => $check->isDocumented(),
+                'requires_reason' => $check->status->requiresReason(),
+            ];
+        }));
     }
 
     /**

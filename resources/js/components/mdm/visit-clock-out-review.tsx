@@ -69,6 +69,7 @@ export function VisitClockOutReview({
         location_status: 'unavailable' as LocationStatus,
         visit_notes: visit.visit_notes ?? '',
         handover_note: visit.handover_note ?? '',
+        extended_visit_reason: visit.extended_visit_reason ?? '',
         acknowledge_unfinished_required: false,
     });
 
@@ -91,6 +92,7 @@ export function VisitClockOutReview({
             ...payload,
             visit_notes: form.data.visit_notes || null,
             handover_note: form.data.handover_note || null,
+            extended_visit_reason: form.data.extended_visit_reason || null,
             acknowledge_unfinished_required:
                 form.data.acknowledge_unfinished_required,
         });
@@ -184,14 +186,64 @@ export function VisitClockOutReview({
                     value={form.data.visit_notes || 'None'}
                 />
                 <ReviewItem
-                    label="Handover"
-                    value={form.data.handover_note || 'None'}
+                    label="Wrap-up / handover"
+                    value={form.data.handover_note || 'Required — add above'}
                 />
                 <ReviewItem
                     label="Clock-in location"
                     value={visit.location_status_label}
                 />
             </dl>
+
+            {!form.data.handover_note ? (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-50/70 p-3 dark:bg-amber-950/20">
+                    <p className="text-sm font-medium">
+                        Visit Wrap-Up / Handover Note is required before
+                        clock-out.
+                    </p>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                        Save the handover note in Visit wrap-up, then return
+                        here.
+                    </p>
+                    <InputError
+                        className="mt-2"
+                        message={pageErrors.handover_note}
+                    />
+                </div>
+            ) : null}
+
+            {visit.requires_extended_visit_reason ? (
+                <div className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-50/70 p-3 dark:bg-amber-950/20">
+                    <p className="text-sm font-medium">
+                        This visit is 30+ minutes past scheduled end.
+                    </p>
+                    <Label htmlFor="extended_visit_reason">
+                        Extended-visit reason
+                    </Label>
+                    <textarea
+                        id="extended_visit_reason"
+                        rows={3}
+                        className="border-input bg-background min-h-16 w-full rounded-md border px-3 py-2 text-sm"
+                        value={form.data.extended_visit_reason}
+                        onChange={(event) =>
+                            form.setData(
+                                'extended_visit_reason',
+                                event.target.value,
+                            )
+                        }
+                    />
+                    <InputError
+                        message={
+                            form.errors.extended_visit_reason ||
+                            pageErrors.extended_visit_reason
+                        }
+                    />
+                </div>
+            ) : null}
+
+            {pageErrors.safety_checks ? (
+                <InputError message={pageErrors.safety_checks} />
+            ) : null}
 
             {pendingRequired > 0 && (
                 <div className="rounded-xl border border-amber-500/30 bg-amber-50/70 p-3 dark:bg-amber-950/20">
@@ -234,6 +286,9 @@ export function VisitClockOutReview({
                         onClick={startClockOut}
                         disabled={
                             locating ||
+                            !form.data.handover_note ||
+                            (visit.requires_extended_visit_reason &&
+                                !form.data.extended_visit_reason) ||
                             (pendingRequired > 0 &&
                                 !form.data.acknowledge_unfinished_required)
                         }

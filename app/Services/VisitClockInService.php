@@ -22,6 +22,7 @@ class VisitClockInService
         private VisitTaskGenerator $tasks,
         private VisitExceptionService $exceptions,
         private SettingsService $settings,
+        private VisitSafetyCheckService $safetyChecks,
     ) {}
 
     /**
@@ -209,6 +210,14 @@ class VisitClockInService
         $captured = $status === ClockInLocationStatus::Captured;
         $unavailableReason = $captured ? null : GpsFallbackReason::storedReasonFrom($payload);
 
+        // Temporary Visit used only to resolve the standing Care Plan snapshot.
+        $probe = new Visit([
+            'client_id' => $scheduledVisit->client_id,
+            'scheduled_visit_id' => $scheduledVisit->id,
+        ]);
+        $probe->setRelation('scheduledVisit', $scheduledVisit);
+        $supervision = $this->safetyChecks->snapshotForVisit($probe);
+
         return [
             'scheduled_visit_id' => $scheduledVisit->id,
             'employee_id' => $employee->id,
@@ -222,6 +231,8 @@ class VisitClockInService
             'clock_in_location_method' => ClockInLocationMethod::from((string) $payload['location_method']),
             'clock_in_location_status' => $status,
             'clock_in_unavailable_reason' => $unavailableReason,
+            'safety_check_interval_minutes' => $supervision['safety_check_interval_minutes'],
+            'supervision_instruction' => $supervision['supervision_instruction'],
         ];
     }
 

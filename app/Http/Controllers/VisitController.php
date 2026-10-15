@@ -8,7 +8,9 @@ use App\Models\Client;
 use App\Models\User;
 use App\Models\Visit;
 use App\Models\VisitException;
+use App\Services\ActiveVisitAttentionService;
 use App\Services\CareOverviewService;
+use App\Services\VisitSafetyCheckService;
 use App\Services\VisitTaskGenerator;
 use App\Support\DirectoryPresenter;
 use Illuminate\Http\Request;
@@ -22,11 +24,14 @@ class VisitController extends Controller
         Visit $visit,
         VisitTaskGenerator $tasks,
         CareOverviewService $overview,
+        VisitSafetyCheckService $safetyChecks,
+        ActiveVisitAttentionService $attention,
     ): Response {
         $this->authorize('view', $visit);
 
         if ($visit->status === VisitStatus::InProgress) {
             $tasks->generate($visit);
+            $safetyChecks->evaluateVisit($visit);
         }
 
         $visit->load([
@@ -34,6 +39,7 @@ class VisitController extends Controller
             'employee',
             'scheduledVisit.shiftTemplate',
             'tasks.skipReason',
+            'safetyChecks',
             'exceptions.visitTask',
             'exceptions.reviewedBy',
             'exceptions.resolvedBy',
@@ -41,9 +47,14 @@ class VisitController extends Controller
 
         $user = $request->user();
         $canRecord = $user?->can('recordTask', $visit) ?? false;
+        $minutesPastEnd = $attention->minutesPastScheduledEnd($visit);
 
         return Inertia::render('visits/show', [
-            'visit' => DirectoryPresenter::visitDetail($visit),
+            'visit' => DirectoryPresenter::visitDetail($visit, [
+                'minutes_past_scheduled_end' => $minutesPastEnd,
+                'requires_extended_visit_reason' => $attention->requiresExtendedVisitReason($visit),
+                'past_scheduled_end' => ($minutesPastEnd ?? 0) > 0,
+            ]),
             'skip_reasons' => $canRecord ? DirectoryPresenter::skipReasons() : [],
             'care_history' => $user !== null ? $overview->forClient($visit->client, $user)['history'] : [],
             'supervisor_contact' => $this->supervisorContact($visit->client, $user),
@@ -51,6 +62,7 @@ class VisitController extends Controller
             'can' => [
                 'clock_in' => $user?->can('clockIn', $visit->scheduledVisit) ?? false,
                 'record_tasks' => $canRecord,
+                'record_safety' => $user?->can('recordSafety', $visit) ?? false,
                 'update_notes' => $user?->can('updateNotes', $visit) ?? false,
                 'clock_out' => $user?->can('clockOut', $visit) ?? false,
                 'view_exceptions' => $user?->can('viewAny', VisitException::class) ?? false,

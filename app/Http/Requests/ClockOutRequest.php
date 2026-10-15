@@ -54,6 +54,10 @@ class ClockOutRequest extends FormRequest
             $merge['handover_note'] = $this->blankToNull($this->input('handover_note'));
         }
 
+        if ($this->exists('extended_visit_reason')) {
+            $merge['extended_visit_reason'] = $this->blankToNull($this->input('extended_visit_reason'));
+        }
+
         $this->merge($merge);
     }
 
@@ -79,7 +83,8 @@ class ClockOutRequest extends FormRequest
                     && $this->input('gps_fallback_reason') === GpsFallbackReason::Other->value),
             ],
             'visit_notes' => ['sometimes', 'nullable', 'string', 'max:5000'],
-            'handover_note' => ['sometimes', 'nullable', 'string', 'max:5000'],
+            'handover_note' => ['required', 'string', 'max:5000'],
+            'extended_visit_reason' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'acknowledge_unfinished_required' => ['sometimes', 'boolean'],
         ];
     }

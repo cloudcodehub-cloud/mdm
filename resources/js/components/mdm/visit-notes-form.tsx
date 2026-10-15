@@ -71,7 +71,9 @@ export function VisitNotesForm({
                 <InputError message={form.errors.visit_notes} />
             </div>
             <div className="grid gap-2">
-                <Label htmlFor="handover_note">Handover note</Label>
+                <Label htmlFor="handover_note">
+                    Wrap-up / handover note (required to clock out)
+                </Label>
                 <textarea
                     id="handover_note"
                     rows={4}

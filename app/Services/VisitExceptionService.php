@@ -7,6 +7,7 @@ use App\Enums\VisitExceptionType;
 use App\Models\User;
 use App\Models\Visit;
 use App\Models\VisitException;
+use App\Models\VisitSafetyCheck;
 use App\Models\VisitTask;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -23,8 +24,9 @@ class VisitExceptionService
         string $message,
         ?VisitTask $task = null,
         ?array $context = null,
+        ?VisitSafetyCheck $safetyCheck = null,
     ): VisitException {
-        $existing = $this->existing($visit, $type, $task);
+        $existing = $this->existing($visit, $type, $task, $safetyCheck);
 
         if ($existing !== null) {
             return $existing;
@@ -34,13 +36,14 @@ class VisitExceptionService
             return VisitException::query()->create([
                 'visit_id' => $visit->id,
                 'visit_task_id' => $task?->id,
+                'visit_safety_check_id' => $safetyCheck?->id,
                 'type' => $type,
                 'status' => VisitExceptionStatus::Open,
                 'message' => $message,
                 'context' => $context,
             ]);
         } catch (UniqueConstraintViolationException $exception) {
-            $existing = $this->existing($visit, $type, $task);
+            $existing = $this->existing($visit, $type, $task, $safetyCheck);
 
             if ($existing !== null) {
                 return $existing;
@@ -148,17 +151,27 @@ class VisitExceptionService
         return $notes === '' ? null : $notes;
     }
 
-    private function existing(Visit $visit, VisitExceptionType $type, ?VisitTask $task): ?VisitException
-    {
+    private function existing(
+        Visit $visit,
+        VisitExceptionType $type,
+        ?VisitTask $task,
+        ?VisitSafetyCheck $safetyCheck,
+    ): ?VisitException {
         $taskId = $task?->id;
+        $safetyId = $safetyCheck?->id;
 
         return VisitException::query()
             ->where('visit_id', $visit->id)
             ->where('type', $type)
             ->when(
-                $taskId === null,
-                fn (Builder $query): Builder => $query->whereNull('visit_task_id'),
+                $taskId !== null,
                 fn (Builder $query): Builder => $query->where('visit_task_id', $taskId),
+                fn (Builder $query): Builder => $query->whereNull('visit_task_id'),
+            )
+            ->when(
+                $safetyId !== null,
+                fn (Builder $query): Builder => $query->where('visit_safety_check_id', $safetyId),
+                fn (Builder $query): Builder => $query->whereNull('visit_safety_check_id'),
             )
             ->first();
     }

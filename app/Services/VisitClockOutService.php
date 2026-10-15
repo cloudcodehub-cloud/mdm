@@ -16,7 +16,12 @@ use Illuminate\Validation\ValidationException;
 
 class VisitClockOutService
 {
-    public function __construct(private VisitExceptionService $exceptions) {}
+    public function __construct(
+        private VisitExceptionService $exceptions,
+        private VisitSafetyCheckService $safetyChecks,
+        private ActiveVisitAttentionService $attention,
+        private SettingsService $settings,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $payload
@@ -45,7 +50,7 @@ class VisitClockOutService
         return DB::transaction(function () use ($user, $visit, $payload): Visit {
             /** @var Visit $visit */
             $visit = Visit::query()
-                ->with('tasks')
+                ->with(['tasks', 'scheduledVisit', 'safetyChecks'])
                 ->whereKey($visit->id)
                 ->lockForUpdate()
                 ->firstOrFail();
@@ -64,6 +69,25 @@ class VisitClockOutService
 
             $this->assertInProgress($visit);
 
+            $now = $this->settings->now();
+            $handover = array_key_exists('handover_note', $payload)
+                ? $payload['handover_note']
+                : $visit->handover_note;
+
+            if (! filled($handover)) {
+                throw ValidationException::withMessages([
+                    'handover_note' => 'Enter the Visit Wrap-Up / Handover Note before clocking out.',
+                ]);
+            }
+
+            $safetyBlockers = $this->safetyChecks->undocumentedBlockers($visit, $now);
+
+            if ($safetyBlockers !== []) {
+                throw ValidationException::withMessages([
+                    'safety_checks' => $safetyBlockers[0],
+                ]);
+            }
+
             $pendingRequired = $visit->tasks
                 ->where('status', VisitTaskStatus::Pending)
                 ->where('is_required', true)
@@ -77,6 +101,18 @@ class VisitClockOutService
                 ]);
             }
 
+            $extendedReason = array_key_exists('extended_visit_reason', $payload)
+                ? $payload['extended_visit_reason']
+                : $visit->extended_visit_reason;
+            $extendedReason = is_string($extendedReason) ? trim($extendedReason) : null;
+            $extendedReason = $extendedReason === '' ? null : $extendedReason;
+
+            if ($this->attention->requiresExtendedVisitReason($visit, $now) && $extendedReason === null) {
+                throw ValidationException::withMessages([
+                    'extended_visit_reason' => 'Enter a short reason for remaining past the scheduled end.',
+                ]);
+            }
+
             $status = ClockInLocationStatus::from((string) $payload['location_status']);
             $captured = $status === ClockInLocationStatus::Captured;
             $unavailableReason = $captured ? null : GpsFallbackReason::storedReasonFrom($payload);
@@ -86,7 +122,7 @@ class VisitClockOutService
 
             $visit->update([
                 'status' => VisitStatus::Completed,
-                'clocked_out_at' => now(),
+                'clocked_out_at' => $now,
                 'clock_out_latitude' => $captured ? $payload['latitude'] : null,
                 'clock_out_longitude' => $captured ? $payload['longitude'] : null,
                 'clock_out_accuracy' => $captured ? ($payload['accuracy'] ?? null) : null,
@@ -96,9 +132,8 @@ class VisitClockOutService
                 'visit_notes' => array_key_exists('visit_notes', $payload)
                     ? $payload['visit_notes']
                     : $visit->visit_notes,
-                'handover_note' => array_key_exists('handover_note', $payload)
-                    ? $payload['handover_note']
-                    : $visit->handover_note,
+                'handover_note' => $handover,
+                'extended_visit_reason' => $extendedReason,
                 'unfinished_required_acknowledged' => $pendingRequired->isNotEmpty() && $acknowledged,
             ]);
 
@@ -130,6 +165,19 @@ class VisitClockOutService
                     [
                         'task_ids' => $pendingRequired->pluck('id')->all(),
                         'titles' => $pendingRequired->pluck('title')->all(),
+                    ],
+                );
+            }
+
+            if ($this->attention->requiresExtendedVisitReason($visit, $now)) {
+                $this->exceptions->record(
+                    $visit,
+                    VisitExceptionType::ExtendedVisit,
+                    'Visit ran 30+ minutes past scheduled end.',
+                    null,
+                    [
+                        'minutes_past_end' => $this->attention->minutesPastScheduledEnd($visit, $now),
+                        'reason' => $extendedReason,
                     ],
                 );
             }

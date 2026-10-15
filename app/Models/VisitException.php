@@ -16,6 +16,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $visit_id
  * @property int|null $visit_task_id
+ * @property int|null $visit_safety_check_id
  * @property VisitExceptionType $type
  * @property VisitExceptionStatus $status
  * @property string $message
@@ -31,6 +32,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property-read Visit $visit
  * @property-read VisitTask|null $visitTask
+ * @property-read VisitSafetyCheck|null $visitSafetyCheck
  * @property-read User|null $reviewedBy
  * @property-read User|null $resolvedBy
  *
@@ -41,6 +43,7 @@ use Illuminate\Support\Carbon;
 #[Fillable([
     'visit_id',
     'visit_task_id',
+    'visit_safety_check_id',
     'type',
     'status',
     'message',
@@ -87,6 +90,14 @@ class VisitException extends Model
     public function visitTask(): BelongsTo
     {
         return $this->belongsTo(VisitTask::class);
+    }
+
+    /**
+     * @return BelongsTo<VisitSafetyCheck, $this>
+     */
+    public function visitSafetyCheck(): BelongsTo
+    {
+        return $this->belongsTo(VisitSafetyCheck::class);
     }
 
     /**

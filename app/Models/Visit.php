@@ -39,6 +39,10 @@ use Illuminate\Support\Carbon;
  * @property ClockInLocationStatus|null $clock_out_location_status
  * @property string|null $clock_out_unavailable_reason
  * @property bool $unfinished_required_acknowledged
+ * @property int|null $safety_check_interval_minutes
+ * @property string|null $supervision_instruction
+ * @property Carbon|null $general_safety_confirmed_at
+ * @property string|null $extended_visit_reason
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read ScheduledVisit $scheduledVisit
@@ -47,6 +51,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, VisitTask> $tasks
  * @property-read Collection<int, VisitTask> $visitTasks
  * @property-read Collection<int, VisitException> $exceptions
+ * @property-read Collection<int, VisitSafetyCheck> $safetyChecks
  * @property-read Collection<int, AttendanceCorrection> $attendanceCorrections
  *
  * @method static Builder<static> inProgress()
@@ -75,6 +80,10 @@ use Illuminate\Support\Carbon;
     'clock_out_location_status',
     'clock_out_unavailable_reason',
     'unfinished_required_acknowledged',
+    'safety_check_interval_minutes',
+    'supervision_instruction',
+    'general_safety_confirmed_at',
+    'extended_visit_reason',
 ])]
 class Visit extends Model
 {
@@ -95,6 +104,7 @@ class Visit extends Model
             'clock_out_location_method' => ClockInLocationMethod::class,
             'clock_out_location_status' => ClockInLocationStatus::class,
             'unfinished_required_acknowledged' => 'boolean',
+            'general_safety_confirmed_at' => 'datetime',
         ];
     }
 
@@ -147,6 +157,14 @@ class Visit extends Model
     }
 
     /**
+     * @return HasMany<VisitSafetyCheck, $this>
+     */
+    public function safetyChecks(): HasMany
+    {
+        return $this->hasMany(VisitSafetyCheck::class)->orderBy('sequence')->orderBy('id');
+    }
+
+    /**
      * @return HasMany<AttendanceCorrection, $this>
      */
     public function attendanceCorrections(): HasMany
@@ -157,6 +175,17 @@ class Visit extends Model
     public function isInProgress(): bool
     {
         return $this->status === VisitStatus::InProgress;
+    }
+
+    public function hasTimedSafetyChecks(): bool
+    {
+        return $this->safety_check_interval_minutes !== null
+            && $this->safety_check_interval_minutes > 0;
+    }
+
+    public function requiresGeneralSafetyConfirmation(): bool
+    {
+        return $this->hasTimedSafetyChecks() || filled($this->supervision_instruction);
     }
 
     /**

@@ -191,6 +191,9 @@ class SupervisorOperationsService
                 'client_refusals' => DirectoryPresenter::visitExceptions($this->exceptionsOfType($openExceptions, VisitExceptionType::ClientRefusal)),
                 'critical_skips' => DirectoryPresenter::visitExceptions($this->exceptionsOfType($openExceptions, VisitExceptionType::CriticalTaskSkipped)),
                 'unfinished' => DirectoryPresenter::visitExceptions($this->exceptionsOfType($openExceptions, VisitExceptionType::OtherVisitException)),
+                'missed_safety' => DirectoryPresenter::visitExceptions($this->exceptionsOfType($openExceptions, VisitExceptionType::MissedSafetyCheck)),
+                'extended_visits' => DirectoryPresenter::visitExceptions($this->exceptionsOfType($openExceptions, VisitExceptionType::ExtendedVisit)),
+                'open_escalations' => DirectoryPresenter::visitExceptions($this->exceptionsOfType($openExceptions, VisitExceptionType::OpenVisitEscalation)),
             ],
         ];
     }

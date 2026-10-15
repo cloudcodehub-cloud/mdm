@@ -26,6 +26,7 @@ import { EmptyState } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { VisitClockOutReview } from '@/components/mdm/visit-clock-out-review';
 import { VisitNotesForm } from '@/components/mdm/visit-notes-form';
+import { VisitSafetyPanel } from '@/components/mdm/visit-safety-panel';
 import { VisitTaskCard } from '@/components/mdm/visit-task-card';
 import { dashboard } from '@/routes';
 import { show as showException } from '@/routes/visit-exceptions';
@@ -56,6 +57,7 @@ export default function VisitsShow({
     can?: {
         clock_in?: boolean;
         record_tasks?: boolean;
+        record_safety?: boolean;
         update_notes?: boolean;
         clock_out?: boolean;
         view_exceptions?: boolean;
@@ -230,6 +232,7 @@ function ActiveVisit({
     skipReasons: SkipReasonOption[];
     can?: {
         record_tasks?: boolean;
+        record_safety?: boolean;
         update_notes?: boolean;
         clock_out?: boolean;
     };
@@ -267,6 +270,12 @@ function ActiveVisit({
                                 status="scheduled"
                                 label={visit.scheduled_visit.time_label}
                             />
+                            {visit.past_scheduled_end ? (
+                                <StatusBadge
+                                    status="attention"
+                                    label="Past scheduled end"
+                                />
+                            ) : null}
                             <StatusBadge
                                 status={visit.location_status}
                                 label={visit.location_status_label}
@@ -300,6 +309,11 @@ function ActiveVisit({
             <div className="lg:col-span-12">
                 <VisitFacts visit={visit} />
             </div>
+
+            <VisitSafetyPanel
+                visit={visit}
+                canRecord={Boolean(can?.record_safety)}
+            />
 
             <RecordSection
                 title="Care-plan tasks"

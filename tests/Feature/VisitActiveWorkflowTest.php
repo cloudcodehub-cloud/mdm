@@ -72,6 +72,7 @@ class VisitActiveWorkflowTest extends TestCase
             'accuracy' => 8.25,
             'location_method' => ClockInLocationMethod::BrowserGps->value,
             'location_status' => ClockInLocationStatus::Captured->value,
+            'handover_note' => 'Wrap-up complete for next DSP.',
         ];
     }
 
@@ -84,6 +85,7 @@ class VisitActiveWorkflowTest extends TestCase
             'location_method' => ClockInLocationMethod::GpsUnavailable->value,
             'location_status' => ClockInLocationStatus::Unavailable->value,
             'gps_fallback_reason' => GpsFallbackReason::GpsUnavailable->value,
+            'handover_note' => 'Wrap-up complete for next DSP.',
         ];
     }
 
@@ -354,7 +356,10 @@ class VisitActiveWorkflowTest extends TestCase
             ->assertRedirect();
 
         $this->actingAs($dsp->user()->firstOrFail())
-            ->post(route('visits.clock-out', $visit), $this->clockOutGps())
+            ->post(route('visits.clock-out', $visit), [
+                ...$this->clockOutGps(),
+                'handover_note' => 'Next DSP should review the evening plan.',
+            ])
             ->assertRedirect(route('visits.show', $visit));
 
         $visit->refresh();

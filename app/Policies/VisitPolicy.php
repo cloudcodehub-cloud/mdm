@@ -43,6 +43,11 @@ class VisitPolicy
         return $this->operate($user, $visit);
     }
 
+    public function recordSafety(User $user, Visit $visit): bool
+    {
+        return $this->operate($user, $visit);
+    }
+
     public function create(User $user): bool
     {
         return false;

@@ -28,6 +28,21 @@ export type SkipReasonOption = {
     requires_explanation: boolean;
 };
 
+export type VisitSafetyCheckRecord = {
+    id: number;
+    sequence: number;
+    due_at: string;
+    due_at_label: string;
+    grace_ends_at: string;
+    status: string;
+    status_label: string;
+    completed_at: string | null;
+    completed_at_label: string | null;
+    outcome_reason: string | null;
+    is_documented: boolean;
+    requires_reason: boolean;
+};
+
 export type ActiveVisitRecord = {
     id: number;
     status: string;
@@ -52,7 +67,17 @@ export type ActiveVisitRecord = {
     clock_out_unavailable_reason: string | null;
     visit_notes: string | null;
     handover_note: string | null;
+    extended_visit_reason?: string | null;
     unfinished_required_acknowledged: boolean;
+    safety_check_interval_minutes?: number | null;
+    supervision_instruction?: string | null;
+    general_safety_confirmed_at?: string | null;
+    general_safety_confirmed?: boolean;
+    requires_general_safety_confirmation?: boolean;
+    past_scheduled_end?: boolean;
+    minutes_past_scheduled_end?: number | null;
+    requires_extended_visit_reason?: boolean;
+    safety_checks?: VisitSafetyCheckRecord[];
     task_summary: {
         total: number;
         completed: number;

@@ -25,6 +25,7 @@ use App\Http\Controllers\SupervisorOperationsController;
 use App\Http\Controllers\VisitClockInController;
 use App\Http\Controllers\VisitClockOutController;
 use App\Http\Controllers\VisitController;
+use App\Http\Controllers\VisitSafetyCheckController;
 use App\Http\Controllers\VisitExceptionController;
 use App\Http\Controllers\VisitTaskController;
 use Illuminate\Support\Facades\Auth;
@@ -106,6 +107,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('documents.hours-attendance.pdf');
     Route::patch('visits/{visit}/notes', [VisitClockOutController::class, 'updateNotes'])->name('visits.notes');
     Route::post('visits/{visit}/clock-out', [VisitClockOutController::class, 'store'])->name('visits.clock-out');
+    Route::post('visits/{visit}/safety-confirmation', [VisitSafetyCheckController::class, 'confirmGeneral'])
+        ->name('visits.safety-confirmation');
+    Route::post('visits/{visit}/safety-checks/{safety_check}/acknowledge', [VisitSafetyCheckController::class, 'acknowledge'])
+        ->name('visits.safety-checks.acknowledge');
     Route::post('visits/{visit}/tasks/{visit_task}/complete', [VisitTaskController::class, 'complete'])
         ->scopeBindings()
         ->name('visits.tasks.complete');

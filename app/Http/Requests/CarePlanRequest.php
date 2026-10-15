@@ -51,6 +51,12 @@ class CarePlanRequest extends FormRequest
             'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
             'status' => ['required', Rule::enum(CarePlanStatus::class)],
             'notes' => ['nullable', 'string'],
+            'timed_check_interval_minutes' => [
+                'nullable',
+                'integer',
+                Rule::in(config('mdm.safety_check.allowed_intervals', [5, 10, 15, 30])),
+            ],
+            'supervision_instruction' => ['nullable', 'string', 'max:5000'],
             'tasks' => ['sometimes', 'array'],
             'tasks.*.id' => ['nullable', 'integer', 'exists:care_plan_task_templates,id'],
             'tasks.*.catalog_item_id' => ['nullable', 'integer', 'exists:task_catalog_items,id'],

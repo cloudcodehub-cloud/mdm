@@ -323,6 +323,7 @@ class Phase1DspFeedbackTest extends TestCase
                 'location_method' => ClockInLocationMethod::BrowserGps->value,
                 'location_status' => ClockInLocationStatus::Captured->value,
                 'acknowledge_unfinished_required' => false,
+                'handover_note' => 'On-time visit wrap-up.',
             ])
             ->assertRedirect();
 
@@ -390,6 +391,7 @@ class Phase1DspFeedbackTest extends TestCase
                 'location_method' => ClockInLocationMethod::BrowserGps->value,
                 'location_status' => ClockInLocationStatus::Captured->value,
                 'acknowledge_unfinished_required' => false,
+                'handover_note' => 'GPS visit wrap-up.',
             ])
             ->assertRedirect();
 
@@ -437,6 +439,7 @@ class Phase1DspFeedbackTest extends TestCase
                 'location_status' => ClockInLocationStatus::Denied->value,
                 'gps_fallback_reason' => GpsFallbackReason::PoorSignal->value,
                 'acknowledge_unfinished_required' => false,
+                'handover_note' => 'Fallback visit wrap-up.',
             ])
             ->assertRedirect();
 

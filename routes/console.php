@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('mdm:dispatch-shift-reminders')->everyMinute();
+Schedule::command('mdm:dispatch-active-visit-monitors')->everyMinute();

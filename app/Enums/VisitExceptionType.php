@@ -9,6 +9,9 @@ enum VisitExceptionType: string
     case ClientRefusal = 'client_refusal';
     case CriticalTaskSkipped = 'critical_task_skipped';
     case OtherVisitException = 'other_visit_exception';
+    case MissedSafetyCheck = 'missed_safety_check';
+    case ExtendedVisit = 'extended_visit';
+    case OpenVisitEscalation = 'open_visit_escalation';
 
     public function label(): string
     {
@@ -18,18 +21,26 @@ enum VisitExceptionType: string
             self::ClientRefusal => 'Client refusal',
             self::CriticalTaskSkipped => 'Critical task skipped',
             self::OtherVisitException => 'Unfinished-task exception',
+            self::MissedSafetyCheck => 'Missed safety check',
+            self::ExtendedVisit => 'Extended visit',
+            self::OpenVisitEscalation => 'Open visit escalation',
         };
     }
 
     /**
      * Presentation priority derived from existing exception types.
-     * Critical skips, client refusals, and unfinished required work are high.
+     * Critical skips, client refusals, unfinished required work, missed safety,
+     * and open-visit escalation are high.
      */
     public function isHighPriority(): bool
     {
         return match ($this) {
-            self::CriticalTaskSkipped, self::ClientRefusal, self::OtherVisitException => true,
-            self::GpsUnavailable, self::LateStart => false,
+            self::CriticalTaskSkipped,
+            self::ClientRefusal,
+            self::OtherVisitException,
+            self::MissedSafetyCheck,
+            self::OpenVisitEscalation => true,
+            self::GpsUnavailable, self::LateStart, self::ExtendedVisit => false,
         };
     }
 

@@ -22,6 +22,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $ends_on
  * @property CarePlanStatus $status
  * @property string|null $notes
+ * @property int|null $timed_check_interval_minutes
+ * @property string|null $supervision_instruction
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Client $client
@@ -36,6 +38,8 @@ use Illuminate\Support\Carbon;
     'ends_on',
     'status',
     'notes',
+    'timed_check_interval_minutes',
+    'supervision_instruction',
 ])]
 class CarePlan extends Model
 {

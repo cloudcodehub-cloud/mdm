@@ -186,6 +186,21 @@ export function OperationsBoardView({
                         empty="No open unfinished-task exceptions."
                     />
                 </Panel>
+                <Panel title="Missed safety checks" className="lg:col-span-6">
+                    <ExceptionLinks
+                        exceptions={operations.exceptions.missed_safety ?? []}
+                        empty="No open missed safety checks."
+                    />
+                </Panel>
+                <Panel title="Extended / open visits" className="lg:col-span-6">
+                    <ExceptionLinks
+                        exceptions={[
+                            ...(operations.exceptions.extended_visits ?? []),
+                            ...(operations.exceptions.open_escalations ?? []),
+                        ]}
+                        empty="No open extended-visit or escalation exceptions."
+                    />
+                </Panel>
             </div>
         </div>
     );
