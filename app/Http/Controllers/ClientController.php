@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Enums\ClientStatus;
+use App\Enums\DspClientAccessLevel;
+use App\Enums\ScheduledVisitStatus;
 use App\Http\Requests\StoreClientRequest;
 use App\Http\Requests\UpdateClientRequest;
 use App\Http\Requests\UpdateClientStatusRequest;
@@ -11,6 +13,7 @@ use App\Models\Client;
 use App\Models\ClientDspAssignment;
 use App\Models\ScheduledVisit;
 use App\Services\CareOverviewService;
+use App\Services\DspClientAccessService;
 use App\Services\ProfileAttentionService;
 use App\Services\ProfileCompletionService;
 use App\Services\ProfilePhotoService;
@@ -113,14 +116,24 @@ class ClientController extends Controller
         return redirect()->route('clients.setup.edit', $client);
     }
 
-    public function show(Request $request, Client $client, CareOverviewService $overview, ProfileCompletionService $completion): Response
-    {
+    public function show(
+        Request $request,
+        Client $client,
+        CareOverviewService $overview,
+        ProfileCompletionService $completion,
+        DspClientAccessService $dspAccess,
+    ): Response {
         $this->authorize('view', $client);
 
         $user = $request->user();
         $user?->loadMissing('employee');
         $isDsp = $user?->isDsp() ?? false;
         $dspId = $isDsp ? $user?->employee?->id : null;
+        $accessLevel = $isDsp && $user !== null
+            ? $dspAccess->levelFor($user, $client)
+            : DspClientAccessLevel::Full;
+        $fullAccess = ! $isDsp || $accessLevel === DspClientAccessLevel::Full;
+        $olderHistory = $fullAccess && $request->string('history_scope')->toString() === 'older';
 
         $client->load([
             'supervisor.user',
@@ -150,9 +163,11 @@ class ClientController extends Controller
             : $client->dspAssignments
                 ->sortByDesc(fn ($assignment) => $assignment->started_on->toDateString())
                 ->values();
-        $carePlans = $isDsp
-            ? $client->carePlans->filter(fn (CarePlan $plan): bool => $plan->isCurrentlyActive())->values()
-            : $client->carePlans;
+        $carePlans = (! $isDsp || $fullAccess)
+            ? ($isDsp
+                ? $client->carePlans->filter(fn (CarePlan $plan): bool => $plan->isCurrentlyActive())->values()
+                : $client->carePlans)
+            : collect();
         $authorizations = $isDsp ? collect() : $client->authorizations;
 
         $today = app(SettingsService::class)->today();
@@ -168,13 +183,53 @@ class ClientController extends Controller
             return true;
         });
 
+        $nextPreparationVisit = null;
+
+        if ($isDsp) {
+            $nextPreparationVisit = $visits
+                ->filter(fn (ScheduledVisit $visit): bool => $visit->status === ScheduledVisitStatus::Scheduled)
+                ->sortBy(function (ScheduledVisit $visit): int {
+                    try {
+                        return $visit->startsAtOn()->getTimestamp();
+                    } catch (\RuntimeException) {
+                        return PHP_INT_MAX;
+                    }
+                })
+                ->first();
+        }
+
         $supervisor = $client->supervisor;
         $supervisorUser = $supervisor?->user;
         $canManageCarePlan = $user?->can('manageCarePlan', $client) ?? false;
         $supervisorName = $supervisor !== null ? $supervisor->full_name : $supervisorUser?->name;
 
+        $clientPayload = $fullAccess
+            ? DirectoryPresenter::clientDetail($client)
+            : DirectoryPresenter::clientPreparationDetail($client, $nextPreparationVisit);
+
+        $careOverview = $user === null
+            ? [
+                'today' => [],
+                'upcoming' => [],
+                'history' => [],
+                'services' => [],
+                'history_scope' => 'recent',
+                'history_days' => 30,
+                'can_view_older_history' => false,
+            ]
+            : $overview->forClient(
+                $client,
+                $user,
+                // Upcoming/today care templates remain visible for preparation;
+                // cross-DSP history stays locked until the full-access window.
+                includeFullCare: true,
+                includeHistory: $fullAccess,
+                olderHistory: $olderHistory,
+            );
+
         return Inertia::render('clients/show', [
-            'client' => DirectoryPresenter::clientDetail($client),
+            'client' => $clientPayload,
+            'dsp_access' => $isDsp ? $dspAccess->serialize($accessLevel) : null,
             'profile_completion' => $completion->forClient($client),
             'authorizations' => DirectoryPresenter::authorizations($authorizations),
             'carePlans' => DirectoryPresenter::carePlans($carePlans),
@@ -188,12 +243,7 @@ class ClientController extends Controller
                 'is_completed' => $todayVisit->status->value === 'completed'
                     || $todayVisit->visit?->status?->value === 'completed',
             ],
-            'care_overview' => $user !== null ? $overview->forClient($client, $user) : [
-                'today' => [],
-                'upcoming' => [],
-                'history' => [],
-                'services' => [],
-            ],
+            'care_overview' => $careOverview,
             'care_services' => CareServicePresenter::options($client->careServices),
             'task_catalog' => $canManageCarePlan ? TaskCatalogPresenter::payload() : null,
             'supervisor_contact' => $supervisorUser === null ? null : [

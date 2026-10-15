@@ -84,6 +84,16 @@ class DomainAuthorizationPhase1B2Test extends TestCase
 
     public function test_dsps_can_view_assigned_client_care_plans_and_own_visits(): void
     {
+        app(\App\Services\SettingsService::class)->updateOrganization([
+            'organization_name' => 'MDM - Magic Data Management',
+            'timezone' => 'UTC',
+            'date_format' => \App\Enums\DateFormat::MonthDayYear->value,
+            'time_format' => \App\Enums\TimeFormat::TwelveHour->value,
+            'first_day_of_week' => 0,
+            'credential_expiring_soon_days' => 30,
+        ]);
+        config(['mdm.visit.early_start_minutes' => 30]);
+
         $dsp = Employee::factory()->dsp()->create();
         $otherDsp = Employee::factory()->dsp()->create();
         $assignedClient = Client::factory()->create();
@@ -93,12 +103,18 @@ class DomainAuthorizationPhase1B2Test extends TestCase
 
         $plan = CarePlan::factory()->forClient($assignedClient)->create();
         $otherPlan = CarePlan::factory()->forClient($otherClient)->create();
-        $ownVisit = ScheduledVisit::factory()->forClient($assignedClient)->forDsp($dsp)->create();
+        $ownVisit = ScheduledVisit::factory()->forClient($assignedClient)->forDsp($dsp)->create([
+            'service_date' => '2026-09-11',
+            'starts_at' => '09:00:00',
+            'ends_at' => '17:00:00',
+        ]);
         $otherVisit = ScheduledVisit::factory()->forClient($otherClient)->forDsp($otherDsp)->create();
         $reason = SkipReason::factory()->create();
 
         $user = $dsp->user()->firstOrFail();
 
+        // Full care-plan access requires the early-start / visit window.
+        \Illuminate\Support\Carbon::setTestNow('2026-09-11 10:00:00');
         $this->assertTrue(Gate::forUser($user)->allows('view', $plan));
         $this->assertTrue(Gate::forUser($user)->denies('view', $otherPlan));
         $this->assertTrue(Gate::forUser($user)->allows('view', $ownVisit));
@@ -106,6 +122,11 @@ class DomainAuthorizationPhase1B2Test extends TestCase
         $this->assertTrue(Gate::forUser($user)->allows('view', $reason));
         $this->assertTrue(Gate::forUser($user)->denies('update', $plan));
         $this->assertTrue(Gate::forUser($user)->denies('create', ScheduledVisit::class));
+
+        // Before the early-start window, care plans stay locked even with assignment.
+        \Illuminate\Support\Carbon::setTestNow('2026-09-11 07:00:00');
+        $this->assertTrue(Gate::forUser($user)->denies('view', $plan));
+        \Illuminate\Support\Carbon::setTestNow();
     }
 
     public function test_form_request_rules_accept_template_and_explicit_visit_payloads(): void

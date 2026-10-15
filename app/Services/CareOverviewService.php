@@ -19,46 +19,69 @@ class CareOverviewService
     ) {}
 
     /**
-     * @return array{today: list<array<string, mixed>>, upcoming: list<array<string, mixed>>, history: list<array<string, mixed>>, services: list<array{id: int, name: string, slug: string}>}
+     * @return array{
+     *     today: list<array<string, mixed>>,
+     *     upcoming: list<array<string, mixed>>,
+     *     history: list<array<string, mixed>>,
+     *     services: list<array{id: int, name: string, slug: string}>,
+     *     history_scope: string,
+     *     history_days: int|null,
+     *     can_view_older_history: bool
+     * }
      */
-    public function forClient(Client $client, User $viewer): array
-    {
+    public function forClient(
+        Client $client,
+        User $viewer,
+        bool $includeFullCare = true,
+        bool $includeHistory = true,
+        bool $olderHistory = false,
+    ): array {
         $today = Carbon::parse($this->settings->today())->startOfDay();
         $client->loadMissing(['careServices' => fn ($query) => $query->active()]);
-        $plan = $client->carePlans()
-            ->currentlyActive()
-            ->with(['taskTemplates' => fn ($query) => $query->active()->orderBy('sort_order')])
-            ->orderByDesc('starts_on')
-            ->first();
-
-        $templates = $plan === null ? collect() : $plan->taskTemplates;
 
         $todayItems = [];
         $upcoming = [];
 
-        foreach ($templates as $template) {
-            if ($this->recurrence->appliesOn($template, $today)) {
-                $todayItems[] = $this->serializeTemplate($template, $today, true);
+        if ($includeFullCare) {
+            $plan = $client->carePlans()
+                ->currentlyActive()
+                ->with(['taskTemplates' => fn ($query) => $query->active()->orderBy('sort_order')])
+                ->orderByDesc('starts_on')
+                ->first();
 
-                continue;
+            $templates = $plan === null ? collect() : $plan->taskTemplates;
+
+            foreach ($templates as $template) {
+                if ($this->recurrence->appliesOn($template, $today)) {
+                    $todayItems[] = $this->serializeTemplate($template, $today, true);
+
+                    continue;
+                }
+
+                $next = $this->recurrence->nextAfter($template, $today);
+
+                if ($next !== null) {
+                    $upcoming[] = $this->serializeTemplate($template, $next, false);
+                }
             }
 
-            $next = $this->recurrence->nextAfter($template, $today);
-
-            if ($next !== null) {
-                $upcoming[] = $this->serializeTemplate($template, $next, false);
-            }
+            usort($upcoming, function (array $left, array $right): int {
+                return strcmp((string) $left['next_on'], (string) $right['next_on']);
+            });
         }
 
-        usort($upcoming, function (array $left, array $right): int {
-            return strcmp((string) $left['next_on'], (string) $right['next_on']);
-        });
+        $historyDays = $olderHistory ? null : 30;
 
         return [
             'today' => $todayItems,
             'upcoming' => array_slice($upcoming, 0, 8),
-            'history' => $this->history($client, $viewer),
+            'history' => $includeHistory
+                ? $this->history($client, $viewer, $historyDays)
+                : [],
             'services' => CareServicePresenter::options($client->careServices),
+            'history_scope' => $olderHistory ? 'older' : 'recent',
+            'history_days' => $historyDays,
+            'can_view_older_history' => $includeHistory && ! $olderHistory,
         ];
     }
 
@@ -87,12 +110,19 @@ class CareOverviewService
     /**
      * @return list<array<string, mixed>>
      */
-    private function history(Client $client, User $viewer): array
+    private function history(Client $client, User $viewer, ?int $withinDays = 30): array
     {
         $notes = VisitTask::query()
             ->with(['visit.employee.user', 'visit.scheduledVisit'])
-            ->whereHas('visit', function ($query) use ($client, $viewer): void {
+            ->whereHas('visit', function ($query) use ($client, $viewer, $withinDays): void {
                 $query->where('client_id', $client->id)->visibleTo($viewer);
+
+                if ($withinDays !== null) {
+                    $cutoff = Carbon::parse($this->settings->today())
+                        ->subDays($withinDays)
+                        ->startOfDay();
+                    $query->where('clocked_in_at', '>=', $cutoff);
+                }
             })
             ->whereIn('status', [VisitTaskStatus::Completed, VisitTaskStatus::Skipped])
             ->where(function ($query): void {
@@ -100,7 +130,7 @@ class CareOverviewService
                     ->orWhereNotNull('skip_comment');
             })
             ->orderByDesc('id')
-            ->limit(12)
+            ->limit($withinDays === null ? 40 : 12)
             ->get();
 
         $items = [];

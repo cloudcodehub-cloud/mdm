@@ -80,6 +80,9 @@ export type CareOverview = {
     upcoming: CareOverviewItem[];
     history: CareHistoryItem[];
     services?: Array<{ id: number; name: string; slug: string }>;
+    history_scope?: 'recent' | 'older' | string;
+    history_days?: number | null;
+    can_view_older_history?: boolean;
 };
 
 export type CareServiceRecord = {

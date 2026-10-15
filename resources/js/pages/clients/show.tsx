@@ -51,6 +51,7 @@ import type {
     AuthorizationRecord,
     CarePlanRecord,
     ClientDetail,
+    DspClientAccess,
     OptionItem,
     ProfileCompletion,
     VisitRecord,
@@ -69,6 +70,7 @@ export default function ClientsShow({
     dspOptions,
     can,
     profile_completion,
+    dsp_access = null,
 }: {
     client: ClientDetail;
     authorizations: AuthorizationRecord[];
@@ -86,10 +88,14 @@ export default function ClientsShow({
     dspOptions: OptionItem[];
     can: { update: boolean; manageAssignments: boolean; manageCarePlan: boolean; schedule_visit?: boolean };
     profile_completion: ProfileCompletion;
+    dsp_access?: DspClientAccess | null;
 }) {
     const role = usePage().props.auth.user.role;
     const isDsp = role === 'DSP';
-    const [tab, setTab] = useState(isDsp ? 'care-plan' : 'profile');
+    const preparationOnly = isDsp && dsp_access?.level === 'preparation';
+    const [tab, setTab] = useState(
+        isDsp ? (preparationOnly ? 'profile' : 'care-plan') : 'profile',
+    );
     const activeWork = usePage().props.activeWork as DashboardActiveVisit | null;
     const currentAssignments = assignments.filter((assignment) => assignment.is_active);
     const historicalAssignments = assignments.filter((assignment) => !assignment.is_active);
@@ -118,6 +124,24 @@ export default function ClientsShow({
         <>
             <Head title={client.name} />
             <div className="page-shell">
+                {preparationOnly && (
+                    <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-50/70 p-4 text-sm dark:bg-amber-950/20">
+                        <p className="font-medium">Preparation access</p>
+                        <p className="text-muted-foreground mt-1">
+                            Full client history and profile details open up to 30
+                            minutes before the scheduled start.
+                            {client.preparation?.scheduled_time
+                                ? ` Next visit: ${client.preparation.service_date ?? ''} ${client.preparation.scheduled_time}.`
+                                : ''}
+                        </p>
+                        {client.preparation?.visit_instructions && (
+                            <p className="mt-2">
+                                Visit instructions:{' '}
+                                {client.preparation.visit_instructions}
+                            </p>
+                        )}
+                    </div>
+                )}
                 <IdentityHeader
                     leading={
                         <ProfilePhoto
@@ -148,7 +172,9 @@ export default function ClientsShow({
                             </span>
                             <span className="text-muted-foreground text-sm">
                                 Supervisor:{' '}
-                                {client.supervisor_name ?? 'Unassigned'}
+                                {client.supervisor_name ??
+                                    client.preparation?.supervisor_name ??
+                                    'Unassigned'}
                             </span>
                             {isDsp && currentAssignments[0] && (
                                 <span className="text-muted-foreground text-sm">
@@ -325,6 +351,13 @@ export default function ClientsShow({
                                 );
                             }
                         }}
+                        onViewOlderHistory={() => {
+                            router.get(
+                                show.url(client.id),
+                                { history_scope: 'older' },
+                                { preserveScroll: true },
+                            );
+                        }}
                     />
                 )}
 
@@ -460,6 +493,7 @@ function CarePlanTab({
     supervisor,
     onHistory,
     onContactSupervisor,
+    onViewOlderHistory,
 }: {
     client: ClientDetail;
     carePlans: CarePlanRecord[];
@@ -470,6 +504,7 @@ function CarePlanTab({
     supervisor: SupervisorContact | null;
     onHistory: (item: CareHistoryItem) => void;
     onContactSupervisor: () => void;
+    onViewOlderHistory?: () => void;
 }) {
     const activePlan =
         carePlans.find((plan) => plan.status === 'active') ?? carePlans[0];
@@ -531,6 +566,7 @@ function CarePlanTab({
                     onContactSupervisor={
                         supervisor?.available ? onContactSupervisor : undefined
                     }
+                    onViewOlderHistory={onViewOlderHistory}
                 />
             )}
             {canManage && (

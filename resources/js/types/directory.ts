@@ -230,6 +230,21 @@ export type ClientDetail = ClientSummary & {
     supervisor_id: number | null;
     notes: string | null;
     care_services?: Array<{ id: number; name: string; slug: string }>;
+    preparation?: {
+        service_type?: string | null;
+        location_label?: string | null;
+        supervisor_name?: string | null;
+        visit_instructions?: string | null;
+        scheduled_time?: string | null;
+        service_date?: string | null;
+    };
+};
+
+export type DspClientAccess = {
+    level: 'none' | 'preparation' | 'full' | string;
+    level_label: string;
+    allows_history: boolean;
+    allows_full_profile: boolean;
 };
 
 export type AuthorizationRecord = {

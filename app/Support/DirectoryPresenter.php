@@ -297,6 +297,44 @@ final class DirectoryPresenter
     }
 
     /**
+     * Limited DSP preparation payload before the early-start / full-access window.
+     *
+     * @return array<string, mixed>
+     */
+    public static function clientPreparationDetail(Client $client, ?ScheduledVisit $nextVisit = null): array
+    {
+        return [
+            ...self::clientSummary($client),
+            'first_name' => $client->first_name,
+            'middle_name' => null,
+            'last_name' => $client->last_name,
+            'date_of_birth' => null,
+            'address_line_1' => $client->address_line_1,
+            'address_line_2' => $client->address_line_2,
+            'city' => $client->city,
+            'state' => $client->state,
+            'postal_code' => $client->postal_code,
+            'emergency_contact_name' => null,
+            'emergency_contact_relationship' => null,
+            'emergency_contact_phone' => null,
+            'supervisor_id' => $client->supervisor_id,
+            'notes' => null,
+            'care_services' => $client->relationLoaded('careServices')
+                ? CareServicePresenter::options($client->careServices)
+                : [],
+            'preparation' => [
+                'service_type' => $nextVisit?->service_type,
+                'location_label' => self::clientLocationLabel($client),
+                'supervisor_name' => $client->supervisor?->full_name
+                    ?? $nextVisit?->supervisor?->full_name,
+                'visit_instructions' => $nextVisit?->notes,
+                'scheduled_time' => $nextVisit === null ? null : self::visitTimeLabel($nextVisit),
+                'service_date' => $nextVisit === null ? null : self::date($nextVisit->service_date),
+            ],
+        ];
+    }
+
+    /**
      * @param  Collection<int, ClientAuthorization>  $authorizations
      * @return list<array<string, mixed>>
      */

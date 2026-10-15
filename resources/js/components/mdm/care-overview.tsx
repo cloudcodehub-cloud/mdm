@@ -1,14 +1,17 @@
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
+import { Button } from '@/components/ui/button';
 import type { CareOverview, CareHistoryItem } from '@/types/care';
 
 export function CareOverviewPanels({
     overview,
     onHistory,
     onContactSupervisor,
+    onViewOlderHistory,
 }: {
     overview: CareOverview;
     onHistory?: (item: CareHistoryItem) => void;
     onContactSupervisor?: () => void;
+    onViewOlderHistory?: () => void;
 }) {
     const serviceLabel =
         overview.services && overview.services.length > 0
@@ -66,7 +69,14 @@ export function CareOverviewPanels({
                     </ul>
                 )}
             </Panel>
-            <Panel title="History" description="Recent care notes for this client.">
+            <Panel
+                title="History"
+                description={
+                    overview.history_scope === 'older'
+                        ? 'Older care notes for continuity of care.'
+                        : 'Recent care notes (last 30 days).'
+                }
+            >
                 {overview.history.length === 0 ? (
                     <EmptyState compact message="No recent care notes." />
                 ) : (
@@ -110,6 +120,16 @@ export function CareOverviewPanels({
                             </li>
                         ))}
                     </ul>
+                )}
+                {overview.can_view_older_history && onViewOlderHistory && (
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        className="mt-3"
+                        onClick={onViewOlderHistory}
+                    >
+                        View Older History
+                    </Button>
                 )}
             </Panel>
             </div>
