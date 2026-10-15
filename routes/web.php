@@ -9,6 +9,7 @@ use App\Http\Controllers\CareServiceController;
 use App\Http\Controllers\ClientCareSetupController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientDspAssignmentController;
+use App\Http\Controllers\CriticalAlertController;
 use App\Http\Controllers\ComplianceController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
@@ -26,6 +27,7 @@ use App\Http\Controllers\VisitClockInController;
 use App\Http\Controllers\VisitClockOutController;
 use App\Http\Controllers\VisitController;
 use App\Http\Controllers\VisitSafetyCheckController;
+use App\Http\Controllers\VisitSafetyInstructionController;
 use App\Http\Controllers\VisitExceptionController;
 use App\Http\Controllers\VisitTaskController;
 use Illuminate\Support\Facades\Auth;
@@ -61,6 +63,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('clients/{client}/status', [ClientController::class, 'updateStatus'])->name('clients.status');
     Route::post('clients/{client}/assignments', [ClientDspAssignmentController::class, 'store'])->name('clients.assignments.store');
     Route::patch('assignments/{assignment}/deactivate', [ClientDspAssignmentController::class, 'deactivate'])->name('assignments.deactivate');
+    Route::post('clients/{client}/critical-alerts', [CriticalAlertController::class, 'store'])
+        ->name('clients.critical-alerts.store');
+    Route::patch('clients/{client}/critical-alerts/{critical_alert}', [CriticalAlertController::class, 'update'])
+        ->name('clients.critical-alerts.update');
+    Route::post('clients/{client}/critical-alerts/{critical_alert}/deactivate', [CriticalAlertController::class, 'deactivate'])
+        ->name('clients.critical-alerts.deactivate');
 
     Route::get('care-services', [CareServiceController::class, 'index'])->name('care-services.index');
     Route::post('care-services', [CareServiceController::class, 'store'])->name('care-services.store');
@@ -112,6 +120,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('visits.safety-confirmation');
     Route::post('visits/{visit}/safety-checks/{safety_check}/acknowledge', [VisitSafetyCheckController::class, 'acknowledge'])
         ->name('visits.safety-checks.acknowledge');
+    Route::post('visits/{visit}/critical-alerts/{critical_alert}/acknowledge', [CriticalAlertController::class, 'acknowledge'])
+        ->name('visits.critical-alerts.acknowledge');
+    Route::post('visits/{visit}/safety-instructions', [VisitSafetyInstructionController::class, 'store'])
+        ->name('visits.safety-instructions.store');
+    Route::post('visits/{visit}/safety-instructions/{safety_instruction}/acknowledge', [VisitSafetyInstructionController::class, 'acknowledge'])
+        ->name('visits.safety-instructions.acknowledge');
     Route::post('visits/{visit}/tasks/{visit_task}/complete', [VisitTaskController::class, 'complete'])
         ->scopeBindings()
         ->name('visits.tasks.complete');

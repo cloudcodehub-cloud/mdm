@@ -8,6 +8,7 @@ import {
 } from '@/components/mdm/live-build-summary';
 import { CareMessageDrawer } from '@/components/mdm/care-message-drawer';
 import { CareOverviewPanels } from '@/components/mdm/care-overview';
+import { ClientCriticalAlertsPanel } from '@/components/mdm/client-critical-alerts-panel';
 import { ConfirmAction } from '@/components/mdm/confirm-action';
 import {
     Field,
@@ -56,6 +57,7 @@ import type {
     ProfileCompletion,
     VisitRecord,
 } from '@/types/directory';
+import type { CriticalAlertRecord } from '@/types/visit';
 
 export default function ClientsShow({
     client,
@@ -71,6 +73,8 @@ export default function ClientsShow({
     can,
     profile_completion,
     dsp_access = null,
+    critical_alerts = [],
+    critical_alert_categories = [],
 }: {
     client: ClientDetail;
     authorizations: AuthorizationRecord[];
@@ -86,9 +90,17 @@ export default function ClientsShow({
     task_catalog?: TaskCatalogPayload | null;
     supervisor_contact?: SupervisorContact | null;
     dspOptions: OptionItem[];
-    can: { update: boolean; manageAssignments: boolean; manageCarePlan: boolean; schedule_visit?: boolean };
+    can: {
+        update: boolean;
+        manageAssignments: boolean;
+        manageCarePlan: boolean;
+        manageCriticalAlerts?: boolean;
+        schedule_visit?: boolean;
+    };
     profile_completion: ProfileCompletion;
     dsp_access?: DspClientAccess | null;
+    critical_alerts?: CriticalAlertRecord[];
+    critical_alert_categories?: Array<{ value: string; label: string }>;
 }) {
     const role = usePage().props.auth.user.role;
     const isDsp = role === 'DSP';
@@ -235,6 +247,17 @@ export default function ClientsShow({
                         todayVisit={today_visit}
                         activeVisit={activeForThisClient}
                     />
+                )}
+
+                {(critical_alerts.length > 0 || can.manageCriticalAlerts) && (
+                    <div className="mb-4">
+                        <ClientCriticalAlertsPanel
+                            clientId={client.id}
+                            alerts={critical_alerts}
+                            categories={critical_alert_categories}
+                            canManage={Boolean(can.manageCriticalAlerts)}
+                        />
+                    </div>
                 )}
 
                 <ModuleTabs

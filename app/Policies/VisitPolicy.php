@@ -48,6 +48,35 @@ class VisitPolicy
         return $this->operate($user, $visit);
     }
 
+    public function issueSafetyInstruction(User $user, Visit $visit): bool
+    {
+        if ($visit->status !== VisitStatus::InProgress) {
+            return false;
+        }
+
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        if ($user->isSupervisor() && $user->employee) {
+            $visit->loadMissing('client');
+
+            return $visit->client->supervisor_id === $user->employee->id;
+        }
+
+        return false;
+    }
+
+    public function acknowledgeCriticalAlert(User $user, Visit $visit): bool
+    {
+        return $this->operate($user, $visit);
+    }
+
+    public function acknowledgeSafetyInstruction(User $user, Visit $visit): bool
+    {
+        return $this->operate($user, $visit);
+    }
+
     public function create(User $user): bool
     {
         return false;

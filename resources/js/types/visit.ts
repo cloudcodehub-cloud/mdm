@@ -43,6 +43,40 @@ export type VisitSafetyCheckRecord = {
     requires_reason: boolean;
 };
 
+export type CriticalAlertRecord = {
+    id: number;
+    category: string;
+    category_label: string;
+    title: string;
+    body: string;
+    version: number;
+    is_urgent: boolean;
+    is_active: boolean;
+    created_by_name?: string | null;
+    created_at?: string | null;
+    created_at_label?: string | null;
+    updated_at?: string | null;
+    deactivated_at?: string | null;
+    acknowledged: boolean;
+    acknowledged_at?: string | null;
+    acknowledged_at_label?: string | null;
+    requires_acknowledgment: boolean;
+};
+
+export type VisitSafetyInstructionRecord = {
+    id: number;
+    content: string;
+    is_urgent: boolean;
+    created_by_name?: string | null;
+    effective_at: string;
+    effective_at_label: string;
+    acknowledged: boolean;
+    acknowledged_at?: string | null;
+    acknowledged_at_label?: string | null;
+    acknowledged_by_name?: string | null;
+    requires_acknowledgment: boolean;
+};
+
 export type ActiveVisitRecord = {
     id: number;
     status: string;
@@ -78,6 +112,9 @@ export type ActiveVisitRecord = {
     minutes_past_scheduled_end?: number | null;
     requires_extended_visit_reason?: boolean;
     safety_checks?: VisitSafetyCheckRecord[];
+    critical_alerts?: CriticalAlertRecord[];
+    safety_instructions?: VisitSafetyInstructionRecord[];
+    tasks_gated_by_safety?: boolean;
     task_summary: {
         total: number;
         completed: number;

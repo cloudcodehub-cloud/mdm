@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\ClientStatus;
+use App\Enums\CriticalAlertCategory;
 use App\Enums\DspClientAccessLevel;
 use App\Enums\ScheduledVisitStatus;
 use App\Http\Requests\StoreClientRequest;
@@ -14,6 +15,7 @@ use App\Models\ClientDspAssignment;
 use App\Models\ScheduledVisit;
 use App\Services\CareOverviewService;
 use App\Services\CarePlanRevisionService;
+use App\Services\CriticalAlertService;
 use App\Services\DspClientAccessService;
 use App\Services\ProfileAttentionService;
 use App\Services\ProfileCompletionService;
@@ -123,6 +125,7 @@ class ClientController extends Controller
         CareOverviewService $overview,
         ProfileCompletionService $completion,
         DspClientAccessService $dspAccess,
+        CriticalAlertService $criticalAlerts,
     ): Response {
         $this->authorize('view', $client);
 
@@ -266,10 +269,16 @@ class ClientController extends Controller
             'dspOptions' => ($user?->can('create', ClientDspAssignment::class) ?? false)
                 ? DirectoryPresenter::dspOptions()
                 : [],
+            'critical_alerts' => $criticalAlerts->serializeForClient(
+                $client,
+                includeInactive: ($user?->can('manageCriticalAlerts', $client) ?? false),
+            ),
+            'critical_alert_categories' => CriticalAlertCategory::options(),
             'can' => [
                 'update' => $user?->can('update', $client) ?? false,
                 'manageAssignments' => $user?->can('create', ClientDspAssignment::class) ?? false,
                 'manageCarePlan' => $canManageCarePlan,
+                'manageCriticalAlerts' => $user?->can('manageCriticalAlerts', $client) ?? false,
                 'schedule_visit' => $user?->can('create', ScheduledVisit::class) ?? false,
             ],
         ]);

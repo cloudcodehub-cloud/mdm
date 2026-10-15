@@ -54,6 +54,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, VisitTask> $visitTasks
  * @property-read Collection<int, VisitException> $exceptions
  * @property-read Collection<int, VisitSafetyCheck> $safetyChecks
+ * @property-read Collection<int, VisitSafetyInstruction> $safetyInstructions
  * @property-read Collection<int, AttendanceCorrection> $attendanceCorrections
  *
  * @method static Builder<static> inProgress()
@@ -173,6 +174,14 @@ class Visit extends Model
     public function safetyChecks(): HasMany
     {
         return $this->hasMany(VisitSafetyCheck::class)->orderBy('sequence')->orderBy('id');
+    }
+
+    /**
+     * @return HasMany<VisitSafetyInstruction, $this>
+     */
+    public function safetyInstructions(): HasMany
+    {
+        return $this->hasMany(VisitSafetyInstruction::class)->orderBy('id');
     }
 
     /**

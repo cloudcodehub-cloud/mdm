@@ -45,6 +45,11 @@ class ClientPolicy
         return false;
     }
 
+    public function manageCriticalAlerts(User $user, Client $client): bool
+    {
+        return $this->manageCarePlan($user, $client);
+    }
+
     public function create(User $user): bool
     {
         return $user->isAdmin();

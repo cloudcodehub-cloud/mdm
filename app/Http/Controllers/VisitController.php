@@ -11,7 +11,9 @@ use App\Models\Visit;
 use App\Models\VisitException;
 use App\Services\ActiveVisitAttentionService;
 use App\Services\CareOverviewService;
+use App\Services\CriticalAlertService;
 use App\Services\VisitSafetyCheckService;
+use App\Services\VisitSafetyInstructionService;
 use App\Services\VisitTaskGenerator;
 use App\Support\DirectoryPresenter;
 use Illuminate\Http\Request;
@@ -27,6 +29,8 @@ class VisitController extends Controller
         CareOverviewService $overview,
         VisitSafetyCheckService $safetyChecks,
         ActiveVisitAttentionService $attention,
+        CriticalAlertService $criticalAlerts,
+        VisitSafetyInstructionService $safetyInstructions,
     ): Response {
         $this->authorize('view', $visit);
 
@@ -41,6 +45,8 @@ class VisitController extends Controller
             'scheduledVisit.shiftTemplate',
             'tasks.skipReason',
             'safetyChecks',
+            'safetyInstructions.createdBy',
+            'safetyInstructions.acknowledgedBy',
             'exceptions.visitTask',
             'exceptions.reviewedBy',
             'exceptions.resolvedBy',
@@ -49,23 +55,38 @@ class VisitController extends Controller
         $user = $request->user();
         $canRecord = $user?->can('recordTask', $visit) ?? false;
         $minutesPastEnd = $attention->minutesPastScheduledEnd($visit);
+        $criticalAlertPayload = $criticalAlerts->serializeForVisit($visit, $user);
+        $safetyInstructionPayload = $safetyInstructions->serializeForVisit($visit);
+        $pendingCritical = collect($criticalAlertPayload)->contains(
+            fn (array $alert): bool => (bool) ($alert['requires_acknowledgment'] ?? false),
+        );
+        $pendingInstructions = collect($safetyInstructionPayload)->contains(
+            fn (array $instruction): bool => (bool) ($instruction['requires_acknowledgment'] ?? false),
+        );
+        $tasksGated = $pendingCritical || $pendingInstructions;
 
         return Inertia::render('visits/show', [
-            'visit' => DirectoryPresenter::visitDetail($visit, [
-                'minutes_past_scheduled_end' => $minutesPastEnd,
-                'requires_extended_visit_reason' => $attention->requiresExtendedVisitReason($visit),
-                'past_scheduled_end' => ($minutesPastEnd ?? 0) > 0,
-            ]),
-            'skip_reasons' => $canRecord ? DirectoryPresenter::skipReasons() : [],
+            'visit' => [
+                ...DirectoryPresenter::visitDetail($visit, [
+                    'minutes_past_scheduled_end' => $minutesPastEnd,
+                    'requires_extended_visit_reason' => $attention->requiresExtendedVisitReason($visit),
+                    'past_scheduled_end' => ($minutesPastEnd ?? 0) > 0,
+                ]),
+                'critical_alerts' => $criticalAlertPayload,
+                'safety_instructions' => $safetyInstructionPayload,
+                'tasks_gated_by_safety' => $tasksGated,
+            ],
+            'skip_reasons' => $canRecord && ! $tasksGated ? DirectoryPresenter::skipReasons() : [],
             'care_history' => $user !== null ? $overview->forClient($visit->client, $user)['history'] : [],
             'supervisor_contact' => $this->supervisorContact($visit->client, $user),
             'gps_fallback_reasons' => GpsFallbackReason::options(),
             'can' => [
                 'clock_in' => $user?->can('clockIn', $visit->scheduledVisit) ?? false,
-                'record_tasks' => $canRecord,
+                'record_tasks' => $canRecord && ! $tasksGated,
                 'record_safety' => $user?->can('recordSafety', $visit) ?? false,
                 'update_notes' => $user?->can('updateNotes', $visit) ?? false,
                 'clock_out' => $user?->can('clockOut', $visit) ?? false,
+                'issue_safety_instruction' => $user?->can('issueSafetyInstruction', $visit) ?? false,
                 'request_correction' => $visit->status === VisitStatus::Completed
                     && ($user?->can('create', [AttendanceCorrection::class, $visit->scheduledVisit]) ?? false),
                 'view_exceptions' => $user?->can('viewAny', VisitException::class) ?? false,

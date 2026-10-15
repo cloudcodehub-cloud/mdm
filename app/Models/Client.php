@@ -48,6 +48,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, CareService> $careServices
  * @property-read Collection<int, ScheduledVisit> $scheduledVisits
  * @property-read Collection<int, Visit> $visits
+ * @property-read Collection<int, ClientCriticalAlert> $criticalAlerts
  *
  * @method static Builder<static> visibleTo(User $user)
  * @method static Builder<static> search(?string $term)
@@ -155,6 +156,14 @@ class Client extends Model
     public function visits(): HasMany
     {
         return $this->hasMany(Visit::class);
+    }
+
+    /**
+     * @return HasMany<ClientCriticalAlert, $this>
+     */
+    public function criticalAlerts(): HasMany
+    {
+        return $this->hasMany(ClientCriticalAlert::class)->orderByDesc('id');
     }
 
     /**

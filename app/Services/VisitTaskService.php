@@ -13,7 +13,11 @@ use Illuminate\Validation\ValidationException;
 
 class VisitTaskService
 {
-    public function __construct(private VisitExceptionService $exceptions) {}
+    public function __construct(
+        private VisitExceptionService $exceptions,
+        private CriticalAlertService $criticalAlerts,
+        private VisitSafetyInstructionService $safetyInstructions,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $payload
@@ -28,6 +32,7 @@ class VisitTaskService
             $task = VisitTask::query()->whereKey($task->id)->lockForUpdate()->firstOrFail();
             $lockedVisit = Visit::query()->whereKey($visit->id)->lockForUpdate()->firstOrFail();
             $this->assertVisitInProgress($lockedVisit);
+            $this->assertSafetyAcknowledgments($user, $lockedVisit);
 
             if ($task->status === VisitTaskStatus::Completed) {
                 return $task;
@@ -70,6 +75,7 @@ class VisitTaskService
             $task = VisitTask::query()->whereKey($task->id)->lockForUpdate()->firstOrFail();
             $visit = Visit::query()->whereKey($visit->id)->lockForUpdate()->firstOrFail();
             $this->assertVisitInProgress($visit);
+            $this->assertSafetyAcknowledgments($user, $visit);
 
             if ($task->status === VisitTaskStatus::Skipped) {
                 return $task;
@@ -173,5 +179,11 @@ class VisitTaskService
                 'task' => 'This visit is no longer in progress.',
             ]);
         }
+    }
+
+    private function assertSafetyAcknowledgments(User $user, Visit $visit): void
+    {
+        $this->criticalAlerts->assertAcknowledgedForTaskExecution($user, $visit);
+        $this->safetyInstructions->assertAcknowledgedForTaskExecution($visit);
     }
 }

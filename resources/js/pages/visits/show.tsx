@@ -26,6 +26,7 @@ import { EmptyState } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { VisitClockOutReview } from '@/components/mdm/visit-clock-out-review';
 import { VisitNotesForm } from '@/components/mdm/visit-notes-form';
+import { VisitCriticalSafetyPanel } from '@/components/mdm/visit-critical-safety-panel';
 import { VisitSafetyPanel } from '@/components/mdm/visit-safety-panel';
 import { VisitTaskCard } from '@/components/mdm/visit-task-card';
 import { dashboard } from '@/routes';
@@ -62,6 +63,7 @@ export default function VisitsShow({
         record_safety?: boolean;
         update_notes?: boolean;
         clock_out?: boolean;
+        issue_safety_instruction?: boolean;
         request_correction?: boolean;
         view_exceptions?: boolean;
         follow_up?: boolean;
@@ -70,7 +72,14 @@ export default function VisitsShow({
     attendance_url?: string | null;
 }) {
     const completed = visit.status === 'completed';
-    const monitoring = !can?.record_tasks && !can?.clock_out;
+    const showActiveWorkspace =
+        !completed &&
+        Boolean(
+            can?.clock_out ||
+                can?.record_tasks ||
+                can?.issue_safety_instruction,
+        );
+    const monitoring = !completed && !showActiveWorkspace;
     const title = completed
         ? `Visit summary · ${visit.client.name}`
         : monitoring
@@ -180,13 +189,7 @@ export default function VisitsShow({
                     }
                 />
 
-                {completed || monitoring ? (
-                    <VisitMonitoring
-                        visit={visit}
-                        canViewExceptions={Boolean(can?.view_exceptions)}
-                        canFollowUp={Boolean(can?.follow_up)}
-                    />
-                ) : (
+                {showActiveWorkspace ? (
                     <ActiveVisit
                         visit={visit}
                         skipReasons={skip_reasons}
@@ -213,6 +216,12 @@ export default function VisitsShow({
                                 );
                             }
                         }}
+                    />
+                ) : (
+                    <VisitMonitoring
+                        visit={visit}
+                        canViewExceptions={Boolean(can?.view_exceptions)}
+                        canFollowUp={Boolean(can?.follow_up)}
                     />
                 )}
             </RecordPage>
@@ -253,6 +262,7 @@ function ActiveVisit({
         record_safety?: boolean;
         update_notes?: boolean;
         clock_out?: boolean;
+        issue_safety_instruction?: boolean;
     };
     careHistory: CareHistoryItem[];
     supervisor: SupervisorContact | null;
@@ -328,6 +338,14 @@ function ActiveVisit({
                 <VisitFacts visit={visit} />
             </div>
 
+            <VisitCriticalSafetyPanel
+                visitId={visit.id}
+                criticalAlerts={visit.critical_alerts ?? []}
+                safetyInstructions={visit.safety_instructions ?? []}
+                canAcknowledge={Boolean(can?.record_safety)}
+                canIssueInstruction={Boolean(can?.issue_safety_instruction)}
+            />
+
             <VisitSafetyPanel
                 visit={visit}
                 canRecord={Boolean(can?.record_safety)}
@@ -335,7 +353,11 @@ function ActiveVisit({
 
             <RecordSection
                 title="Care-plan tasks"
-                description="Complete or skip each visit task. Care-plan templates are not changed."
+                description={
+                    visit.tasks_gated_by_safety
+                        ? 'Acknowledge critical alerts and urgent visit safety instructions before completing tasks.'
+                        : 'Complete or skip each visit task. Care-plan templates are not changed.'
+                }
                 className="lg:col-span-12"
             >
                 {visit.tasks.length === 0 ? (
