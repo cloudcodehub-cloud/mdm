@@ -277,7 +277,31 @@ export default function ClientsShow({
                                     label="Relationship"
                                     value={client.emergency_contact_relationship}
                                 />
-                                <Item label="Phone" value={client.emergency_contact_phone} />
+                                <div>
+                                    <dt className="text-muted-foreground text-xs uppercase">
+                                        Phone
+                                    </dt>
+                                    <dd className="flex flex-wrap items-center gap-2">
+                                        <span>
+                                            {client.emergency_contact_phone ||
+                                                '—'}
+                                        </span>
+                                        {!preparationOnly &&
+                                        emergencyCallHref(
+                                            client.emergency_contact_phone,
+                                        ) ? (
+                                            <Button asChild size="sm" variant="secondary">
+                                                <a
+                                                    href={emergencyCallHref(
+                                                        client.emergency_contact_phone,
+                                                    )!}
+                                                >
+                                                    Call
+                                                </a>
+                                            </Button>
+                                        ) : null}
+                                    </dd>
+                                </div>
                                 <Item label="Notes" value={client.notes} />
                                 <Item
                                     label="Services"
@@ -910,6 +934,25 @@ function Item({ label, value }: { label: string; value?: string | null }) {
             <dd>{value || '—'}</dd>
         </div>
     );
+}
+
+/** Build a tel: href; return null when the number is missing or not dialable. */
+function emergencyCallHref(phone?: string | null): string | null {
+    if (!phone) {
+        return null;
+    }
+
+    const trimmed = phone.trim();
+    if (trimmed === '') {
+        return null;
+    }
+
+    const dialable = trimmed.replace(/[^\d+]/g, '');
+    if (dialable === '' || dialable === '+') {
+        return null;
+    }
+
+    return `tel:${dialable}`;
 }
 
 ClientsShow.layout = {

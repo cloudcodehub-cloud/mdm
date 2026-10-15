@@ -280,15 +280,24 @@ class AttendanceTest extends TestCase
         $this->assertNotNull($secondVisit->fresh()->clocked_out_at);
     }
 
-    public function test_dsp_cannot_submit_correction(): void
+    public function test_dsp_can_submit_pending_correction_without_changing_original_clocks(): void
     {
-        ['dsp' => $dsp, 'scheduled' => $scheduled] = $this->scopedVisit();
+        ['dsp' => $dsp, 'scheduled' => $scheduled, 'visit' => $visit] = $this->scopedVisit();
+        $originalIn = $visit->clocked_in_at->copy();
+        $originalOut = $visit->clocked_out_at->copy();
 
         $this->actingAs($dsp->user()->firstOrFail())
             ->post(route('attendance.corrections.store', $scheduled), [
                 'requested_clocked_in_at' => '2026-09-11T08:00',
-                'reason' => 'Please fix.',
+                'requested_clocked_out_at' => '2026-09-11T16:00',
+                'reason' => 'Please fix recorded times.',
             ])
-            ->assertForbidden();
+            ->assertRedirect(route('attendance.show', $scheduled));
+
+        $correction = $scheduled->fresh()->attendanceCorrections()->firstOrFail();
+        $this->assertSame(AttendanceCorrectionStatus::Pending, $correction->status);
+        $this->assertSame($dsp->user()->firstOrFail()->id, $correction->requested_by_user_id);
+        $this->assertTrue($originalIn->equalTo($visit->fresh()->clocked_in_at));
+        $this->assertTrue($originalOut->equalTo($visit->fresh()->clocked_out_at));
     }
 }

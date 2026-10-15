@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\GpsFallbackReason;
 use App\Enums\VisitStatus;
+use App\Models\AttendanceCorrection;
 use App\Models\Client;
 use App\Models\User;
 use App\Models\Visit;
@@ -65,6 +66,8 @@ class VisitController extends Controller
                 'record_safety' => $user?->can('recordSafety', $visit) ?? false,
                 'update_notes' => $user?->can('updateNotes', $visit) ?? false,
                 'clock_out' => $user?->can('clockOut', $visit) ?? false,
+                'request_correction' => $visit->status === VisitStatus::Completed
+                    && ($user?->can('create', [AttendanceCorrection::class, $visit->scheduledVisit]) ?? false),
                 'view_exceptions' => $user?->can('viewAny', VisitException::class) ?? false,
                 'follow_up' => $visit->exceptions->contains(
                     fn (VisitException $exception): bool => $user?->can('followUp', $exception) ?? false,
@@ -75,6 +78,9 @@ class VisitController extends Controller
                     ? route('documents.completed-visit.preview', $visit)
                     : null,
             ],
+            'attendance_url' => $visit->status === VisitStatus::Completed
+                ? route('attendance.show', $visit->scheduledVisit)
+                : null,
         ]);
     }
 

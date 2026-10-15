@@ -223,7 +223,7 @@ class Phase6BAuthorizationSweepTest extends TestCase
                 ->has('dspOptions', 0));
     }
 
-    public function test_dsp_cannot_correct_attendance_and_cannot_act_on_out_of_scope_corrections(): void
+    public function test_dsp_cannot_correct_others_attendance_or_approve_corrections(): void
     {
         $dsp = Employee::factory()->dsp()->create();
         $other = Employee::factory()->dsp()->create();
@@ -234,9 +234,18 @@ class Phase6BAuthorizationSweepTest extends TestCase
         ]);
         $user = $dsp->user()->firstOrFail();
 
+        // Own scheduled visit without a completed clock record remains blocked.
         $this->actingAs($user)
             ->post(route('attendance.corrections.store', $own), [
-                'reason' => 'DSP should not submit',
+                'reason' => 'No completed visit yet',
+                'requested_clocked_in_at' => '2026-09-11T08:00',
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->post(route('attendance.corrections.store', $foreign), [
+                'reason' => 'DSP should not submit for another DSP',
+                'requested_clocked_in_at' => '2026-09-11T08:00',
             ])
             ->assertForbidden();
 

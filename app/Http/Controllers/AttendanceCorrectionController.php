@@ -29,7 +29,7 @@ class AttendanceCorrectionController extends Controller
 
         $message = $user->isAdmin()
             ? __('Attendance correction applied. Original clock times were preserved.')
-            : __('Correction request submitted for admin review.');
+            : __('Correction request submitted for review. Original clock times were preserved.');
 
         Inertia::flash('toast', ['type' => 'success', 'message' => $message]);
 

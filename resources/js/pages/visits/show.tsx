@@ -29,6 +29,7 @@ import { VisitNotesForm } from '@/components/mdm/visit-notes-form';
 import { VisitSafetyPanel } from '@/components/mdm/visit-safety-panel';
 import { VisitTaskCard } from '@/components/mdm/visit-task-card';
 import { dashboard } from '@/routes';
+import { show as showAttendance } from '@/routes/attendance';
 import { show as showException } from '@/routes/visit-exceptions';
 import { show as showScheduled } from '@/routes/scheduled-visits';
 import { show } from '@/routes/visits';
@@ -48,6 +49,7 @@ export default function VisitsShow({
     gps_fallback_reasons = [],
     can,
     documents,
+    attendance_url = null,
 }: {
     visit: ActiveVisitRecord;
     skip_reasons?: SkipReasonOption[];
@@ -60,10 +62,12 @@ export default function VisitsShow({
         record_safety?: boolean;
         update_notes?: boolean;
         clock_out?: boolean;
+        request_correction?: boolean;
         view_exceptions?: boolean;
         follow_up?: boolean;
     };
     documents?: { completed_visit?: string | null };
+    attendance_url?: string | null;
 }) {
     const completed = visit.status === 'completed';
     const monitoring = !can?.record_tasks && !can?.clock_out;
@@ -151,6 +155,20 @@ export default function VisitsShow({
                             {documents?.completed_visit ? (
                                 <PrintPdfAction href={documents.completed_visit} />
                             ) : undefined}
+                            {completed && can?.request_correction ? (
+                                <Button asChild variant="secondary">
+                                    <Link
+                                        href={
+                                            attendance_url ??
+                                            showAttendance.url(
+                                                visit.scheduled_visit.id,
+                                            )
+                                        }
+                                    >
+                                        Request Correction
+                                    </Link>
+                                </Button>
+                            ) : null}
                             {completed ? (
                                 <Button asChild variant="outline">
                                     <Link href={showScheduled(visit.scheduled_visit.id)}>

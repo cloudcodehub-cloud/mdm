@@ -2,9 +2,11 @@
 
 namespace App\Policies;
 
+use App\Enums\VisitStatus;
 use App\Models\AttendanceCorrection;
 use App\Models\ScheduledVisit;
 use App\Models\User;
+use App\Models\Visit;
 
 class AttendanceCorrectionPolicy
 {
@@ -22,15 +24,27 @@ class AttendanceCorrectionPolicy
 
     public function create(User $user, ScheduledVisit $scheduledVisit): bool
     {
-        if ($user->isDsp()) {
+        if (! $user->can('view', $scheduledVisit)) {
             return false;
         }
 
-        if ($user->isAdmin()) {
-            return $user->can('view', $scheduledVisit);
+        if ($user->isAdmin() || $user->isSupervisor()) {
+            return true;
         }
 
-        return $user->isSupervisor() && $user->can('view', $scheduledVisit);
+        if (! $user->isDsp() || $user->employee === null || ! $user->employee->isActiveDsp()) {
+            return false;
+        }
+
+        if ($scheduledVisit->employee_id !== $user->employee->id) {
+            return false;
+        }
+
+        $visit = $scheduledVisit->relationLoaded('visit')
+            ? $scheduledVisit->visit
+            : $scheduledVisit->visit()->first();
+
+        return $visit instanceof Visit && $visit->status === VisitStatus::Completed;
     }
 
     public function approve(User $user, AttendanceCorrection $correction): bool
