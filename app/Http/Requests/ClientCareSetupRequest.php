@@ -28,6 +28,8 @@ class ClientCareSetupRequest extends FormRequest
             'service_ids' => ['present', 'array'],
             'service_ids.*' => ['integer', 'exists:care_services,id'],
             'starts_on' => ['nullable', 'date'],
+            'effective_on' => ['nullable', 'date'],
+            'revision_reason' => ['nullable', 'string', 'max:1000'],
             'tasks' => ['present', 'array'],
             'tasks.*.id' => ['nullable', 'integer', 'exists:care_plan_task_templates,id'],
             'tasks.*.catalog_item_id' => ['nullable', 'integer', 'exists:task_catalog_items,id'],

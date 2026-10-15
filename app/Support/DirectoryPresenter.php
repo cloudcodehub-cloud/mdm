@@ -363,11 +363,15 @@ final class DirectoryPresenter
         return self::values($carePlans->map(fn (CarePlan $plan): array => [
             'id' => $plan->id,
             'title' => $plan->title,
+            'revision_number' => $plan->revision_number,
+            'supersedes_care_plan_id' => $plan->supersedes_care_plan_id,
             'starts_on' => self::date($plan->starts_on),
             'ends_on' => self::date($plan->ends_on),
             'status' => $plan->status->value,
             'status_label' => Str::headline($plan->status->value),
             'notes' => $plan->notes,
+            'revision_reason' => $plan->revision_reason,
+            'effective_at' => $plan->effective_at?->toIso8601String(),
             'timed_check_interval_minutes' => $plan->timed_check_interval_minutes,
             'supervision_instruction' => $plan->supervision_instruction,
             'tasks' => self::values($plan->taskTemplates

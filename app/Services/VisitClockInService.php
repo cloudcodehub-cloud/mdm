@@ -23,6 +23,7 @@ class VisitClockInService
         private VisitExceptionService $exceptions,
         private SettingsService $settings,
         private VisitSafetyCheckService $safetyChecks,
+        private CarePlanRevisionService $carePlanRevisions,
     ) {}
 
     /**
@@ -210,18 +211,28 @@ class VisitClockInService
         $captured = $status === ClockInLocationStatus::Captured;
         $unavailableReason = $captured ? null : GpsFallbackReason::storedReasonFrom($payload);
 
+        $carePlan = $this->carePlanRevisions->effectivePlanFor(
+            $scheduledVisit->client_id,
+            $scheduledVisit->service_date,
+        );
+
         // Temporary Visit used only to resolve the standing Care Plan snapshot.
         $probe = new Visit([
             'client_id' => $scheduledVisit->client_id,
             'scheduled_visit_id' => $scheduledVisit->id,
+            'care_plan_id' => $carePlan?->id,
         ]);
         $probe->setRelation('scheduledVisit', $scheduledVisit);
+        if ($carePlan !== null) {
+            $probe->setRelation('carePlan', $carePlan);
+        }
         $supervision = $this->safetyChecks->snapshotForVisit($probe);
 
         return [
             'scheduled_visit_id' => $scheduledVisit->id,
             'employee_id' => $employee->id,
             'client_id' => $scheduledVisit->client_id,
+            'care_plan_id' => $carePlan?->id,
             'service_type' => $scheduledVisit->service_type,
             'status' => VisitStatus::InProgress,
             'clocked_in_at' => $now,

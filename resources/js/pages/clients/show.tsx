@@ -531,10 +531,12 @@ function CarePlanTab({
     onViewOlderHistory?: () => void;
 }) {
     const activePlan =
-        carePlans.find((plan) => plan.status === 'active') ?? carePlans[0];
+        carePlans.find((plan) => plan.status === 'active') ?? null;
+    const pendingPlan = carePlans.find((plan) => plan.status === 'pending');
+    const editablePlan = pendingPlan ?? activePlan ?? carePlans[0];
     const initialTasks = useMemo<CarePlanTaskDraft[]>(
         () =>
-            (activePlan?.tasks ?? []).map((task) => ({
+            (editablePlan?.tasks ?? []).map((task) => ({
                 id: task.id,
                 catalog_item_id: task.catalog_item_id ?? null,
                 title: task.title,
@@ -549,17 +551,25 @@ function CarePlanTab({
                 can_skip: task.can_skip ?? true,
                 is_critical: task.is_critical ?? false,
             })),
-        [activePlan],
+        [editablePlan],
     );
     const [selected, setSelected] = useState<CarePlanTaskDraft[]>(initialTasks);
     const [saving, setSaving] = useState(false);
+    const [effectiveOn, setEffectiveOn] = useState(
+        () => new Date().toISOString().slice(0, 10),
+    );
+    const [revisionReason, setRevisionReason] = useState('');
 
     const save = () => {
         setSaving(true);
-        const payload = { tasks: selected };
+        const payload = {
+            tasks: selected,
+            effective_on: effectiveOn,
+            revision_reason: revisionReason.trim() || null,
+        };
 
-        if (activePlan) {
-            router.put(`/care-plans/${activePlan.id}/tasks`, payload, {
+        if (editablePlan) {
+            router.put(`/care-plans/${editablePlan.id}/tasks`, payload, {
                 preserveScroll: true,
                 onFinish: () => setSaving(false),
             });
@@ -570,7 +580,7 @@ function CarePlanTab({
             `/clients/${client.id}/care-plans`,
             {
                 title: 'Current Care Plan',
-                starts_on: new Date().toISOString().slice(0, 10),
+                starts_on: effectiveOn,
                 status: 'active',
                 ...payload,
             },
@@ -637,6 +647,50 @@ function CarePlanTab({
                                 label="Supervisor"
                                 value={client.supervisor_name ?? 'Not assigned'}
                             />
+                            <SummaryFact
+                                label="Revision"
+                                value={
+                                    editablePlan
+                                        ? `r${editablePlan.revision_number ?? 1} · ${editablePlan.status_label}`
+                                        : 'New plan'
+                                }
+                            />
+                            <div className="space-y-2">
+                                <Field
+                                    label="Effective date"
+                                    htmlFor="care-plan-effective-on"
+                                >
+                                    <Input
+                                        id="care-plan-effective-on"
+                                        type="date"
+                                        value={effectiveOn}
+                                        min={new Date()
+                                            .toISOString()
+                                            .slice(0, 10)}
+                                        onChange={(event) =>
+                                            setEffectiveOn(event.target.value)
+                                        }
+                                    />
+                                </Field>
+                                <Field
+                                    label="Revision reason (optional)"
+                                    htmlFor="care-plan-revision-reason"
+                                >
+                                    <Input
+                                        id="care-plan-revision-reason"
+                                        value={revisionReason}
+                                        onChange={(event) =>
+                                            setRevisionReason(event.target.value)
+                                        }
+                                        placeholder="Why this change applies"
+                                    />
+                                </Field>
+                                <p className="text-muted-foreground text-xs">
+                                    Saving material task changes creates a
+                                    prospective revision. Active and completed
+                                    visit snapshots are not rewritten.
+                                </p>
+                            </div>
                             <div>
                                 <p className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
                                     Services
@@ -727,8 +781,32 @@ function CarePlanTab({
                     <Panel
                         key={plan.id}
                         title={plan.title}
-                        description={`${plan.status_label} · ${plan.starts_on ?? 'No start'}`}
+                        description={`Revision ${plan.revision_number ?? 1} · ${plan.status_label} · ${plan.starts_on ?? 'No start'}${plan.ends_on ? ` → ${plan.ends_on}` : ''}`}
                     >
+                        {plan.status === 'pending' && canManage && (
+                            <div className="mb-3 flex flex-wrap items-center gap-2">
+                                <p className="text-muted-foreground text-xs">
+                                    Future-effective revision
+                                    {plan.revision_reason
+                                        ? ` · ${plan.revision_reason}`
+                                        : ''}
+                                </p>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                        router.post(
+                                            `/care-plans/${plan.id}/cancel-pending`,
+                                            {},
+                                            { preserveScroll: true },
+                                        )
+                                    }
+                                >
+                                    Cancel pending revision
+                                </Button>
+                            </div>
+                        )}
                         {plan.tasks.length === 0 ? (
                             <EmptyState message="No task templates on this plan." />
                         ) : (

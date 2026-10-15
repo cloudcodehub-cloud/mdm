@@ -19,11 +19,13 @@ class CarePlanFactory extends Factory
     {
         return [
             'client_id' => Client::factory(),
+            'revision_number' => 1,
             'title' => 'Individual Service Plan',
             'starts_on' => now()->subMonths(2)->toDateString(),
             'ends_on' => now()->addMonths(10)->toDateString(),
             'status' => CarePlanStatus::Active,
             'notes' => null,
+            'effective_at' => now()->subMonths(2)->startOfDay(),
         ];
     }
 

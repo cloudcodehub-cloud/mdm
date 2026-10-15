@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ClientCareSetupRequest;
 use App\Models\CarePlan;
 use App\Models\Client;
+use App\Services\CarePlanRevisionService;
 use App\Services\CarePlanSetupService;
 use App\Services\ProfileAttentionService;
 use App\Support\CareServicePresenter;
@@ -21,7 +22,9 @@ class ClientCareSetupController extends Controller
         $this->authorize('manageCarePlan', $client);
 
         $client->load(['careServices', 'carePlans.taskTemplates', 'supervisor']);
-        $active = $client->carePlans()->currentlyActive()->with('taskTemplates')->orderByDesc('starts_on')->first();
+        $active = app(CarePlanRevisionService::class)
+            ->effectivePlanFor($client);
+        $active?->loadMissing('taskTemplates');
 
         return Inertia::render('clients/setup', [
             'client' => DirectoryPresenter::clientDetail($client),

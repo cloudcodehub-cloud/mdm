@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Enums\CarePlanStatus;
 use App\Enums\InAppNotificationType;
 use App\Enums\VisitExceptionType;
 use App\Enums\VisitSafetyCheckStatus;
@@ -12,7 +11,6 @@ use App\Models\InAppNotification;
 use App\Models\Visit;
 use App\Models\VisitSafetyCheck;
 use Carbon\CarbonInterface;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\ValidationException;
 
 class VisitSafetyCheckService
@@ -337,20 +335,20 @@ class VisitSafetyCheckService
 
     private function activeCarePlanFor(Visit $visit): ?CarePlan
     {
+        if ($visit->care_plan_id !== null) {
+            $bound = $visit->relationLoaded('carePlan')
+                ? $visit->carePlan
+                : CarePlan::query()->find($visit->care_plan_id);
+
+            if ($bound !== null) {
+                return $bound;
+            }
+        }
+
         $serviceDate = $visit->scheduledVisit?->service_date?->toDateString()
             ?? $this->settings->today();
 
-        return CarePlan::query()
-            ->where('client_id', $visit->client_id)
-            ->where('status', CarePlanStatus::Active)
-            ->whereDate('starts_on', '<=', $serviceDate)
-            ->where(function (Builder $builder) use ($serviceDate): void {
-                $builder->whereNull('ends_on')
-                    ->orWhereDate('ends_on', '>=', $serviceDate);
-            })
-            ->orderByDesc('starts_on')
-            ->orderByDesc('id')
-            ->first();
+        return app(CarePlanRevisionService::class)->effectivePlanFor($visit->client_id, $serviceDate);
     }
 
     private function assertInProgress(Visit $visit): void

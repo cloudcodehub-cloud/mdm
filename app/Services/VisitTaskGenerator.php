@@ -2,38 +2,36 @@
 
 namespace App\Services;
 
-use App\Enums\CarePlanStatus;
 use App\Enums\TaskRecurrence;
 use App\Enums\VisitTaskStatus;
+use App\Models\CarePlan;
 use App\Models\CarePlanTaskTemplate;
 use App\Models\Visit;
 use App\Models\VisitTask;
-use Illuminate\Database\Eloquent\Builder;
 
 class VisitTaskGenerator
 {
-    public function __construct(private TaskRecurrenceMatcher $recurrence) {}
+    public function __construct(
+        private TaskRecurrenceMatcher $recurrence,
+        private CarePlanRevisionService $revisions,
+    ) {}
 
     public function generate(Visit $visit): void
     {
-        $visit->loadMissing(['scheduledVisit.oneOffTasks', 'scheduledVisit.taskOverrides']);
+        $visit->loadMissing(['scheduledVisit.oneOffTasks', 'scheduledVisit.taskOverrides', 'carePlan']);
         $serviceDate = $visit->scheduledVisit->service_date->toDateString();
 
-        $templates = CarePlanTaskTemplate::query()
-            ->with('carePlan')
-            ->active()
-            ->whereHas('carePlan', function (Builder $query) use ($visit, $serviceDate): void {
-                $query->where('client_id', $visit->client_id)
-                    ->where('status', CarePlanStatus::Active)
-                    ->whereDate('starts_on', '<=', $serviceDate)
-                    ->where(function (Builder $builder) use ($serviceDate): void {
-                        $builder->whereNull('ends_on')
-                            ->orWhereDate('ends_on', '>=', $serviceDate);
-                    });
-            })
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get();
+        $plan = $this->boundOrEffectivePlan($visit, $serviceDate);
+
+        $templates = $plan === null
+            ? collect()
+            : CarePlanTaskTemplate::query()
+                ->with('carePlan')
+                ->active()
+                ->where('care_plan_id', $plan->id)
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get();
 
         $overrides = $visit->scheduledVisit->taskOverrides
             ->keyBy('care_plan_task_template_id');
@@ -69,6 +67,19 @@ class VisitTaskGenerator
         }
 
         $this->generateOneOffs($visit);
+    }
+
+    private function boundOrEffectivePlan(Visit $visit, string $serviceDate): ?CarePlan
+    {
+        if ($visit->care_plan_id !== null) {
+            $bound = $visit->carePlan ?? CarePlan::query()->find($visit->care_plan_id);
+
+            if ($bound !== null) {
+                return $bound;
+            }
+        }
+
+        return $this->revisions->effectivePlanFor($visit->client_id, $serviceDate);
     }
 
     private function generateOneOffs(Visit $visit): void

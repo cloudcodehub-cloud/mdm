@@ -13,6 +13,7 @@ use App\Models\Client;
 use App\Models\ClientDspAssignment;
 use App\Models\ScheduledVisit;
 use App\Services\CareOverviewService;
+use App\Services\CarePlanRevisionService;
 use App\Services\DspClientAccessService;
 use App\Services\ProfileAttentionService;
 use App\Services\ProfileCompletionService;
@@ -163,10 +164,21 @@ class ClientController extends Controller
             : $client->dspAssignments
                 ->sortByDesc(fn ($assignment) => $assignment->started_on->toDateString())
                 ->values();
+        app(CarePlanRevisionService::class)->effectivePlanFor($client);
+
+        $client->unsetRelation('carePlans');
+        $client->load(['carePlans.taskTemplates']);
+
         $carePlans = (! $isDsp || $fullAccess)
             ? ($isDsp
                 ? $client->carePlans->filter(fn (CarePlan $plan): bool => $plan->isCurrentlyActive())->values()
-                : $client->carePlans)
+                : $client->carePlans
+                    ->sortByDesc(fn (CarePlan $plan): array => [
+                        $plan->status->value === 'pending' ? 2 : ($plan->status->value === 'active' ? 1 : 0),
+                        $plan->revision_number,
+                        $plan->id,
+                    ])
+                    ->values())
             : collect();
         $authorizations = $isDsp ? collect() : $client->authorizations;
 

@@ -25,6 +25,8 @@ class SyncCarePlanTasksRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'effective_on' => ['nullable', 'date'],
+            'revision_reason' => ['nullable', 'string', 'max:1000'],
             'tasks' => ['present', 'array'],
             'tasks.*.id' => ['nullable', 'integer', 'exists:care_plan_task_templates,id'],
             'tasks.*.catalog_item_id' => ['nullable', 'integer', 'exists:task_catalog_items,id'],

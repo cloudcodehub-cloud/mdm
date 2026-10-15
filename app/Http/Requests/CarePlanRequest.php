@@ -51,6 +51,8 @@ class CarePlanRequest extends FormRequest
             'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
             'status' => ['required', Rule::enum(CarePlanStatus::class)],
             'notes' => ['nullable', 'string'],
+            'effective_on' => ['nullable', 'date'],
+            'revision_reason' => ['nullable', 'string', 'max:1000'],
             'timed_check_interval_minutes' => [
                 'nullable',
                 'integer',

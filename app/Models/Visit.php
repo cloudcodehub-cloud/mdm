@@ -20,6 +20,7 @@ use Illuminate\Support\Carbon;
  * @property int $scheduled_visit_id
  * @property int $employee_id
  * @property int $client_id
+ * @property int|null $care_plan_id
  * @property string $service_type
  * @property VisitStatus $status
  * @property Carbon $clocked_in_at
@@ -48,6 +49,7 @@ use Illuminate\Support\Carbon;
  * @property-read ScheduledVisit $scheduledVisit
  * @property-read Employee $employee
  * @property-read Client $client
+ * @property-read CarePlan|null $carePlan
  * @property-read Collection<int, VisitTask> $tasks
  * @property-read Collection<int, VisitTask> $visitTasks
  * @property-read Collection<int, VisitException> $exceptions
@@ -61,6 +63,7 @@ use Illuminate\Support\Carbon;
     'scheduled_visit_id',
     'employee_id',
     'client_id',
+    'care_plan_id',
     'service_type',
     'status',
     'clocked_in_at',
@@ -130,6 +133,14 @@ class Visit extends Model
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
+    }
+
+    /**
+     * @return BelongsTo<CarePlan, $this>
+     */
+    public function carePlan(): BelongsTo
+    {
+        return $this->belongsTo(CarePlan::class);
     }
 
     /**

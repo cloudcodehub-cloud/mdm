@@ -43,11 +43,8 @@ class CareOverviewService
         $upcoming = [];
 
         if ($includeFullCare) {
-            $plan = $client->carePlans()
-                ->currentlyActive()
-                ->with(['taskTemplates' => fn ($query) => $query->active()->orderBy('sort_order')])
-                ->orderByDesc('starts_on')
-                ->first();
+            $plan = app(CarePlanRevisionService::class)->effectivePlanFor($client, $today);
+            $plan?->loadMissing(['taskTemplates' => fn ($query) => $query->active()->orderBy('sort_order')]);
 
             $templates = $plan === null ? collect() : $plan->taskTemplates;
 

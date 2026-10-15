@@ -263,11 +263,17 @@ export type AuthorizationRecord = {
 export type CarePlanRecord = {
     id: number;
     title: string;
+    revision_number?: number;
+    supersedes_care_plan_id?: number | null;
     starts_on: string | null;
     ends_on: string | null;
     status: string;
     status_label: string;
     notes: string | null;
+    revision_reason?: string | null;
+    effective_at?: string | null;
+    timed_check_interval_minutes?: number | null;
+    supervision_instruction?: string | null;
     tasks: Array<{
         id: number;
         catalog_item_id?: number | null;

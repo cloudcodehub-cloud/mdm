@@ -10,6 +10,8 @@ use App\Models\CarePlanTaskTemplate;
 use App\Models\CareService;
 use App\Models\Client;
 use App\Models\TaskCatalogItem;
+use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -20,13 +22,27 @@ class CarePlanSetupService
      */
     public function createPlan(Client $client, array $payload): CarePlan
     {
+        $revisionNumber = (int) CarePlan::query()
+            ->where('client_id', $client->id)
+            ->max('revision_number') + 1;
+
+        if ($revisionNumber < 1) {
+            $revisionNumber = 1;
+        }
+
         return CarePlan::query()->create([
             'client_id' => $client->id,
+            'revision_number' => $revisionNumber,
             'title' => $payload['title'] ?? 'Current Care Plan',
             'starts_on' => $payload['starts_on'],
             'ends_on' => $payload['ends_on'] ?? null,
             'status' => $payload['status'] ?? CarePlanStatus::Active,
             'notes' => $payload['notes'] ?? null,
+            'timed_check_interval_minutes' => $payload['timed_check_interval_minutes'] ?? null,
+            'supervision_instruction' => $payload['supervision_instruction'] ?? null,
+            'effective_at' => isset($payload['starts_on'])
+                ? Carbon::parse((string) $payload['starts_on'])->startOfDay()
+                : null,
         ]);
     }
 
@@ -69,20 +85,8 @@ class CarePlanSetupService
             $rawServiceIds = $payload['service_ids'] ?? [];
             $this->syncServices($client, is_array($rawServiceIds) ? $rawServiceIds : []);
 
-            $plan = $client->carePlans()
-                ->currentlyActive()
-                ->orderByDesc('starts_on')
-                ->first();
-
-            if ($plan === null) {
-                $plan = $this->createPlan($client, [
-                    'title' => $payload['title'] ?? 'Current Care Plan',
-                    'starts_on' => $payload['starts_on'] ?? now()->toDateString(),
-                    'ends_on' => $payload['ends_on'] ?? null,
-                    'status' => CarePlanStatus::Active,
-                    'notes' => $payload['notes'] ?? null,
-                ]);
-            }
+            $revisions = app(CarePlanRevisionService::class);
+            $plan = $revisions->effectivePlanFor($client);
 
             $tasks = [];
 
@@ -94,7 +98,31 @@ class CarePlanSetupService
                 }
             }
 
-            return $this->syncTasks($plan, $tasks);
+            if ($plan === null) {
+                $plan = $this->createPlan($client, [
+                    'title' => $payload['title'] ?? 'Current Care Plan',
+                    'starts_on' => $payload['starts_on'] ?? now()->toDateString(),
+                    'ends_on' => $payload['ends_on'] ?? null,
+                    'status' => CarePlanStatus::Active,
+                    'notes' => $payload['notes'] ?? null,
+                    'timed_check_interval_minutes' => $payload['timed_check_interval_minutes'] ?? null,
+                    'supervision_instruction' => $payload['supervision_instruction'] ?? null,
+                ]);
+
+                return $this->syncTasks($plan, $tasks);
+            }
+
+            $actor = auth()->user();
+            $actor = $actor instanceof User ? $actor : null;
+
+            return $revisions->syncTasksOrRevise($plan, $tasks, [
+                'title' => $payload['title'] ?? $plan->title,
+                'notes' => $payload['notes'] ?? $plan->notes,
+                'effective_on' => $payload['effective_on'] ?? $payload['starts_on'] ?? app(SettingsService::class)->today(),
+                'revision_reason' => $payload['revision_reason'] ?? null,
+                'timed_check_interval_minutes' => $payload['timed_check_interval_minutes'] ?? $plan->timed_check_interval_minutes,
+                'supervision_instruction' => $payload['supervision_instruction'] ?? $plan->supervision_instruction,
+            ], $actor);
         });
     }
 

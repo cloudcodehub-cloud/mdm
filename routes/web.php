@@ -57,6 +57,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('clients/{client}/care-plans', [CarePlanController::class, 'store'])->name('clients.care-plans.store');
     Route::patch('care-plans/{care_plan}', [CarePlanController::class, 'update'])->name('care-plans.update');
     Route::put('care-plans/{care_plan}/tasks', [CarePlanController::class, 'syncTasks'])->name('care-plans.tasks.sync');
+    Route::post('care-plans/{care_plan}/cancel-pending', [CarePlanController::class, 'cancelPending'])->name('care-plans.cancel-pending');
     Route::patch('clients/{client}/status', [ClientController::class, 'updateStatus'])->name('clients.status');
     Route::post('clients/{client}/assignments', [ClientDspAssignmentController::class, 'store'])->name('clients.assignments.store');
     Route::patch('assignments/{assignment}/deactivate', [ClientDspAssignmentController::class, 'deactivate'])->name('assignments.deactivate');
