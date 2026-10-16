@@ -202,6 +202,45 @@ class SchedulingNotificationService
         );
     }
 
+    public function complianceHardStopStaffing(
+        Employee $employee,
+        ?ScheduledVisit $graceVisit,
+        int $atRiskCount,
+        string $summary,
+    ): void {
+        $employee->loadMissing(['supervisor.user']);
+        $graceDate = $graceVisit?->service_date?->toDateString() ?? 'none';
+        $body = $employee->full_name.' has a newly effective Hard Stop. '
+            .'Nearest visit '.$graceDate.' preserved as Grace Visit; '
+            .$atRiskCount.' later visit(s) marked At Risk / Action Required. '
+            .$summary;
+
+        $url = $graceVisit !== null
+            ? route('scheduled-visits.show', $graceVisit)
+            : route('employees.show', $employee);
+        $key = 'compliance.staffing.'.$employee->id.'.'.now()->timestamp;
+
+        $supervisorUser = $employee->supervisor?->user;
+        if ($supervisorUser !== null) {
+            $this->notifications->notify(
+                $supervisorUser,
+                InAppNotificationType::Compliance,
+                'Urgent: Compliance Hard Stop staffing',
+                $body,
+                $key,
+                $url,
+            );
+        }
+
+        $this->notifyAdmins(
+            'Compliance Hard Stop staffing',
+            $body,
+            $key,
+            $url,
+            InAppNotificationType::Compliance,
+        );
+    }
+
     public function staffingNeededFromLeave(ScheduledVisit $visit, EmployeeTimeOff $timeOff): void
     {
         $visit->loadMissing(['client', 'releasedEmployee']);

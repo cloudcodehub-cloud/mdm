@@ -9,6 +9,7 @@ enum EmployeeAdminHistoryCategory: string
     case Login = 'login';
     case ProfileChange = 'profile_change';
     case Leave = 'leave';
+    case ComplianceStaffing = 'compliance_staffing';
 
     public function label(): string
     {
@@ -18,6 +19,7 @@ enum EmployeeAdminHistoryCategory: string
             self::Login => 'Login',
             self::ProfileChange => 'Personal information',
             self::Leave => 'Leave',
+            self::ComplianceStaffing => 'Compliance staffing',
         };
     }
 }

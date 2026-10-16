@@ -79,7 +79,7 @@ class ScheduleCalendarService
                 ...DirectoryPresenter::scheduledVisitSummary($visit),
                 'starts_minute' => $this->minute($visit, true),
                 'ends_minute' => $this->minute($visit, false),
-                'needs_attention' => $visit->needs_attention || $visit->staffing_needed,
+                'needs_attention' => $visit->needs_attention || $visit->staffing_needed || $visit->isComplianceAtRisk(),
             ];
         }
 

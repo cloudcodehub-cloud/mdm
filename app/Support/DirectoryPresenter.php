@@ -510,8 +510,10 @@ final class DirectoryPresenter
                 : null,
             'shift_name' => $visit->shiftTemplate?->name,
             'supervisor_name' => $visit->supervisor?->full_name,
-            'needs_attention' => $visit->needs_attention,
+            'needs_attention' => $visit->needs_attention || $visit->isComplianceAtRisk(),
             'staffing_needed' => $visit->staffing_needed || $visit->employee_id === null,
+            'compliance_staffing_status' => $visit->compliance_staffing_status,
+            'compliance_staffing_label' => $visit->complianceStaffingStatus()?->label(),
             'attention_reason' => $visit->attention_reason,
             'series_id' => $visit->series_id,
             'duration_label' => $visit->relationLoaded('visit') && $visit->visit

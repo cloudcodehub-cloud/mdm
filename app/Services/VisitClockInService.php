@@ -27,6 +27,7 @@ class VisitClockInService
         private VisitSafetyCheckService $safetyChecks,
         private CarePlanRevisionService $carePlanRevisions,
         private ComplianceEligibilityService $complianceEligibility,
+        private ComplianceStaffingService $complianceStaffing,
     ) {}
 
     /**
@@ -73,7 +74,7 @@ class VisitClockInService
             $now = $this->settings->now();
 
             $complianceBlock = $this->complianceEligibility->serviceBlockReason($employee, $now);
-            if ($complianceBlock !== null) {
+            if ($complianceBlock !== null && ! $this->complianceStaffing->allowsGraceClockIn($scheduledVisit)) {
                 throw ValidationException::withMessages([
                     'scheduled_visit' => $complianceBlock.' Start Visit is blocked until the Hard Stop is resolved or an authorized temporary exception is active.',
                 ]);
@@ -124,6 +125,10 @@ class VisitClockInService
             $scheduledVisit->update([
                 'status' => ScheduledVisitStatus::InProgress,
             ]);
+
+            if ($scheduledVisit->isComplianceGrace()) {
+                $this->complianceStaffing->markGraceConsumed($scheduledVisit->fresh() ?? $scheduledVisit, $user);
+            }
 
             $this->tasks->generate($visit);
             $this->recordStartExceptions($visit, $scheduledVisit, $payload, $now);

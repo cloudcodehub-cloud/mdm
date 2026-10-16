@@ -12,7 +12,10 @@ use Illuminate\Validation\ValidationException;
 
 class ComplianceExceptionService
 {
-    public function __construct(private SettingsService $settings) {}
+    public function __construct(
+        private SettingsService $settings,
+        private ComplianceStaffingService $complianceStaffing,
+    ) {}
 
     /**
      * @param  array{reason: string, starts_at: string, ends_at: string}  $data
@@ -57,7 +60,7 @@ class ComplianceExceptionService
         }
 
         return DB::transaction(function () use ($actor, $employee, $requirement, $data, $startsAt, $endsAt): ComplianceTemporaryException {
-            return ComplianceTemporaryException::query()->create([
+            $exception = ComplianceTemporaryException::query()->create([
                 'employee_id' => $employee->id,
                 'compliance_requirement_id' => $requirement->id,
                 'reason' => trim($data['reason']),
@@ -65,6 +68,10 @@ class ComplianceExceptionService
                 'ends_at' => $endsAt,
                 'created_by_user_id' => $actor->id,
             ]);
+
+            $this->complianceStaffing->syncForEmployee($employee, $actor, notify: false);
+
+            return $exception;
         });
     }
 
@@ -91,6 +98,12 @@ class ComplianceExceptionService
             'revoke_reason' => trim($reason),
         ]);
 
-        return $exception->refresh();
+        $exception = $exception->refresh();
+        $exception->loadMissing('employee');
+        if ($exception->employee !== null) {
+            $this->complianceStaffing->syncForEmployee($exception->employee, $actor);
+        }
+
+        return $exception;
     }
 }

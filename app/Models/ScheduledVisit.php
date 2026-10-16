@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ComplianceStaffingStatus;
 use App\Enums\JobType;
 use App\Enums\ScheduledVisitStatus;
 use App\Services\SettingsService;
@@ -46,6 +47,9 @@ use RuntimeException;
  * @property int|null $updated_by_user_id
  * @property bool $needs_attention
  * @property bool $staffing_needed
+ * @property string|null $compliance_staffing_status
+ * @property \Illuminate\Support\Carbon|null $compliance_staffing_marked_at
+ * @property string|null $compliance_staffing_reason
  * @property string|null $attention_reason
  * @property Carbon|null $cancelled_at
  * @property int|null $cancelled_by_user_id
@@ -97,6 +101,9 @@ use RuntimeException;
     'updated_by_user_id',
     'needs_attention',
     'staffing_needed',
+    'compliance_staffing_status',
+    'compliance_staffing_marked_at',
+    'compliance_staffing_reason',
     'attention_reason',
     'cancelled_at',
     'cancelled_by_user_id',
@@ -118,6 +125,7 @@ class ScheduledVisit extends Model
             'status' => ScheduledVisitStatus::class,
             'needs_attention' => 'boolean',
             'staffing_needed' => 'boolean',
+            'compliance_staffing_marked_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'service_latitude' => 'decimal:7',
             'service_longitude' => 'decimal:7',
@@ -193,6 +201,25 @@ class ScheduledVisit extends Model
     public function isStaffingNeeded(): bool
     {
         return $this->staffing_needed || $this->employee_id === null;
+    }
+
+    public function complianceStaffingStatus(): ?ComplianceStaffingStatus
+    {
+        if ($this->compliance_staffing_status === null || $this->compliance_staffing_status === '') {
+            return null;
+        }
+
+        return ComplianceStaffingStatus::tryFrom($this->compliance_staffing_status);
+    }
+
+    public function isComplianceGrace(): bool
+    {
+        return $this->complianceStaffingStatus() === ComplianceStaffingStatus::Grace;
+    }
+
+    public function isComplianceAtRisk(): bool
+    {
+        return $this->complianceStaffingStatus() === ComplianceStaffingStatus::AtRisk;
     }
 
     /**

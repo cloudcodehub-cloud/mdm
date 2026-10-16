@@ -19,6 +19,7 @@ class ComplianceEvidenceVerificationService
     public function __construct(
         private SettingsService $settings,
         private ProfilePhotoService $photos,
+        private ComplianceStaffingService $complianceStaffing,
     ) {}
 
     /**
@@ -99,7 +100,13 @@ class ComplianceEvidenceVerificationService
                 'verification_note' => filled($note) ? trim($note) : null,
             ]);
 
-            return $credential->refresh();
+            $credential = $credential->refresh();
+            $credential->loadMissing('employee');
+            if ($credential->employee !== null) {
+                $this->complianceStaffing->syncForEmployee($credential->employee, $actor, notify: false);
+            }
+
+            return $credential;
         });
     }
 
@@ -122,7 +129,13 @@ class ComplianceEvidenceVerificationService
                 'verification_note' => trim($reason),
             ]);
 
-            return $credential->refresh();
+            $credential = $credential->refresh();
+            $credential->loadMissing('employee');
+            if ($credential->employee !== null) {
+                $this->complianceStaffing->syncForEmployee($credential->employee, $actor);
+            }
+
+            return $credential;
         });
     }
 
@@ -149,7 +162,13 @@ class ComplianceEvidenceVerificationService
                 'completed_on' => $training->completed_on ?? $this->settings->today(),
             ]);
 
-            return $training->refresh();
+            $training = $training->refresh();
+            $training->loadMissing('employee');
+            if ($training->employee !== null) {
+                $this->complianceStaffing->syncForEmployee($training->employee, $actor, notify: false);
+            }
+
+            return $training;
         });
     }
 
@@ -172,7 +191,13 @@ class ComplianceEvidenceVerificationService
                 'verification_note' => trim($reason),
             ]);
 
-            return $training->refresh();
+            $training = $training->refresh();
+            $training->loadMissing('employee');
+            if ($training->employee !== null) {
+                $this->complianceStaffing->syncForEmployee($training->employee, $actor);
+            }
+
+            return $training;
         });
     }
 
