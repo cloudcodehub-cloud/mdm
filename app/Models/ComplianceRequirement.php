@@ -69,6 +69,14 @@ class ComplianceRequirement extends Model
     }
 
     /**
+     * @return HasMany<ComplianceRequirementAudit, $this>
+     */
+    public function audits(): HasMany
+    {
+        return $this->hasMany(ComplianceRequirementAudit::class)->orderByDesc('id');
+    }
+
+    /**
      * @param  Builder<static>  $query
      * @return Builder<static>
      */

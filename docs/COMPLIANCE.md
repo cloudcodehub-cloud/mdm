@@ -34,3 +34,9 @@ MDM 08 owns Compliance Requirement policy. Evidence (`employee_credentials` / `e
 - DSP read-only self-view: `/my-compliance` (credentials, training, expiration warnings, eligibility). DSPs cannot modify compliance or apply overrides
 
 Employee lifecycle, leave, and account deactivation remain distinct from compliance eligibility.
+
+## Phase 3B — Administration, verification, reminders
+
+- Admin catalog UI at `/compliance/requirements` creates/edits/activates/deactivates requirements. New requirements default inactive unless explicitly activated; activating is an intentional Admin action.
+- Evidence submission creates Pending Review credential/training rows. Pending Review never restores eligibility. Admin verify/reject records reviewer, timestamps, and notes; rejection leaves prior verified evidence intact.
+- In-app expiration reminders at 30 / 15 / 5 / 0 days (`mdm:dispatch-compliance-expiration-reminders`, daily). Source keys prevent duplicates. Audience: employee, assigned supervisor, Admins. Reminder copy distinguishes warnings from Hard Stops.

@@ -12,6 +12,8 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientDspAssignmentController;
 use App\Http\Controllers\ClientServiceLocationController;
 use App\Http\Controllers\ComplianceController;
+use App\Http\Controllers\ComplianceEvidenceController;
+use App\Http\Controllers\ComplianceRequirementController;
 use App\Http\Controllers\ComplianceTemporaryExceptionController;
 use App\Http\Controllers\CriticalAlertController;
 use App\Http\Controllers\DashboardController;
@@ -176,7 +178,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('attendance/corrections/{attendance_correction}/reject', [AttendanceCorrectionController::class, 'reject'])
         ->name('attendance.corrections.reject');
     Route::get('compliance', ComplianceController::class)->name('compliance.index');
+    Route::get('compliance/requirements', [ComplianceRequirementController::class, 'index'])
+        ->name('compliance.requirements.index');
+    Route::post('compliance/requirements', [ComplianceRequirementController::class, 'store'])
+        ->name('compliance.requirements.store');
+    Route::put('compliance/requirements/{requirement}', [ComplianceRequirementController::class, 'update'])
+        ->name('compliance.requirements.update');
+    Route::post('compliance/requirements/{requirement}/activate', [ComplianceRequirementController::class, 'activate'])
+        ->name('compliance.requirements.activate');
+    Route::post('compliance/requirements/{requirement}/deactivate', [ComplianceRequirementController::class, 'deactivate'])
+        ->name('compliance.requirements.deactivate');
     Route::get('my-compliance', DspComplianceController::class)->name('my-compliance.index');
+    Route::post('employees/{employee}/compliance-evidence', [ComplianceEvidenceController::class, 'store'])
+        ->name('employees.compliance-evidence.store');
+    Route::post('compliance-credentials/{credential}/review', [ComplianceEvidenceController::class, 'reviewCredential'])
+        ->name('compliance-credentials.review');
+    Route::post('compliance-trainings/{training}/review', [ComplianceEvidenceController::class, 'reviewTraining'])
+        ->name('compliance-trainings.review');
     Route::post('employees/{employee}/compliance-exceptions', [ComplianceTemporaryExceptionController::class, 'store'])
         ->name('employees.compliance-exceptions.store');
     Route::post('compliance-exceptions/{exception}/revoke', [ComplianceTemporaryExceptionController::class, 'revoke'])

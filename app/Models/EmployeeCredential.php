@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ComplianceVerificationStatus;
 use App\Enums\CredentialStatus;
 use App\Enums\CredentialType;
 use App\Services\SettingsService;
@@ -23,11 +24,19 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $issued_on
  * @property Carbon|null $expires_on
  * @property CredentialStatus $status
+ * @property ComplianceVerificationStatus $verification_status
+ * @property int|null $verified_by_user_id
+ * @property Carbon|null $verified_at
+ * @property int|null $rejected_by_user_id
+ * @property Carbon|null $rejected_at
+ * @property string|null $verification_note
  * @property string|null $notes
  * @property string|null $document_path
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Employee $employee
+ * @property-read User|null $verifiedBy
+ * @property-read User|null $rejectedBy
  *
  * @method static Builder<static> currentlyValid()
  */
@@ -40,6 +49,12 @@ use Illuminate\Support\Carbon;
     'issued_on',
     'expires_on',
     'status',
+    'verification_status',
+    'verified_by_user_id',
+    'verified_at',
+    'rejected_by_user_id',
+    'rejected_at',
+    'verification_note',
     'notes',
     'document_path',
 ])]
@@ -58,6 +73,9 @@ class EmployeeCredential extends Model
             'issued_on' => 'date',
             'expires_on' => 'date',
             'status' => CredentialStatus::class,
+            'verification_status' => ComplianceVerificationStatus::class,
+            'verified_at' => 'datetime',
+            'rejected_at' => 'datetime',
         ];
     }
 
@@ -67,6 +85,29 @@ class EmployeeCredential extends Model
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function verifiedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'verified_by_user_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function rejectedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'rejected_by_user_id');
+    }
+
+    public function isAuthoritativelyVerified(): bool
+    {
+        $status = $this->verification_status ?? ComplianceVerificationStatus::Verified;
+
+        return $status->isAuthoritative();
     }
 
     public function isExpired(?Carbon $on = null): bool

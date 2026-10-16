@@ -2,13 +2,18 @@ import { Form, Head, Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import { ComplianceEligibilityPanel } from '@/components/mdm/compliance-eligibility-panel';
 import { ConfirmAction } from '@/components/mdm/confirm-action';
-import { ModuleTabs, StatusBadge } from '@/components/mdm/directory';
+import {
+    ModuleTabs,
+    StatusBadge,
+    controlClassName,
+} from '@/components/mdm/directory';
 import { BackLink } from '@/components/mdm/back-link';
 import { IdentityHeader } from '@/components/mdm/identity-header';
 import { ProfileCompletionMeter } from '@/components/mdm/profile-completion-meter';
 import { ProfilePhoto } from '@/components/mdm/profile-photo';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { dashboard } from '@/routes';
 import {
     edit,
@@ -32,6 +37,7 @@ export default function EmployeesShow({
     activity,
     profile_completion,
     compliance_eligibility,
+    credential_type_options = [],
     can,
 }: {
     employee: EmployeeDetail;
@@ -40,10 +46,13 @@ export default function EmployeesShow({
     activity: ActivityRecord[];
     profile_completion: ProfileCompletion;
     compliance_eligibility: ComplianceEligibility;
+    credential_type_options?: Array<{ value: string; label: string }>;
     can: {
         update: boolean;
         view_sensitive: boolean;
         override_compliance: boolean;
+        verify_compliance: boolean;
+        submit_compliance_evidence: boolean;
     };
 }) {
     const [tab, setTab] = useState('profile');
@@ -162,44 +171,194 @@ export default function EmployeesShow({
                     />
                 )}
                 {tab === 'credentials' && (
-                    <Panel title="Credentials">
-                        {credentials.length === 0 ? (
-                            <EmptyState message="No credentials on file." />
-                        ) : (
-                            <RecordTable
-                                rows={credentials.map((credential) => ({
-                                    id: credential.id,
-                                    title: credential.name,
-                                    detail: `${credential.type}${credential.issuer ? ` · ${credential.issuer}` : ''}`,
-                                    status: credential.status,
-                                    statusLabel: credential.status_label,
-                                    extra: credential.expires_on
-                                        ? `Expires ${credential.expires_on}`
-                                        : 'No expiry',
-                                }))}
-                            />
+                    <div className="grid gap-4">
+                        <Panel title="Credentials">
+                            {credentials.length === 0 ? (
+                                <EmptyState message="No credentials on file." />
+                            ) : (
+                                <ul className="space-y-4">
+                                    {credentials.map((credential) => (
+                                        <li
+                                            key={credential.id}
+                                            className="border-border/60 border-b pb-4 last:border-0 last:pb-0"
+                                        >
+                                            <div className="flex flex-wrap items-start justify-between gap-2">
+                                                <div>
+                                                    <p className="font-medium">
+                                                        {credential.name}
+                                                    </p>
+                                                    <p className="text-muted-foreground text-xs">
+                                                        {credential.type}
+                                                        {credential.issuer
+                                                            ? ` · ${credential.issuer}`
+                                                            : ''}
+                                                        {credential.expires_on
+                                                            ? ` · Expires ${credential.expires_on}`
+                                                            : ''}
+                                                    </p>
+                                                </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    <StatusBadge
+                                                        status={credential.status}
+                                                        label={
+                                                            credential.status_label
+                                                        }
+                                                    />
+                                                    <StatusBadge
+                                                        status={
+                                                            credential.verification_status ??
+                                                            'pending'
+                                                        }
+                                                        label={
+                                                            credential.verification_status_label ??
+                                                            'Verification'
+                                                        }
+                                                    />
+                                                </div>
+                                            </div>
+                                            {credential.verification_note && (
+                                                <p className="text-muted-foreground mt-2 text-xs">
+                                                    Note: {credential.verification_note}
+                                                </p>
+                                            )}
+                                            {can.verify_compliance &&
+                                                credential.pending_review && (
+                                                    <EvidenceReviewForm
+                                                        action={`/compliance-credentials/${credential.id}/review`}
+                                                    />
+                                                )}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </Panel>
+                        {can.submit_compliance_evidence && (
+                            <Panel
+                                title="Submit credential for review"
+                                description="Pending Review does not change eligibility until Admin verifies it."
+                            >
+                                <Form
+                                    action={`/employees/${employee.id}/compliance-evidence`}
+                                    method="post"
+                                    className="grid gap-3 md:grid-cols-2"
+                                >
+                                    <input type="hidden" name="kind" value="credential" />
+                                    <label className="grid gap-1 text-sm">
+                                        <span className="font-medium">Type</span>
+                                        <select
+                                            name="type"
+                                            required
+                                            className={controlClassName}
+                                        >
+                                            {credential_type_options.map((option) => (
+                                                <option
+                                                    key={option.value}
+                                                    value={option.value}
+                                                >
+                                                    {option.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                    <label className="grid gap-1 text-sm">
+                                        <span className="font-medium">Name</span>
+                                        <Input name="name" required />
+                                    </label>
+                                    <label className="grid gap-1 text-sm">
+                                        <span className="font-medium">Issuer</span>
+                                        <Input name="issuer" />
+                                    </label>
+                                    <label className="grid gap-1 text-sm">
+                                        <span className="font-medium">Expires on</span>
+                                        <Input type="date" name="expires_on" />
+                                    </label>
+                                    <div className="md:col-span-2">
+                                        <Button type="submit">Submit for review</Button>
+                                    </div>
+                                </Form>
+                            </Panel>
                         )}
-                    </Panel>
+                    </div>
                 )}
                 {tab === 'training' && (
-                    <Panel title="Training">
-                        {trainings.length === 0 ? (
-                            <EmptyState message="No training records on file." />
-                        ) : (
-                            <RecordTable
-                                rows={trainings.map((training) => ({
-                                    id: training.id,
-                                    title: training.title,
-                                    detail: training.provider ?? 'No provider',
-                                    status: training.status,
-                                    statusLabel: training.status_label,
-                                    extra: training.completed_on
-                                        ? `Completed ${training.completed_on}`
-                                        : 'Not completed',
-                                }))}
-                            />
+                    <div className="grid gap-4">
+                        <Panel title="Training">
+                            {trainings.length === 0 ? (
+                                <EmptyState message="No training records on file." />
+                            ) : (
+                                <ul className="space-y-4">
+                                    {trainings.map((training) => (
+                                        <li
+                                            key={training.id}
+                                            className="border-border/60 border-b pb-4 last:border-0 last:pb-0"
+                                        >
+                                            <div className="flex flex-wrap items-start justify-between gap-2">
+                                                <div>
+                                                    <p className="font-medium">
+                                                        {training.title}
+                                                    </p>
+                                                    <p className="text-muted-foreground text-xs">
+                                                        {training.provider ?? 'No provider'}
+                                                        {training.expires_on
+                                                            ? ` · Expires ${training.expires_on}`
+                                                            : ''}
+                                                    </p>
+                                                </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    <StatusBadge
+                                                        status={training.status}
+                                                        label={training.status_label}
+                                                    />
+                                                    <StatusBadge
+                                                        status={
+                                                            training.verification_status ??
+                                                            'pending'
+                                                        }
+                                                        label={
+                                                            training.verification_status_label ??
+                                                            'Verification'
+                                                        }
+                                                    />
+                                                </div>
+                                            </div>
+                                            {can.verify_compliance &&
+                                                training.pending_review && (
+                                                    <EvidenceReviewForm
+                                                        action={`/compliance-trainings/${training.id}/review`}
+                                                    />
+                                                )}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </Panel>
+                        {can.submit_compliance_evidence && (
+                            <Panel title="Submit training for review">
+                                <Form
+                                    action={`/employees/${employee.id}/compliance-evidence`}
+                                    method="post"
+                                    className="grid gap-3 md:grid-cols-2"
+                                >
+                                    <input type="hidden" name="kind" value="training" />
+                                    <label className="grid gap-1 text-sm md:col-span-2">
+                                        <span className="font-medium">Title</span>
+                                        <Input name="title" required />
+                                    </label>
+                                    <label className="grid gap-1 text-sm">
+                                        <span className="font-medium">Provider</span>
+                                        <Input name="provider" />
+                                    </label>
+                                    <label className="grid gap-1 text-sm">
+                                        <span className="font-medium">Expires on</span>
+                                        <Input type="date" name="expires_on" />
+                                    </label>
+                                    <div className="md:col-span-2">
+                                        <Button type="submit">Submit for review</Button>
+                                    </div>
+                                </Form>
+                            </Panel>
                         )}
-                    </Panel>
+                    </div>
                 )}
                 {tab === 'activity' && (
                     <Panel title="Activity">
@@ -365,6 +524,39 @@ function SecurityTab({ employee }: { employee: EmployeeDetail }) {
                 <Item label="Comments" value={employee.security_comments} />
             </dl>
         </Panel>
+    );
+}
+
+function EvidenceReviewForm({ action }: { action: string }) {
+    return (
+        <Form
+            action={action}
+            method="post"
+            className="mt-3 grid gap-2 md:grid-cols-[1fr_auto_auto]"
+        >
+            <textarea
+                name="note"
+                placeholder="Review note (required to reject)"
+                className={`${controlClassName} min-h-16`}
+            />
+            <Button
+                type="submit"
+                name="decision"
+                value="verify"
+                size="sm"
+            >
+                Verify
+            </Button>
+            <Button
+                type="submit"
+                name="decision"
+                value="reject"
+                size="sm"
+                variant="secondary"
+            >
+                Reject
+            </Button>
+        </Form>
     );
 }
 

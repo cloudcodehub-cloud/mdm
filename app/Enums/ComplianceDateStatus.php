@@ -11,6 +11,7 @@ enum ComplianceDateStatus: string
     case Expired = 'expired';
     case Missing = 'missing';
     case Pending = 'pending';
+    case Rejected = 'rejected';
     case Revoked = 'revoked';
     case InProgress = 'in_progress';
 
@@ -19,6 +20,7 @@ enum ComplianceDateStatus: string
         return match ($this) {
             self::ExpiringSoon => 'Expiring Soon',
             self::InProgress => 'In Progress',
+            self::Pending => 'Pending Review',
             default => Str::headline($this->value),
         };
     }

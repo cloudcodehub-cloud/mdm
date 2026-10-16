@@ -25,7 +25,10 @@ use App\Models\SkipReason;
 use App\Models\User;
 use App\Models\Visit;
 use App\Models\VisitException;
+use App\Models\VisitSafetyCheck;
 use App\Models\VisitTask;
+use App\Services\AuthorizationUsageService;
+use App\Services\CarePlanReviewService;
 use App\Services\ProfilePhotoService;
 use App\Services\SettingsService;
 use Carbon\CarbonInterface;
@@ -166,6 +169,7 @@ final class DirectoryPresenter
         return self::values($credentials->map(fn (EmployeeCredential $credential): array => [
             'id' => $credential->id,
             'type' => Str::headline($credential->type->value),
+            'type_key' => $credential->type->value,
             'name' => $credential->name,
             'issuer' => $credential->issuer,
             'credential_number' => $credential->credential_number,
@@ -173,8 +177,14 @@ final class DirectoryPresenter
             'expires_on' => self::date($credential->expires_on),
             'status' => $credential->status->value,
             'status_label' => Str::headline($credential->status->value),
+            'verification_status' => $credential->verification_status->value,
+            'verification_status_label' => $credential->verification_status->label(),
+            'verified_at' => $credential->verified_at?->toIso8601String(),
+            'rejected_at' => $credential->rejected_at?->toIso8601String(),
+            'verification_note' => $credential->verification_note,
             'notes' => $credential->notes,
             'has_document' => filled($credential->document_path),
+            'pending_review' => $credential->verification_status->value === 'pending_review',
         ]));
     }
 
@@ -193,7 +203,13 @@ final class DirectoryPresenter
             'hours' => $training->hours,
             'status' => $training->status->value,
             'status_label' => Str::headline($training->status->value),
+            'verification_status' => $training->verification_status->value,
+            'verification_status_label' => $training->verification_status->label(),
+            'verified_at' => $training->verified_at?->toIso8601String(),
+            'rejected_at' => $training->rejected_at?->toIso8601String(),
+            'verification_note' => $training->verification_note,
             'notes' => $training->notes,
+            'pending_review' => $training->verification_status->value === 'pending_review',
         ]));
     }
 
@@ -344,7 +360,7 @@ final class DirectoryPresenter
      */
     public static function authorizations(Collection $authorizations): array
     {
-        $usage = app(\App\Services\AuthorizationUsageService::class);
+        $usage = app(AuthorizationUsageService::class);
 
         return self::values($authorizations->map(function (ClientAuthorization $authorization) use ($usage): array {
             $summary = $usage->summarize($authorization);
@@ -371,46 +387,46 @@ final class DirectoryPresenter
      */
     public static function carePlans(Collection $carePlans): array
     {
-        $reviews = app(\App\Services\CarePlanReviewService::class);
+        $reviews = app(CarePlanReviewService::class);
 
         return self::values($carePlans->map(function (CarePlan $plan) use ($reviews): array {
             $review = $reviews->reviewState($plan);
 
             return [
-            'id' => $plan->id,
-            'title' => $plan->title,
-            'revision_number' => $plan->revision_number,
-            'supersedes_care_plan_id' => $plan->supersedes_care_plan_id,
-            'starts_on' => self::date($plan->starts_on),
-            'ends_on' => self::date($plan->ends_on),
-            'review_on' => self::date($plan->review_on),
-            'review' => $review,
-            'status' => $plan->status->value,
-            'status_label' => Str::headline($plan->status->value),
-            'notes' => $plan->notes,
-            'revision_reason' => $plan->revision_reason,
-            'effective_at' => $plan->effective_at?->toIso8601String(),
-            'timed_check_interval_minutes' => $plan->timed_check_interval_minutes,
-            'supervision_instruction' => $plan->supervision_instruction,
-            'tasks' => self::values($plan->taskTemplates
-                ->where('is_active', true)
-                ->map(fn (CarePlanTaskTemplate $task): array => [
-                    'id' => $task->id,
-                    'catalog_item_id' => $task->catalog_item_id,
-                    'title' => $task->title,
-                    'instructions' => $task->instructions,
-                    'recurrence' => $task->recurrence->value,
-                    'recurrence_label' => $task->recurrence->label(),
-                    'recurrence_detail' => $task->recurrence_detail,
-                    'weekdays' => $task->weekdays,
-                    'interval_weeks' => $task->interval_weeks,
-                    'preferred_timing' => $task->preferred_timing?->value,
-                    'preferred_timing_label' => $task->preferred_timing?->label(),
-                    'is_required' => $task->is_required,
-                    'note_required' => $task->note_required,
-                    'can_skip' => $task->can_skip,
-                    'is_critical' => $task->is_critical,
-                ])),
+                'id' => $plan->id,
+                'title' => $plan->title,
+                'revision_number' => $plan->revision_number,
+                'supersedes_care_plan_id' => $plan->supersedes_care_plan_id,
+                'starts_on' => self::date($plan->starts_on),
+                'ends_on' => self::date($plan->ends_on),
+                'review_on' => self::date($plan->review_on),
+                'review' => $review,
+                'status' => $plan->status->value,
+                'status_label' => Str::headline($plan->status->value),
+                'notes' => $plan->notes,
+                'revision_reason' => $plan->revision_reason,
+                'effective_at' => $plan->effective_at?->toIso8601String(),
+                'timed_check_interval_minutes' => $plan->timed_check_interval_minutes,
+                'supervision_instruction' => $plan->supervision_instruction,
+                'tasks' => self::values($plan->taskTemplates
+                    ->where('is_active', true)
+                    ->map(fn (CarePlanTaskTemplate $task): array => [
+                        'id' => $task->id,
+                        'catalog_item_id' => $task->catalog_item_id,
+                        'title' => $task->title,
+                        'instructions' => $task->instructions,
+                        'recurrence' => $task->recurrence->value,
+                        'recurrence_label' => $task->recurrence->label(),
+                        'recurrence_detail' => $task->recurrence_detail,
+                        'weekdays' => $task->weekdays,
+                        'interval_weeks' => $task->interval_weeks,
+                        'preferred_timing' => $task->preferred_timing?->value,
+                        'preferred_timing_label' => $task->preferred_timing?->label(),
+                        'is_required' => $task->is_required,
+                        'note_required' => $task->note_required,
+                        'can_skip' => $task->can_skip,
+                        'is_critical' => $task->is_critical,
+                    ])),
             ];
         }));
     }
@@ -666,7 +682,7 @@ final class DirectoryPresenter
     }
 
     /**
-     * @param  iterable<\App\Models\VisitSafetyCheck>  $checks
+     * @param  iterable<VisitSafetyCheck>  $checks
      * @return list<array<string, mixed>>
      */
     public static function visitSafetyChecks(iterable $checks): array
@@ -1259,11 +1275,11 @@ final class DirectoryPresenter
 
             return [
                 'id' => $employee->id,
-            'name' => $employee->full_name,
-            'employee_number' => $employee->employee_number,
-            'assigned_client_ids' => $assignedClientIds,
-            'photo_url' => app(ProfilePhotoService::class)->employeeUrl($employee),
-            'initials' => $employee->initials(),
+                'name' => $employee->full_name,
+                'employee_number' => $employee->employee_number,
+                'assigned_client_ids' => $assignedClientIds,
+                'photo_url' => app(ProfilePhotoService::class)->employeeUrl($employee),
+                'initials' => $employee->initials(),
             ];
         }));
     }

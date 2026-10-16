@@ -170,6 +170,7 @@ export type EmployeeDetail = EmployeeSummary & {
 export type CredentialRecord = {
     id: number;
     type: string;
+    type_key?: string;
     name: string;
     issuer: string | null;
     credential_number: string | null;
@@ -177,8 +178,14 @@ export type CredentialRecord = {
     expires_on: string | null;
     status: string;
     status_label: string;
+    verification_status?: string;
+    verification_status_label?: string;
+    verified_at?: string | null;
+    rejected_at?: string | null;
+    verification_note?: string | null;
     notes: string | null;
     has_document?: boolean;
+    pending_review?: boolean;
 };
 
 export type TrainingRecord = {
@@ -190,7 +197,13 @@ export type TrainingRecord = {
     hours: string | number | null;
     status: string;
     status_label: string;
+    verification_status?: string;
+    verification_status_label?: string;
+    verified_at?: string | null;
+    rejected_at?: string | null;
+    verification_note?: string | null;
     notes: string | null;
+    pending_review?: boolean;
 };
 
 export type ActivityRecord = {

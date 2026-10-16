@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\ComplianceVerificationStatus;
 use App\Enums\CredentialStatus;
 use App\Enums\CredentialType;
 use App\Models\Employee;
@@ -39,6 +40,7 @@ class EmployeeCredentialFactory extends Factory
             'issued_on' => fake()->dateTimeBetween('-2 years', '-1 month')->format('Y-m-d'),
             'expires_on' => fake()->dateTimeBetween('+1 month', '+2 years')->format('Y-m-d'),
             'status' => CredentialStatus::Active,
+            'verification_status' => ComplianceVerificationStatus::Verified,
             'notes' => null,
         ];
     }
@@ -49,6 +51,7 @@ class EmployeeCredentialFactory extends Factory
             'issued_on' => now()->subYears(3)->toDateString(),
             'expires_on' => now()->subMonth()->toDateString(),
             'status' => CredentialStatus::Expired,
+            'verification_status' => ComplianceVerificationStatus::Verified,
         ]);
     }
 
@@ -58,6 +61,7 @@ class EmployeeCredentialFactory extends Factory
             'issued_on' => null,
             'expires_on' => null,
             'status' => CredentialStatus::Pending,
+            'verification_status' => ComplianceVerificationStatus::PendingReview,
         ]);
     }
 

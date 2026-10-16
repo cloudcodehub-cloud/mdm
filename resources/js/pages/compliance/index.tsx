@@ -35,16 +35,24 @@ export default function ComplianceIndex({
         <>
             <Head title="Compliance" />
             <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
-                <div>
-                    <h1 className="text-xl font-semibold tracking-tight">
-                        Compliance
-                    </h1>
-                    <p className="text-muted-foreground text-sm">
-                        Credential and training status from recorded dates and
-                        the organization expiring-soon threshold (
-                        {expiring_soon_days} days). Missing is shown only when
-                        the current records can prove a requirement is absent.
-                    </p>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h1 className="text-xl font-semibold tracking-tight">
+                            Compliance
+                        </h1>
+                        <p className="text-muted-foreground text-sm">
+                            Credential and training status from recorded dates and
+                            the organization expiring-soon threshold (
+                            {expiring_soon_days} days). Missing is shown only when
+                            a Compliance Requirement proves evidence is absent.
+                        </p>
+                    </div>
+                    <Link
+                        href="/compliance/requirements"
+                        className="text-sm font-medium underline-offset-4 hover:underline"
+                    >
+                        Manage requirements
+                    </Link>
                 </div>
 
                 <Panel

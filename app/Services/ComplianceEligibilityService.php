@@ -6,6 +6,7 @@ use App\Enums\ComplianceApplicability;
 use App\Enums\ComplianceDateStatus;
 use App\Enums\ComplianceEligibilityTone;
 use App\Enums\ComplianceRequirementSource;
+use App\Enums\ComplianceVerificationStatus;
 use App\Enums\CredentialType;
 use App\Enums\JobType;
 use App\Models\ComplianceRequirement;
@@ -250,31 +251,79 @@ class ComplianceEligibilityService
                 return [ComplianceDateStatus::Missing, null, null];
             }
 
-            $credential = $employee->credentials
+            $matches = $employee->credentials
                 ->filter(fn (EmployeeCredential $row): bool => $row->type === $type)
-                ->sortByDesc(fn (EmployeeCredential $row): string => $row->expires_on?->toDateString() ?? '9999-12-31')
-                ->first();
+                ->values();
 
-            if ($credential === null) {
+            if ($matches->isEmpty()) {
                 return [ComplianceDateStatus::Missing, null, null];
             }
 
+            $verified = $matches
+                ->filter(fn (EmployeeCredential $row): bool => $row->isAuthoritativelyVerified())
+                ->sortByDesc(fn (EmployeeCredential $row): string => $row->expires_on?->toDateString() ?? '9999-12-31')
+                ->values();
+
+            if ($verified->isNotEmpty()) {
+                $credential = $verified->first();
+
+                return [
+                    $this->classifier->forCredential($credential),
+                    $credential->name,
+                    $credential->expires_on?->toDateString(),
+                ];
+            }
+
+            $pending = $matches->first(
+                fn (EmployeeCredential $row): bool => $row->verification_status === ComplianceVerificationStatus::PendingReview,
+            );
+
+            if ($pending !== null) {
+                return [ComplianceDateStatus::Pending, $pending->name, $pending->expires_on?->toDateString()];
+            }
+
+            $rejected = $matches->first();
+
             return [
-                $this->classifier->forCredential($credential),
-                $credential->name,
-                $credential->expires_on?->toDateString(),
+                $this->classifier->forCredential($rejected),
+                $rejected->name,
+                $rejected->expires_on?->toDateString(),
             ];
         }
 
         $needle = Str::lower(trim($requirement->source_key));
-        $training = $employee->trainings
+        $matches = $employee->trainings
             ->filter(fn (EmployeeTraining $row): bool => Str::lower(trim($row->title)) === $needle)
-            ->sortByDesc(fn (EmployeeTraining $row): string => $row->expires_on?->toDateString() ?? '9999-12-31')
-            ->first();
+            ->values();
 
-        if ($training === null) {
+        if ($matches->isEmpty()) {
             return [ComplianceDateStatus::Missing, null, null];
         }
+
+        $verified = $matches
+            ->filter(fn (EmployeeTraining $row): bool => $row->isAuthoritativelyVerified())
+            ->sortByDesc(fn (EmployeeTraining $row): string => $row->expires_on?->toDateString() ?? '9999-12-31')
+            ->values();
+
+        if ($verified->isNotEmpty()) {
+            $training = $verified->first();
+
+            return [
+                $this->classifier->forTraining($training),
+                $training->title,
+                $training->expires_on?->toDateString(),
+            ];
+        }
+
+        $pending = $matches->first(
+            fn (EmployeeTraining $row): bool => $row->verification_status === ComplianceVerificationStatus::PendingReview,
+        );
+
+        if ($pending !== null) {
+            return [ComplianceDateStatus::Pending, $pending->title, $pending->expires_on?->toDateString()];
+        }
+
+        $training = $matches->first();
 
         return [
             $this->classifier->forTraining($training),

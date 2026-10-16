@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\ComplianceDateStatus;
+use App\Enums\ComplianceVerificationStatus;
 use App\Enums\CredentialStatus;
 use App\Enums\TrainingStatus;
 use App\Models\EmployeeCredential;
@@ -14,6 +15,17 @@ class ComplianceStatusService
 
     public function forCredential(EmployeeCredential $credential): ComplianceDateStatus
     {
+        $verification = $credential->verification_status ?? ComplianceVerificationStatus::Verified;
+
+        if ($verification === ComplianceVerificationStatus::PendingReview
+            || $credential->status === CredentialStatus::Pending) {
+            return ComplianceDateStatus::Pending;
+        }
+
+        if ($verification === ComplianceVerificationStatus::Rejected) {
+            return ComplianceDateStatus::Rejected;
+        }
+
         if ($credential->status === CredentialStatus::Revoked) {
             return ComplianceDateStatus::Revoked;
         }
@@ -22,11 +34,7 @@ class ComplianceStatusService
             return ComplianceDateStatus::Expired;
         }
 
-        if ($credential->status === CredentialStatus::Pending) {
-            return ComplianceDateStatus::Pending;
-        }
-
-        if ($credential->status !== CredentialStatus::Active) {
+        if ($credential->status !== CredentialStatus::Active || ! $credential->isAuthoritativelyVerified()) {
             return ComplianceDateStatus::Expired;
         }
 
@@ -39,6 +47,16 @@ class ComplianceStatusService
 
     public function forTraining(EmployeeTraining $training): ComplianceDateStatus
     {
+        $verification = $training->verification_status ?? ComplianceVerificationStatus::Verified;
+
+        if ($verification === ComplianceVerificationStatus::PendingReview) {
+            return ComplianceDateStatus::Pending;
+        }
+
+        if ($verification === ComplianceVerificationStatus::Rejected) {
+            return ComplianceDateStatus::Rejected;
+        }
+
         if ($this->isExpired($training->expires_on?->toDateString(), $training->status === TrainingStatus::Expired)) {
             return ComplianceDateStatus::Expired;
         }
@@ -47,7 +65,7 @@ class ComplianceStatusService
             return ComplianceDateStatus::InProgress;
         }
 
-        if ($training->status !== TrainingStatus::Completed) {
+        if ($training->status !== TrainingStatus::Completed || ! $training->isAuthoritativelyVerified()) {
             return ComplianceDateStatus::Expired;
         }
 

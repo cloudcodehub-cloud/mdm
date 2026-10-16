@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\CredentialType;
 use App\Enums\EmploymentStatus;
 use App\Enums\JobType;
 use App\Http\Requests\StoreEmployeeRequest;
@@ -127,10 +128,20 @@ class EmployeeController extends Controller
             'activity' => DirectoryPresenter::employeeActivity($employee),
             'profile_completion' => $completion->forEmployee($employee),
             'compliance_eligibility' => $compliance,
+            'credential_type_options' => collect(CredentialType::cases())
+                ->map(fn (CredentialType $type): array => [
+                    'value' => $type->value,
+                    'label' => $type->label(),
+                ])
+                ->values()
+                ->all(),
             'can' => [
                 'update' => $user?->can('update', $employee) ?? false,
                 'view_sensitive' => $includeSensitive,
                 'override_compliance' => $canOverrideCompliance,
+                'verify_compliance' => $user?->isAdmin() ?? false,
+                'submit_compliance_evidence' => ($user?->isAdmin() ?? false)
+                    || ($user?->isDsp() && $user->employee?->is($employee)),
             ],
         ]);
     }

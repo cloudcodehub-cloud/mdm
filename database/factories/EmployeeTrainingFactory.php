@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\ComplianceVerificationStatus;
 use App\Enums\TrainingStatus;
 use App\Models\Employee;
 use App\Models\EmployeeTraining;
@@ -31,6 +32,7 @@ class EmployeeTrainingFactory extends Factory
             'expires_on' => fake()->dateTimeBetween('+1 month', '+18 months')->format('Y-m-d'),
             'hours' => fake()->randomElement(['2.00', '4.00', '8.00']),
             'status' => TrainingStatus::Completed,
+            'verification_status' => ComplianceVerificationStatus::Verified,
             'notes' => null,
         ];
     }
@@ -41,6 +43,7 @@ class EmployeeTrainingFactory extends Factory
             'completed_on' => null,
             'expires_on' => null,
             'status' => TrainingStatus::InProgress,
+            'verification_status' => ComplianceVerificationStatus::PendingReview,
         ]);
     }
 
@@ -50,6 +53,7 @@ class EmployeeTrainingFactory extends Factory
             'completed_on' => now()->subYears(2)->toDateString(),
             'expires_on' => now()->subMonth()->toDateString(),
             'status' => TrainingStatus::Expired,
+            'verification_status' => ComplianceVerificationStatus::Verified,
         ]);
     }
 
