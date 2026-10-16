@@ -42,6 +42,7 @@ class ComplianceEvidenceSubmitRequest extends FormRequest
                 'expires_on' => ['nullable', 'date'],
                 'hours' => ['nullable', 'numeric', 'min:0', 'max:999'],
                 'notes' => ['nullable', 'string', 'max:2000'],
+                'document' => ['nullable', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,webp'],
             ];
         }
 
@@ -54,6 +55,7 @@ class ComplianceEvidenceSubmitRequest extends FormRequest
             'issued_on' => ['nullable', 'date'],
             'expires_on' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'document' => ['nullable', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,webp'],
         ];
     }
 }

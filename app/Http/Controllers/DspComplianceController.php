@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\CredentialType;
 use App\Services\ComplianceEligibilityService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -18,6 +19,16 @@ class DspComplianceController extends Controller
         $employee = $user->employee;
         abort_unless($employee !== null, 403);
 
-        return Inertia::render('compliance/mine', $eligibility->selfView($employee));
+        return Inertia::render('compliance/mine', [
+            ...$eligibility->selfView($employee),
+            'can_submit_evidence' => true,
+            'credential_type_options' => collect(CredentialType::cases())
+                ->map(fn (CredentialType $type): array => [
+                    'value' => $type->value,
+                    'label' => $type->label(),
+                ])
+                ->values()
+                ->all(),
+        ]);
     }
 }

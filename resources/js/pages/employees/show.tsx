@@ -308,6 +308,7 @@ export default function EmployeesShow({
                                 <Form
                                     action={`/employees/${employee.id}/compliance-evidence`}
                                     method="post"
+                                    encType="multipart/form-data"
                                     className="grid gap-3 md:grid-cols-2"
                                 >
                                     <input type="hidden" name="kind" value="credential" />
@@ -339,6 +340,14 @@ export default function EmployeesShow({
                                     <label className="grid gap-1 text-sm">
                                         <span className="font-medium">Expires on</span>
                                         <Input type="date" name="expires_on" />
+                                    </label>
+                                    <label className="grid gap-1 text-sm md:col-span-2">
+                                        <span className="font-medium">Supporting document</span>
+                                        <Input
+                                            type="file"
+                                            name="document"
+                                            accept=".pdf,.jpg,.jpeg,.png,.webp"
+                                        />
                                     </label>
                                     <div className="md:col-span-2">
                                         <Button type="submit">Submit for review</Button>
@@ -405,6 +414,7 @@ export default function EmployeesShow({
                                 <Form
                                     action={`/employees/${employee.id}/compliance-evidence`}
                                     method="post"
+                                    encType="multipart/form-data"
                                     className="grid gap-3 md:grid-cols-2"
                                 >
                                     <input type="hidden" name="kind" value="training" />
@@ -419,6 +429,14 @@ export default function EmployeesShow({
                                     <label className="grid gap-1 text-sm">
                                         <span className="font-medium">Expires on</span>
                                         <Input type="date" name="expires_on" />
+                                    </label>
+                                    <label className="grid gap-1 text-sm md:col-span-2">
+                                        <span className="font-medium">Supporting document</span>
+                                        <Input
+                                            type="file"
+                                            name="document"
+                                            accept=".pdf,.jpg,.jpeg,.png,.webp"
+                                        />
                                     </label>
                                     <div className="md:col-span-2">
                                         <Button type="submit">Submit for review</Button>

@@ -10,12 +10,16 @@ use App\Models\Employee;
 use App\Models\EmployeeCredential;
 use App\Models\EmployeeTraining;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class ComplianceEvidenceVerificationService
 {
-    public function __construct(private SettingsService $settings) {}
+    public function __construct(
+        private SettingsService $settings,
+        private ProfilePhotoService $photos,
+    ) {}
 
     /**
      * DSP or Admin submits replacement/new evidence for review. Non-authoritative until verified.
@@ -26,7 +30,7 @@ class ComplianceEvidenceVerificationService
     {
         $this->assertCanSubmit($actor, $employee);
 
-        return EmployeeCredential::query()->create([
+        $credential = EmployeeCredential::query()->create([
             'employee_id' => $employee->id,
             'type' => CredentialType::from((string) $data['type']),
             'name' => trim((string) $data['name']),
@@ -38,6 +42,12 @@ class ComplianceEvidenceVerificationService
             'verification_status' => ComplianceVerificationStatus::PendingReview,
             'notes' => filled($data['notes'] ?? null) ? trim((string) $data['notes']) : null,
         ]);
+
+        if (($data['document'] ?? null) instanceof UploadedFile) {
+            $this->photos->storeCredentialDocument($credential, $data['document']);
+        }
+
+        return $credential->refresh();
     }
 
     /**
@@ -47,7 +57,7 @@ class ComplianceEvidenceVerificationService
     {
         $this->assertCanSubmit($actor, $employee);
 
-        return EmployeeTraining::query()->create([
+        $training = EmployeeTraining::query()->create([
             'employee_id' => $employee->id,
             'title' => trim((string) $data['title']),
             'provider' => filled($data['provider'] ?? null) ? trim((string) $data['provider']) : null,
@@ -58,6 +68,13 @@ class ComplianceEvidenceVerificationService
             'verification_status' => ComplianceVerificationStatus::PendingReview,
             'notes' => filled($data['notes'] ?? null) ? trim((string) $data['notes']) : null,
         ]);
+
+        if (($data['document'] ?? null) instanceof UploadedFile) {
+            $path = $data['document']->store('training-documents/'.$employee->id, 'local');
+            $training->update(['document_path' => $path]);
+        }
+
+        return $training->refresh();
     }
 
     public function verifyCredential(User $actor, EmployeeCredential $credential, ?string $note = null): EmployeeCredential

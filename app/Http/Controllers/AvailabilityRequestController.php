@@ -14,7 +14,7 @@ use Inertia\Response;
 
 class AvailabilityRequestController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request, DspAvailabilityService $availability): Response
     {
         $user = $request->user();
         abort_unless($user !== null, 401);
@@ -57,16 +57,25 @@ class AvailabilityRequestController extends Controller
                 'reviewed_at' => $row->reviewed_at?->toDateTimeString(),
                 'review_note' => $row->review_note,
             ])->values()->all(),
-            'time_off' => $timeOff->map(fn (EmployeeTimeOff $row): array => [
-                'id' => $row->id,
-                'dsp_name' => $row->employee->full_name,
-                'starts_on' => $row->starts_on->toDateString(),
-                'ends_on' => $row->ends_on->toDateString(),
-                'reason' => $row->reason,
-                'status' => $row->status->value,
-                'requester' => $row->requestedBy->name,
-                'review_note' => $row->review_note,
-            ])->values()->all(),
+            'time_off' => $timeOff->map(function (EmployeeTimeOff $row) use ($availability): array {
+                $preview = $row->isPending()
+                    ? $availability->leaveImpactPreview($row)
+                    : null;
+
+                return [
+                    'id' => $row->id,
+                    'dsp_name' => $row->employee->full_name,
+                    'starts_on' => $row->starts_on->toDateString(),
+                    'ends_on' => $row->ends_on->toDateString(),
+                    'starts_at' => $row->starts_at,
+                    'ends_at' => $row->ends_at,
+                    'reason' => $row->reason,
+                    'status' => $row->status->value,
+                    'requester' => $row->requestedBy->name,
+                    'review_note' => $row->review_note,
+                    'impact_preview' => $preview,
+                ];
+            })->values()->all(),
         ]);
     }
 
@@ -129,10 +138,15 @@ class AvailabilityRequestController extends Controller
         $affected = $availability->approveTimeOff($time_off, $user, $request->string('review_note')->value() ?: null);
 
         foreach ($affected as $visit) {
-            $notifications->coverageAttention($visit);
+            $notifications->staffingNeededFromLeave($visit, $time_off->fresh() ?? $time_off);
         }
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Time off approved.')]);
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => count($affected) > 0
+                ? __('Time off approved. :count visit(s) moved to Staffing Needed.', ['count' => count($affected)])
+                : __('Time off approved.'),
+        ]);
 
         return back();
     }

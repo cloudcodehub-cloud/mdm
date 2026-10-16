@@ -21,6 +21,7 @@ use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DspAvailabilityController;
 use App\Http\Controllers\DspComplianceController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\EmployeeProfileChangeController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrganizationLogoController;
@@ -191,6 +192,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('compliance/requirements/{requirement}/deactivate', [ComplianceRequirementController::class, 'deactivate'])
         ->name('compliance.requirements.deactivate');
     Route::get('my-compliance', DspComplianceController::class)->name('my-compliance.index');
+    Route::get('my-profile-changes', [EmployeeProfileChangeController::class, 'mine'])
+        ->name('my-profile-changes.index');
+    Route::post('my-profile-changes', [EmployeeProfileChangeController::class, 'store'])
+        ->name('my-profile-changes.store');
+    Route::get('profile-change-requests', [EmployeeProfileChangeController::class, 'index'])
+        ->name('profile-change-requests.index');
+    Route::patch('profile-change-requests/{profile_change}/approve', [EmployeeProfileChangeController::class, 'approve'])
+        ->name('profile-change-requests.approve');
+    Route::patch('profile-change-requests/{profile_change}/reject', [EmployeeProfileChangeController::class, 'reject'])
+        ->name('profile-change-requests.reject');
     Route::post('employees/{employee}/compliance-evidence', [ComplianceEvidenceController::class, 'store'])
         ->name('employees.compliance-evidence.store');
     Route::post('compliance-credentials/{credential}/review', [ComplianceEvidenceController::class, 'reviewCredential'])

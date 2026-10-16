@@ -7,6 +7,8 @@ enum EmployeeAdminHistoryCategory: string
     case Lifecycle = 'lifecycle';
     case SchedulingImpact = 'scheduling_impact';
     case Login = 'login';
+    case ProfileChange = 'profile_change';
+    case Leave = 'leave';
 
     public function label(): string
     {
@@ -14,6 +16,8 @@ enum EmployeeAdminHistoryCategory: string
             self::Lifecycle => 'Lifecycle',
             self::SchedulingImpact => 'Scheduling impact',
             self::Login => 'Login',
+            self::ProfileChange => 'Personal information',
+            self::Leave => 'Leave',
         };
     }
 }

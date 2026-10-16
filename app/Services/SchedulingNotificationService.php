@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Enums\InAppNotificationType;
+use App\Enums\Role;
 use App\Models\DspAvailabilityRequest;
 use App\Models\Employee;
+use App\Models\EmployeeProfileChangeRequest;
 use App\Models\EmployeeTimeOff;
 use App\Models\ScheduledVisit;
 use App\Models\User;
@@ -132,6 +134,13 @@ class SchedulingNotificationService
         $supervisorUser = $timeOff->employee->supervisor?->user;
 
         if ($supervisorUser === null) {
+            $this->notifyAdmins(
+                'Time-off request',
+                $timeOff->employee->full_name.' requested time off.',
+                'availability.timeoff.'.$timeOff->id,
+                route('availability-requests.index'),
+            );
+
             return;
         }
 
@@ -145,6 +154,44 @@ class SchedulingNotificationService
         );
     }
 
+    public function profileChangeSubmitted(EmployeeProfileChangeRequest $request): void
+    {
+        $request->loadMissing(['employee.supervisor.user', 'employee']);
+        $supervisorUser = $request->employee->supervisor?->user;
+
+        if ($supervisorUser === null) {
+            $this->notifyAdmins(
+                'Personal information change request',
+                $request->employee->full_name.' submitted a personal information change.',
+                'profile.change.'.$request->id,
+                route('profile-change-requests.index'),
+                InAppNotificationType::Profile,
+            );
+
+            return;
+        }
+
+        $this->notifications->notify(
+            $supervisorUser,
+            InAppNotificationType::Profile,
+            'Personal information change request',
+            $request->employee->full_name.' submitted a personal information change.',
+            'profile.change.'.$request->id,
+            route('profile-change-requests.index'),
+        );
+    }
+
+    public function complianceEvidenceSubmitted(Employee $employee, string $kind): void
+    {
+        $this->notifyAdmins(
+            'Compliance evidence submitted',
+            $employee->full_name.' submitted '.$kind.' evidence for verification.',
+            'compliance.evidence.'.$employee->id.'.'.now()->timestamp,
+            route('employees.show', $employee),
+            InAppNotificationType::Compliance,
+        );
+    }
+
     public function coverageAttention(ScheduledVisit $visit): void
     {
         $this->notifySupervisor(
@@ -155,13 +202,41 @@ class SchedulingNotificationService
         );
     }
 
+    public function staffingNeededFromLeave(ScheduledVisit $visit, EmployeeTimeOff $timeOff): void
+    {
+        $visit->loadMissing(['client', 'releasedEmployee']);
+        $dspName = $timeOff->employee?->full_name
+            ?? $visit->releasedEmployee?->full_name
+            ?? 'DSP';
+
+        $this->notifySupervisor(
+            $visit,
+            'Staffing Needed after approved leave',
+            $dspName.' leave released '.$visit->client->full_name
+                .' on '.$visit->service_date->toDateString().' to Staffing Needed.',
+            'schedule.visit.'.$visit->id.'.staffing-needed-leave',
+        );
+
+        $this->notifyAdmins(
+            'Staffing Needed after approved leave',
+            $dspName.' leave released '.$visit->client->full_name
+                .' on '.$visit->service_date->toDateString().' to Staffing Needed.',
+            'schedule.visit.'.$visit->id.'.staffing-needed-leave',
+            route('scheduled-visits.show', $visit),
+        );
+    }
+
     private function notifySupervisor(ScheduledVisit $visit, string $title, string $body, string $key): void
     {
-        $visit->loadMissing(['supervisor.user', 'client.supervisor.user']);
+        $visit->loadMissing(['supervisor.user', 'client.supervisor.user', 'releasedEmployee.supervisor.user']);
         $user = $visit->supervisor?->user;
 
         if ($user === null) {
             $user = $visit->client->supervisor?->user;
+        }
+
+        if ($user === null) {
+            $user = $visit->releasedEmployee?->supervisor?->user;
         }
 
         if ($user === null) {
@@ -180,14 +255,19 @@ class SchedulingNotificationService
         );
     }
 
-    private function notifyAdmins(string $title, string $body, string $key, string $url): void
-    {
-        $admins = User::query()->where('role', \App\Enums\Role::Admin)->get();
+    private function notifyAdmins(
+        string $title,
+        string $body,
+        string $key,
+        string $url,
+        InAppNotificationType $type = InAppNotificationType::Schedule,
+    ): void {
+        $admins = User::query()->where('role', Role::Admin)->get();
 
         foreach ($admins as $admin) {
             $this->notifications->notify(
                 $admin,
-                InAppNotificationType::Schedule,
+                $type,
                 $title,
                 $body,
                 $key.'.admin.'.$admin->id,

@@ -103,6 +103,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, EmployeeWorkHistory> $workHistories
  * @property-read Collection<int, EmployeeSecurityIncident> $securityIncidents
  * @property-read Collection<int, EmployeeTimeOff> $timeOff
+ * @property-read Collection<int, EmployeeProfileChangeRequest> $profileChangeRequests
  * @property-read Collection<int, EmployeeAdminHistoryEvent> $adminHistoryEvents
  * @property-read User|null $statusChangedBy
  *
@@ -382,6 +383,14 @@ class Employee extends Model
     public function timeOff(): HasMany
     {
         return $this->hasMany(EmployeeTimeOff::class)->orderByDesc('starts_on');
+    }
+
+    /**
+     * @return HasMany<EmployeeProfileChangeRequest, $this>
+     */
+    public function profileChangeRequests(): HasMany
+    {
+        return $this->hasMany(EmployeeProfileChangeRequest::class)->orderByDesc('submitted_at');
     }
 
     /**

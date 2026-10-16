@@ -8,7 +8,9 @@ use App\Models\Employee;
 use App\Models\EmployeeCredential;
 use App\Models\EmployeeTraining;
 use App\Services\ComplianceEvidenceVerificationService;
+use App\Services\SchedulingNotificationService;
 use Illuminate\Http\RedirectResponse;
+use Inertia\Inertia;
 
 class ComplianceEvidenceController extends Controller
 {
@@ -16,16 +18,29 @@ class ComplianceEvidenceController extends Controller
         ComplianceEvidenceSubmitRequest $request,
         Employee $employee,
         ComplianceEvidenceVerificationService $verification,
+        SchedulingNotificationService $notifications,
     ): RedirectResponse {
         $data = $request->validated();
+        if ($request->hasFile('document')) {
+            $data['document'] = $request->file('document');
+        }
 
-        if (($data['kind'] ?? null) === 'training') {
+        $kind = ($data['kind'] ?? null) === 'training' ? 'training' : 'credential';
+
+        if ($kind === 'training') {
             $verification->submitTraining($request->user(), $employee, $data);
         } else {
             $verification->submitCredential($request->user(), $employee, $data);
         }
 
-        return back()->with('success', 'Evidence submitted for review. Pending Review does not restore eligibility.');
+        $notifications->complianceEvidenceSubmitted($employee, $kind);
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Evidence submitted for review. Pending Review does not restore eligibility.'),
+        ]);
+
+        return back();
     }
 
     public function reviewCredential(

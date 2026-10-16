@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\AvailabilityRequestType;
 use App\Enums\PreferredDaypart;
 use App\Enums\ReviewStatus;
+use App\Enums\ScheduledVisitStatus;
 use App\Models\DspAvailabilityException;
 use App\Models\DspAvailabilityRequest;
 use App\Models\DspWeeklyAvailability;
@@ -15,11 +16,17 @@ use App\Models\User;
 use App\Support\ClockMinutes;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 class DspAvailabilityService
 {
-    public function __construct(private SettingsService $settings) {}
+    public const PENDING_LEAVE_ATTENTION = 'Pending leave request may conflict with this visit. Assignments stay unchanged until leave is approved.';
+
+    public function __construct(
+        private SettingsService $settings,
+        private VisitAssignmentService $assignments,
+    ) {}
 
     /**
      * @param  array<int, array<string, mixed>>  $days
@@ -171,7 +178,9 @@ class DspAvailabilityService
         ]);
 
         if ($status === ReviewStatus::Approved) {
-            $this->flagVisitsInRange($employee, (string) $data['starts_on'], (string) $data['ends_on']);
+            $this->applyApprovedLeaveSchedulingConsequences($record, $user);
+        } else {
+            $this->flagPendingLeaveConflicts($record);
         }
 
         return $record;
@@ -195,11 +204,7 @@ class DspAvailabilityService
             'review_note' => $this->nullableString($reviewNote),
         ])->save();
 
-        return $this->flagVisitsInRange(
-            $timeOff->employee,
-            $timeOff->starts_on->toDateString(),
-            $timeOff->ends_on->toDateString(),
-        );
+        return $this->applyApprovedLeaveSchedulingConsequences($timeOff->fresh() ?? $timeOff, $reviewer);
     }
 
     public function rejectTimeOff(EmployeeTimeOff $timeOff, User $reviewer, ?string $reviewNote = null): EmployeeTimeOff
@@ -217,7 +222,156 @@ class DspAvailabilityService
             'review_note' => $this->nullableString($reviewNote),
         ])->save();
 
+        $this->clearPendingLeaveWarnings($timeOff);
+
         return $timeOff->refresh();
+    }
+
+    /**
+     * Impact preview for leave approval (Decision 04-30).
+     *
+     * @return array<string, mixed>
+     */
+    public function leaveImpactPreview(EmployeeTimeOff $timeOff): array
+    {
+        $conflicting = $this->conflictingFutureVisitsForLeave($timeOff);
+        $inProgress = $conflicting->filter(
+            fn (ScheduledVisit $visit): bool => $visit->status === ScheduledVisitStatus::InProgress,
+        );
+        $releasable = $conflicting->filter(
+            fn (ScheduledVisit $visit): bool => $visit->status === ScheduledVisitStatus::Scheduled,
+        );
+
+        return [
+            'time_off_id' => $timeOff->id,
+            'employee_id' => $timeOff->employee_id,
+            'starts_on' => $timeOff->starts_on->toDateString(),
+            'ends_on' => $timeOff->ends_on->toDateString(),
+            'status' => $timeOff->status->value,
+            'future_scheduled_count' => $releasable->count(),
+            'will_release_to_staffing_needed' => $releasable->isNotEmpty(),
+            'in_progress_count' => $inProgress->count(),
+            'affected_visits' => $releasable->map(fn (ScheduledVisit $visit): array => [
+                'id' => $visit->id,
+                'service_date' => $visit->service_date->toDateString(),
+                'service_type' => $visit->service_type,
+                'client_name' => $visit->client?->full_name,
+                'time_label' => $this->settings->formatTime($visit->startsAtOn()).' – '.$this->settings->formatTime($visit->endsAtOn()),
+            ])->values()->all(),
+            'consequences' => [
+                'Pending leave does not release assignments or change scheduling eligibility.',
+                'Approving leave releases conflicting future DSP assignments to Staffing Needed.',
+                'Original assignment history and recurring-series links are preserved.',
+                'Active in-progress visits are not automatically clocked out or ended.',
+                'Historical completed visits are not altered.',
+            ],
+        ];
+    }
+
+    /**
+     * @return list<ScheduledVisit>
+     */
+    public function applyApprovedLeaveSchedulingConsequences(EmployeeTimeOff $timeOff, User $actor): array
+    {
+        $timeOff->loadMissing('employee');
+        $employee = $timeOff->employee;
+        $reason = 'Approved leave '.$timeOff->starts_on->toDateString().'–'.$timeOff->ends_on->toDateString()
+            .($timeOff->reason ? ' — '.$timeOff->reason : '');
+
+        $released = [];
+
+        foreach ($this->conflictingFutureVisitsForLeave($timeOff) as $visit) {
+            if ($visit->status !== ScheduledVisitStatus::Scheduled) {
+                continue;
+            }
+
+            $released[] = $this->assignments->releaseToStaffingNeeded($visit, $actor, $reason);
+        }
+
+        return $released;
+    }
+
+    /**
+     * @return list<ScheduledVisit>
+     */
+    public function flagPendingLeaveConflicts(EmployeeTimeOff $timeOff): array
+    {
+        $flagged = [];
+
+        foreach ($this->conflictingFutureVisitsForLeave($timeOff) as $visit) {
+            if ($visit->status !== ScheduledVisitStatus::Scheduled || $visit->employee_id === null) {
+                continue;
+            }
+
+            $visit->forceFill([
+                'needs_attention' => true,
+                'attention_reason' => self::PENDING_LEAVE_ATTENTION,
+            ])->save();
+            $flagged[] = $visit;
+        }
+
+        return $flagged;
+    }
+
+    public function clearPendingLeaveWarnings(EmployeeTimeOff $timeOff): void
+    {
+        ScheduledVisit::query()
+            ->where('employee_id', $timeOff->employee_id)
+            ->where('status', ScheduledVisitStatus::Scheduled)
+            ->where('needs_attention', true)
+            ->where('attention_reason', self::PENDING_LEAVE_ATTENTION)
+            ->whereDate('service_date', '>=', $timeOff->starts_on->toDateString())
+            ->whereDate('service_date', '<=', $timeOff->ends_on->toDateString())
+            ->update([
+                'needs_attention' => false,
+                'attention_reason' => null,
+            ]);
+    }
+
+    /**
+     * @return Collection<int, ScheduledVisit>
+     */
+    public function conflictingFutureVisitsForLeave(EmployeeTimeOff $timeOff): Collection
+    {
+        $timeOff->loadMissing('employee');
+
+        $visits = ScheduledVisit::query()
+            ->where('employee_id', $timeOff->employee_id)
+            ->whereIn('status', [ScheduledVisitStatus::Scheduled, ScheduledVisitStatus::InProgress])
+            ->whereDate('service_date', '>=', $timeOff->starts_on->toDateString())
+            ->whereDate('service_date', '<=', $timeOff->ends_on->toDateString())
+            ->with(['client', 'shiftTemplate'])
+            ->orderBy('service_date')
+            ->orderBy('id')
+            ->get();
+
+        return $visits->filter(function (ScheduledVisit $visit) use ($timeOff): bool {
+            return $this->leaveOverlapsVisit($timeOff, $visit);
+        })->values();
+    }
+
+    private function leaveOverlapsVisit(EmployeeTimeOff $timeOff, ScheduledVisit $visit): bool
+    {
+        $allDay = ($timeOff->starts_at === null && $timeOff->ends_at === null)
+            || $timeOff->starts_on->toDateString() !== $timeOff->ends_on->toDateString();
+
+        if ($allDay) {
+            return true;
+        }
+
+        $leaveStart = ClockMinutes::fromTime($timeOff->starts_at) ?? 0;
+        $leaveEnd = ClockMinutes::fromTime($timeOff->ends_at) ?? 1440;
+        if ($leaveEnd <= $leaveStart) {
+            $leaveEnd += 1440;
+        }
+
+        $template = $visit->shiftTemplate;
+        $visitWindow = ClockMinutes::window(
+            $visit->starts_at ?? ($template !== null ? (string) $template->starts_at : '00:00:00'),
+            $visit->ends_at ?? ($template !== null ? (string) $template->ends_at : '23:59:00'),
+        );
+
+        return $visitWindow['start'] < $leaveEnd && $visitWindow['end'] > $leaveStart;
     }
 
     /**

@@ -27,6 +27,11 @@ export default function AvailabilityRequests({
         reason: string | null;
         status: string;
         requester: string;
+        impact_preview?: {
+            future_scheduled_count: number;
+            will_release_to_staffing_needed: boolean;
+            consequences: string[];
+        } | null;
     }>;
 }) {
     return (
@@ -39,8 +44,9 @@ export default function AvailabilityRequests({
                     </h1>
                     <p className="text-muted-foreground text-sm">
                         Approve or reject DSP availability and time-off
-                        requests. Approvals that conflict with scheduled visits
-                        flag those visits instead of changing them.
+                        requests. Approved leave that conflicts with future
+                        assignments releases those visits to Staffing Needed;
+                        pending leave only warns and does not change assignments.
                     </p>
                 </div>
 
@@ -102,14 +108,31 @@ export default function AvailabilityRequests({
                                 </div>
                                 <p className="text-sm">
                                     {row.starts_on} – {row.ends_on}
+                                    {row.reason ? ` · ${row.reason}` : ''}
                                 </p>
+                                {row.impact_preview && (
+                                    <p className="text-muted-foreground mt-2 text-xs">
+                                        Impact preview: {row.impact_preview.future_scheduled_count}{' '}
+                                        future visit(s)
+                                        {row.impact_preview.will_release_to_staffing_needed
+                                            ? ' will move to Staffing Needed on approval.'
+                                            : ' conflict with this leave window.'}{' '}
+                                        Assignment history is preserved; active visits are not
+                                        auto-ended.
+                                    </p>
+                                )}
                                 {row.status === 'pending' && (
                                     <div className="mt-3 flex gap-2">
                                         <Form
                                             action={`/time-off/${row.id}/approve`}
                                             method="patch"
                                         >
-                                            <Button type="submit">Approve</Button>
+                                            <Button type="submit">
+                                                Approve
+                                                {row.impact_preview?.will_release_to_staffing_needed
+                                                    ? ' (release to Staffing Needed)'
+                                                    : ''}
+                                            </Button>
                                         </Form>
                                         <Form
                                             action={`/time-off/${row.id}/reject`}

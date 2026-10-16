@@ -29,6 +29,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $rejected_at
  * @property string|null $verification_note
  * @property string|null $notes
+ * @property string|null $document_path
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Employee $employee
@@ -52,6 +53,7 @@ use Illuminate\Support\Carbon;
     'rejected_at',
     'verification_note',
     'notes',
+    'document_path',
 ])]
 class EmployeeTraining extends Model
 {

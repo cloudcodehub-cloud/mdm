@@ -174,6 +174,7 @@ class ComplianceEligibilityService
             'trainings' => $trainings,
             'reminder_milestones' => [30, 15, 5, 0],
             'read_only' => true,
+            'can_submit_evidence' => false,
         ];
     }
 
