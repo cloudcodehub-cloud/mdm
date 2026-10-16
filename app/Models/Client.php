@@ -53,6 +53,9 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, ScheduledVisit> $scheduledVisits
  * @property-read Collection<int, Visit> $visits
  * @property-read Collection<int, ClientCriticalAlert> $criticalAlerts
+ * @property-read Collection<int, ClientContact> $contacts
+ * @property-read Collection<int, ClientServiceLocation> $serviceLocations
+ * @property-read Collection<int, ClientAdminHistoryEvent> $adminHistoryEvents
  *
  * @method static Builder<static> visibleTo(User $user)
  * @method static Builder<static> search(?string $term)
@@ -180,6 +183,30 @@ class Client extends Model
     public function criticalAlerts(): HasMany
     {
         return $this->hasMany(ClientCriticalAlert::class)->orderByDesc('id');
+    }
+
+    /**
+     * @return HasMany<ClientContact, $this>
+     */
+    public function contacts(): HasMany
+    {
+        return $this->hasMany(ClientContact::class)->orderByDesc('is_primary')->orderBy('id');
+    }
+
+    /**
+     * @return HasMany<ClientServiceLocation, $this>
+     */
+    public function serviceLocations(): HasMany
+    {
+        return $this->hasMany(ClientServiceLocation::class)->orderByDesc('is_primary')->orderBy('label');
+    }
+
+    /**
+     * @return HasMany<ClientAdminHistoryEvent, $this>
+     */
+    public function adminHistoryEvents(): HasMany
+    {
+        return $this->hasMany(ClientAdminHistoryEvent::class)->orderByDesc('created_at');
     }
 
     /**

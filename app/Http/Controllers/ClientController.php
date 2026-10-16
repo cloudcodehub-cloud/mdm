@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ClientContactRole;
 use App\Enums\ClientStatus;
 use App\Enums\CriticalAlertCategory;
 use App\Enums\DspClientAccessLevel;
@@ -17,7 +18,10 @@ use App\Services\CareOverviewService;
 use App\Services\CarePlanRevisionService;
 use App\Services\AuthorizationUsageService;
 use App\Services\CarePlanReviewService;
+use App\Services\ClientAdminHistoryService;
+use App\Services\ClientContactService;
 use App\Services\ClientLifecycleService;
+use App\Services\ClientServiceLocationService;
 use App\Services\CriticalAlertService;
 use App\Services\DspClientAccessService;
 use App\Services\ProfileAttentionService;
@@ -115,6 +119,8 @@ class ClientController extends Controller
             $photos->storeClient($client, $request->file('profile_photo'));
         }
 
+        $this->syncLegacyContactAndLocation($client, $request->user());
+
         $attention->syncClient($client);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Client created.')]);
@@ -132,6 +138,9 @@ class ClientController extends Controller
         AuthorizationUsageService $authorizationUsage,
         CarePlanReviewService $carePlanReviews,
         ClientLifecycleService $lifecycle,
+        ClientContactService $contacts,
+        ClientServiceLocationService $serviceLocations,
+        ClientAdminHistoryService $adminHistory,
     ): Response {
         $this->authorize('view', $client);
 
@@ -149,6 +158,8 @@ class ClientController extends Controller
             'supervisor.user',
             'carePlans.taskTemplates',
             'careServices',
+            'contacts',
+            'serviceLocations',
             'scheduledVisits' => function ($query) use ($dspId): void {
                 $query->with(['employee', 'supervisor', 'shiftTemplate', 'visit']);
 
@@ -280,6 +291,17 @@ class ClientController extends Controller
                 includeInactive: ($user?->can('manageCriticalAlerts', $client) ?? false),
             ),
             'critical_alert_categories' => CriticalAlertCategory::options(),
+            'contacts' => $user === null
+                ? []
+                : $contacts->serializeForViewer($client, $user, $fullAccess),
+            'contact_roles' => ClientContactRole::options(),
+            'service_locations' => $serviceLocations->serializeForClient(
+                $client,
+                includeInactive: ($user?->can('manageServiceLocations', $client) ?? false),
+            ),
+            'admin_history' => ($user?->can('viewAdminHistory', $client) ?? false)
+                ? $adminHistory->serializeForClient($client)
+                : [],
             'authorization_usage' => $isDsp
                 ? []
                 : $authorizationUsage->summarizeMany($authorizations),
@@ -300,6 +322,10 @@ class ClientController extends Controller
                 'manageAssignments' => $user?->can('create', ClientDspAssignment::class) ?? false,
                 'manageCarePlan' => $canManageCarePlan,
                 'manageCriticalAlerts' => $user?->can('manageCriticalAlerts', $client) ?? false,
+                'manageContacts' => $user?->can('manageContacts', $client) ?? false,
+                'manageServiceLocations' => $user?->can('manageServiceLocations', $client) ?? false,
+                'viewAdminHistory' => $user?->can('viewAdminHistory', $client) ?? false,
+                'correctCarePlanEffectiveDate' => $user?->isAdmin() ?? false,
                 'manageLifecycle' => $user?->can('manageLifecycle', $client) ?? false,
                 'archive' => $user?->can('archive', $client) ?? false,
                 'schedule_visit' => ($user?->can('create', ScheduledVisit::class) ?? false)
@@ -338,11 +364,63 @@ class ClientController extends Controller
             $photos->storeClient($client, $request->file('profile_photo'));
         }
 
+        $this->syncLegacyContactAndLocation($client->fresh() ?? $client, $request->user());
+
         $attention->syncClient($client->fresh() ?? $client);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Client updated.')]);
 
         return redirect()->route('clients.show', $client);
+    }
+
+    private function syncLegacyContactAndLocation(Client $client, ?\App\Models\User $actor): void
+    {
+        if ($actor === null) {
+            return;
+        }
+
+        $contacts = app(ClientContactService::class);
+        $locations = app(ClientServiceLocationService::class);
+
+        if (filled($client->emergency_contact_name) && ! $client->contacts()->where('role', ClientContactRole::Emergency)->exists()) {
+            $contacts->create($client, $actor, [
+                'role' => ClientContactRole::Emergency->value,
+                'name' => $client->emergency_contact_name,
+                'relationship' => $client->emergency_contact_relationship,
+                'phone' => $client->emergency_contact_phone,
+                'is_primary' => true,
+            ]);
+        } elseif (filled($client->emergency_contact_name)) {
+            $primary = $client->contacts()
+                ->where('role', ClientContactRole::Emergency)
+                ->orderByDesc('is_primary')
+                ->first();
+
+            if ($primary !== null && (
+                $primary->name !== $client->emergency_contact_name
+                || $primary->relationship !== $client->emergency_contact_relationship
+                || $primary->phone !== $client->emergency_contact_phone
+            )) {
+                $contacts->update($primary, $actor, [
+                    'name' => $client->emergency_contact_name,
+                    'relationship' => $client->emergency_contact_relationship,
+                    'phone' => $client->emergency_contact_phone,
+                    'is_primary' => true,
+                ]);
+            }
+        }
+
+        if (filled($client->address_line_1) && ! $client->serviceLocations()->exists()) {
+            $locations->create($client, $actor, [
+                'label' => 'Primary',
+                'address_line_1' => $client->address_line_1,
+                'address_line_2' => $client->address_line_2,
+                'city' => $client->city,
+                'state' => $client->state,
+                'postal_code' => $client->postal_code,
+                'is_primary' => true,
+            ]);
+        }
     }
 
     public function updateStatus(

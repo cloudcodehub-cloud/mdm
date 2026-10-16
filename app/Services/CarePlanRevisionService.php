@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Enums\CarePlanStatus;
+use App\Enums\ClientAdminHistoryCategory;
 use App\Models\CarePlan;
+use App\Models\CarePlanEffectiveDateCorrection;
 use App\Models\CarePlanTaskTemplate;
 use App\Models\Client;
 use App\Models\User;
@@ -18,6 +20,7 @@ class CarePlanRevisionService
     public function __construct(
         private SettingsService $settings,
         private CarePlanSetupService $setup,
+        private ClientAdminHistoryService $history,
     ) {}
 
     /**
@@ -108,9 +111,97 @@ class CarePlanRevisionService
                 }
             }
 
+            $this->history->record($source->client, $actor, [
+                'category' => ClientAdminHistoryCategory::CarePlan,
+                'summary' => $isImmediate
+                    ? 'Care Plan revision applied (immediate)'
+                    : 'Care Plan revision scheduled (future-effective)',
+                'old_value' => 'Revision #'.$source->revision_number,
+                'new_value' => 'Revision #'.$revision->revision_number,
+                'reason' => $reason,
+                'effective_on' => $effectiveOn->toDateString(),
+                'subject' => $revision,
+            ]);
+
             return $revision->fresh(['taskTemplates']) ?? $revision;
         });
     }
+
+    /**
+     * Decision 06-20: Admin-only controlled correction of an incorrectly recorded effective date.
+     * Does not create a content revision and does not rewrite completed Visit snapshots.
+     *
+     * @param  array{corrected_starts_on: string, reason: string}  $payload
+     */
+    public function correctEffectiveDate(CarePlan $plan, User $actor, array $payload): CarePlan
+    {
+        if (! $actor->isAdmin()) {
+            throw ValidationException::withMessages([
+                'care_plan' => 'Only administrators may perform controlled Care Plan effective-date corrections.',
+            ]);
+        }
+
+        $reason = trim((string) ($payload['reason'] ?? ''));
+
+        if ($reason === '') {
+            throw ValidationException::withMessages([
+                'reason' => 'Provide a reason for this controlled effective-date correction.',
+            ]);
+        }
+
+        $correctedStartsOn = Carbon::parse((string) $payload['corrected_starts_on'])->startOfDay();
+
+        return DB::transaction(function () use ($plan, $actor, $reason, $correctedStartsOn): CarePlan {
+            /** @var CarePlan $plan */
+            $plan = CarePlan::query()->whereKey($plan->id)->lockForUpdate()->firstOrFail();
+
+            $previousStartsOn = $plan->starts_on?->toDateString();
+            $previousEffectiveAt = $plan->effective_at;
+
+            if ($previousStartsOn === $correctedStartsOn->toDateString()) {
+                return $plan;
+            }
+
+            $correctedEffectiveAt = $correctedStartsOn->copy()->startOfDay();
+
+            CarePlanEffectiveDateCorrection::query()->create([
+                'care_plan_id' => $plan->id,
+                'previous_starts_on' => $previousStartsOn,
+                'previous_effective_at' => $previousEffectiveAt,
+                'corrected_starts_on' => $correctedStartsOn->toDateString(),
+                'corrected_effective_at' => $correctedEffectiveAt,
+                'reason' => $reason,
+                'corrected_by_user_id' => $actor->id,
+            ]);
+
+            $plan->forceFill([
+                'starts_on' => $correctedStartsOn->toDateString(),
+                'effective_at' => $correctedEffectiveAt,
+                'revision_reason' => trim(
+                    'Effective-date correction: '.$reason
+                    .($plan->revision_reason ? ' | '.$plan->revision_reason : '')
+                ),
+                'revised_by_user_id' => $actor->id,
+            ])->save();
+
+            $this->history->record($plan->client, $actor, [
+                'category' => ClientAdminHistoryCategory::EffectiveDateCorrection,
+                'summary' => 'Care Plan effective date corrected (Decision 06-20)',
+                'old_value' => $previousStartsOn,
+                'new_value' => $correctedStartsOn->toDateString(),
+                'reason' => $reason,
+                'effective_on' => $correctedStartsOn->toDateString(),
+                'subject' => $plan,
+                'meta' => [
+                    'care_plan_id' => $plan->id,
+                    'revision_number' => $plan->revision_number,
+                ],
+            ]);
+
+            return $plan->refresh();
+        });
+    }
+
 
     /**
      * Sync tasks: mutate empty/initial or pending plans; otherwise create a prospective revision.
@@ -206,6 +297,15 @@ class CarePlanRevisionService
             if ($previous !== null && $previous->status === CarePlanStatus::Active) {
                 $previous->forceFill(['ends_on' => null])->save();
             }
+
+            $this->history->record($pending->client, $actor, [
+                'category' => ClientAdminHistoryCategory::CarePlan,
+                'summary' => 'Pending Care Plan revision cancelled',
+                'old_value' => 'Revision #'.$pending->revision_number,
+                'reason' => $reason,
+                'effective_on' => $pending->starts_on?->toDateString(),
+                'subject' => $pending,
+            ]);
 
             return $pending->refresh();
         });

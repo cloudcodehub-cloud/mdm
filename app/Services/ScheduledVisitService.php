@@ -31,6 +31,7 @@ class ScheduledVisitService
         private VisitAssignmentService $assignments,
         private SchedulingNotificationService $notifications,
         private AuthorizationUsageService $authorizationUsage,
+        private ClientServiceLocationService $serviceLocations,
     ) {}
     /**
      * @param  array<string, mixed>  $data
@@ -76,7 +77,7 @@ class ScheduledVisitService
                 'status' => $visit->status,
             ];
 
-            $visit->update($this->persistable($data));
+            $visit->update($this->persistable($data, $visit));
             $this->syncServices($visit, $data);
 
             if ($visit->visit === null) {
@@ -269,9 +270,30 @@ class ScheduledVisitService
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    private function persistable(array $data): array
+    private function persistable(array $data, ?ScheduledVisit $existing = null): array
     {
         $shiftTemplateId = filled($data['shift_template_id'] ?? null) ? (int) $data['shift_template_id'] : null;
+
+        $client = Client::query()->find((int) $data['client_id']);
+        $locationSnapshot = [];
+        $shouldResolveLocation = $existing === null
+            || array_key_exists('client_service_location_id', $data)
+            || ($existing->client_service_location_id === null && $client?->serviceLocations()->active()->exists());
+
+        if ($shouldResolveLocation && $client !== null) {
+            $locationId = filled($data['client_service_location_id'] ?? null)
+                ? (int) $data['client_service_location_id']
+                : ($existing?->client_service_location_id);
+            $hasLocations = $client->serviceLocations()->active()->exists();
+
+            if ($hasLocations || $locationId !== null) {
+                $location = $this->serviceLocations->resolveForScheduling(
+                    $client,
+                    $locationId !== null ? (int) $locationId : null,
+                );
+                $locationSnapshot = $this->serviceLocations->snapshotAttributes($location);
+            }
+        }
 
         $payload = [
             'client_id' => (int) $data['client_id'],
@@ -284,6 +306,7 @@ class ScheduledVisitService
             'service_type' => $this->displayServiceType($data),
             'status' => $data['status'],
             'notes' => $data['notes'] ?? null,
+            ...$locationSnapshot,
         ];
 
         if (array_key_exists('series_id', $data)) {
@@ -535,6 +558,7 @@ class ScheduledVisitService
             'employee_id' => $source->employee_id,
             'supervisor_id' => $source->supervisor_id,
             'shift_template_id' => $source->shift_template_id,
+            'client_service_location_id' => $source->client_service_location_id,
             'service_date' => $serviceDate,
             'starts_at' => $source->starts_at,
             'ends_at' => $source->ends_at,

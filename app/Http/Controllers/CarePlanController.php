@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\CarePlanEffectiveDateCorrectionRequest;
 use App\Http\Requests\CarePlanRequest;
 use App\Http\Requests\SyncCarePlanTasksRequest;
 use App\Models\CarePlan;
@@ -94,6 +95,25 @@ class CarePlanController extends Controller
         $this->revisions->cancelPending($carePlan, request()->user());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Pending Care Plan revision cancelled.')]);
+
+        return redirect()->route('clients.show', $carePlan->client_id);
+    }
+
+    public function correctEffectiveDate(
+        CarePlanEffectiveDateCorrectionRequest $request,
+        CarePlan $carePlan,
+    ): RedirectResponse {
+        $this->authorize('correctEffectiveDate', $carePlan);
+
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+
+        $this->revisions->correctEffectiveDate($carePlan, $user, $request->validated());
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Care Plan effective date corrected.'),
+        ]);
 
         return redirect()->route('clients.show', $carePlan->client_id);
     }

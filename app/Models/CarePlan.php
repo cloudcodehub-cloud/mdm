@@ -117,6 +117,14 @@ class CarePlan extends Model
         return $this->hasMany(Visit::class);
     }
 
+    /**
+     * @return HasMany<CarePlanEffectiveDateCorrection, $this>
+     */
+    public function effectiveDateCorrections(): HasMany
+    {
+        return $this->hasMany(CarePlanEffectiveDateCorrection::class)->orderByDesc('id');
+    }
+
     public function isCurrentlyActive(?Carbon $on = null): bool
     {
         if ($this->status !== CarePlanStatus::Active) {

@@ -357,6 +357,10 @@ export type VisitRecord = {
     starts_at_iso?: string | null;
     shift_template_id?: number | null;
     supervisor_id?: number | null;
+    client_service_location_id?: number | null;
+    service_location_label?: string | null;
+    service_latitude?: number | null;
+    service_longitude?: number | null;
     client?: {
         id: number;
         name: string;
@@ -426,6 +430,12 @@ export type ClientScheduleOption = OptionItem & {
     supervisor_id?: number | null;
     supervisor_name?: string | null;
     services?: Array<{ id: number; name: string; slug: string }>;
+    service_locations?: Array<{
+        id: number;
+        name: string;
+        is_primary: boolean;
+    }>;
+    default_service_location_id?: number | null;
 };
 
 export type ShiftTemplateOption = {

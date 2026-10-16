@@ -326,7 +326,9 @@ final class DirectoryPresenter
                 : [],
             'preparation' => [
                 'service_type' => $nextVisit?->service_type,
-                'location_label' => self::clientLocationLabel($client),
+                'location_label' => $nextVisit !== null
+                    ? self::scheduledVisitLocationLabel($nextVisit)
+                    : self::clientLocationLabel($client),
                 'supervisor_name' => $client->supervisor?->full_name
                     ?? $nextVisit?->supervisor?->full_name,
                 'visit_instructions' => $nextVisit?->notes,
@@ -494,6 +496,10 @@ final class DirectoryPresenter
             'starts_at_iso' => self::visitStartsAtIso($visit),
             'shift_template_id' => $visit->shift_template_id,
             'supervisor_id' => $visit->supervisor_id,
+            'client_service_location_id' => $visit->client_service_location_id,
+            'service_location_label' => self::scheduledVisitLocationLabel($visit),
+            'service_latitude' => $visit->service_latitude !== null ? (float) $visit->service_latitude : null,
+            'service_longitude' => $visit->service_longitude !== null ? (float) $visit->service_longitude : null,
             'client' => [
                 'id' => $visit->client->id,
                 'name' => $visit->client->full_name,
@@ -764,7 +770,7 @@ final class DirectoryPresenter
             'is_early_start' => $isEarly,
             'is_late_start' => $canStart && $visit->isLateRelativeToStart($now),
             'early_start_minutes' => $visit->earlyStartMinutes(),
-            'location_label' => self::clientLocationLabel($visit->client),
+            'location_label' => self::scheduledVisitLocationLabel($visit),
             'supervisor_name' => $visit->supervisor?->full_name
                 ?? $visit->client->supervisor?->full_name,
             'client' => [
@@ -777,6 +783,16 @@ final class DirectoryPresenter
 
     public static function clientLocationLabel(Client $client): ?string
     {
+        if ($client->relationLoaded('serviceLocations')) {
+            $primary = $client->serviceLocations
+                ->first(fn ($location): bool => $location->is_primary && $location->is_active)
+                ?? $client->serviceLocations->first(fn ($location): bool => $location->is_active);
+
+            if ($primary !== null) {
+                return $primary->displayLabel();
+            }
+        }
+
         $parts = array_values(array_filter([
             $client->address_line_1,
             $client->address_line_2,
@@ -794,6 +810,12 @@ final class DirectoryPresenter
         return implode(', ', $parts);
     }
 
+    public static function scheduledVisitLocationLabel(ScheduledVisit $visit): ?string
+    {
+        return $visit->serviceLocationDisplayLabel()
+            ?? self::clientLocationLabel($visit->client);
+    }
+
     /**
      * Compact scheduled-visit preview for DSP dashboard secondary lists.
      *
@@ -809,7 +831,7 @@ final class DirectoryPresenter
             'service_type' => $visit->service_type,
             'time_label' => self::visitTimeLabel($visit),
             'starts_at_iso' => self::visitStartsAtIso($visit),
-            'location_label' => self::clientLocationLabel($visit->client),
+            'location_label' => self::scheduledVisitLocationLabel($visit),
             'supervisor_name' => $visit->supervisor?->full_name
                 ?? $visit->client->supervisor?->full_name,
             'client' => [
@@ -1171,7 +1193,11 @@ final class DirectoryPresenter
     public static function schedulingClientOptions(User $user): array
     {
         return self::values(Client::query()
-            ->with(['supervisor', 'careServices' => fn ($query) => $query->active()])
+            ->with([
+                'supervisor',
+                'careServices' => fn ($query) => $query->active(),
+                'serviceLocations' => fn ($query) => $query->active()->orderByDesc('is_primary')->orderBy('label'),
+            ])
             ->visibleTo($user)
             ->where('status', ClientStatus::Active)
             ->orderBy('last_name')
@@ -1184,6 +1210,14 @@ final class DirectoryPresenter
                 'supervisor_id' => $client->supervisor_id,
                 'supervisor_name' => $client->supervisor?->full_name,
                 'services' => CareServicePresenter::options($client->careServices),
+                'service_locations' => $client->serviceLocations->map(fn ($location): array => [
+                    'id' => $location->id,
+                    'name' => $location->displayLabel(),
+                    'is_primary' => $location->is_primary,
+                ])->values()->all(),
+                'default_service_location_id' => $client->serviceLocations
+                    ->first(fn ($location): bool => $location->is_primary)?->id
+                    ?? $client->serviceLocations->first()?->id,
             ]));
     }
 

@@ -65,6 +65,11 @@ export function ScheduledVisitForm({
     const [clientId, setClientId] = useState(
         visit?.client_id ? String(visit.client_id) : '',
     );
+    const [locationId, setLocationId] = useState(
+        visit?.client_service_location_id
+            ? String(visit.client_service_location_id)
+            : '',
+    );
     const [serviceIds, setServiceIds] = useState<number[]>(
         (visit?.services ?? []).map((service) => service.id),
     );
@@ -111,6 +116,12 @@ export function ScheduledVisitForm({
         (client) => String(client.id) === clientId,
     );
     const clientServices = selectedClient?.services ?? [];
+    const clientLocations = selectedClient?.service_locations ?? [];
+    const resolvedLocationId =
+        locationId ||
+        (selectedClient?.default_service_location_id
+            ? String(selectedClient.default_service_location_id)
+            : '');
     const supervisorName =
         selectedClient?.supervisor_name ??
         supervisors.find(
@@ -417,9 +428,21 @@ export function ScheduledVisitForm({
                                 required
                                 value={clientId}
                                 onChange={(event) => {
+                                    const nextClient = clients.find(
+                                        (client) =>
+                                            String(client.id) ===
+                                            event.target.value,
+                                    );
                                     setClientId(event.target.value);
                                     setServiceIds([]);
                                     setEmployeeId('');
+                                    setLocationId(
+                                        nextClient?.default_service_location_id
+                                            ? String(
+                                                  nextClient.default_service_location_id,
+                                              )
+                                            : '',
+                                    );
                                 }}
                                 className={controlClassName}
                             >
@@ -431,6 +454,36 @@ export function ScheduledVisitForm({
                                 ))}
                             </select>
                         </Field>
+                        {clientLocations.length > 0 ? (
+                            <Field
+                                label="Service location"
+                                htmlFor="client_service_location_id"
+                                error={errors.client_service_location_id}
+                            >
+                                <select
+                                    id="client_service_location_id"
+                                    name="client_service_location_id"
+                                    required
+                                    value={resolvedLocationId}
+                                    onChange={(event) =>
+                                        setLocationId(event.target.value)
+                                    }
+                                    className={controlClassName}
+                                >
+                                    {clientLocations.map((location) => (
+                                        <option
+                                            key={location.id}
+                                            value={location.id}
+                                        >
+                                            {location.name}
+                                            {location.is_primary
+                                                ? ' (primary)'
+                                                : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </Field>
+                        ) : null}
                         <div>
                             <p className="mb-2 text-sm font-medium">Services</p>
                             {serviceIds.map((id) => (

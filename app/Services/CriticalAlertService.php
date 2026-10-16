@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\ClientAdminHistoryCategory;
 use App\Enums\CriticalAlertCategory;
 use App\Enums\InAppNotificationType;
 use App\Enums\VisitStatus;
@@ -19,6 +20,7 @@ class CriticalAlertService
     public function __construct(
         private SettingsService $settings,
         private InAppNotificationService $notifications,
+        private ClientAdminHistoryService $history,
     ) {}
 
     /**
@@ -38,6 +40,14 @@ class CriticalAlertService
         ]);
 
         $this->notifyActiveVisitDsps($alert);
+
+        $this->history->record($client, $actor, [
+            'category' => ClientAdminHistoryCategory::CriticalAlert,
+            'summary' => 'Critical alert created',
+            'new_value' => $alert->title,
+            'subject' => $alert,
+            'meta' => ['category' => $alert->category->value],
+        ]);
 
         return $alert->refresh();
     }
@@ -79,6 +89,13 @@ class CriticalAlertService
 
         if ($material) {
             $this->notifyActiveVisitDsps($alert->refresh());
+            $this->history->record($alert->client, $actor, [
+                'category' => ClientAdminHistoryCategory::CriticalAlert,
+                'summary' => 'Critical alert updated',
+                'new_value' => $alert->title,
+                'subject' => $alert,
+                'meta' => ['version' => $alert->version],
+            ]);
         }
 
         return $alert->refresh();
@@ -98,6 +115,13 @@ class CriticalAlertService
             'deactivated_by_user_id' => $actor->id,
             'updated_by_user_id' => $actor->id,
         ])->save();
+
+        $this->history->record($alert->client, $actor, [
+            'category' => ClientAdminHistoryCategory::CriticalAlert,
+            'summary' => 'Critical alert deactivated',
+            'old_value' => $alert->title,
+            'subject' => $alert,
+        ]);
 
         return $alert->refresh();
     }

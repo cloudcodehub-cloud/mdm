@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\CarePlanStatus;
+use App\Enums\ClientAdminHistoryCategory;
 use App\Enums\TaskPreferredTiming;
 use App\Enums\TaskRecurrence;
 use App\Models\CarePlan;
@@ -73,7 +74,20 @@ class CarePlanSetupService
             }
         }
 
+        $before = $client->careServices()->orderBy('name')->pluck('name')->implode(', ');
         $client->careServices()->sync($ids);
+        $after = $client->careServices()->orderBy('name')->pluck('name')->implode(', ');
+
+        if ($before !== $after) {
+            $actor = auth()->user();
+            app(ClientAdminHistoryService::class)->record($client, $actor instanceof User ? $actor : null, [
+                'category' => ClientAdminHistoryCategory::Service,
+                'summary' => 'Assigned services updated',
+                'old_value' => $before !== '' ? $before : null,
+                'new_value' => $after !== '' ? $after : null,
+                'subject' => $client,
+            ]);
+        }
     }
 
     /**

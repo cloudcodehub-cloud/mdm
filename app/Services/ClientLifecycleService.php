@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\ClientAdminHistoryCategory;
 use App\Enums\ClientStatus;
 use App\Enums\ScheduledVisitStatus;
 use App\Enums\VisitStatus;
@@ -15,7 +16,10 @@ use Illuminate\Validation\ValidationException;
 
 class ClientLifecycleService
 {
-    public function __construct(private SettingsService $settings) {}
+    public function __construct(
+        private SettingsService $settings,
+        private ClientAdminHistoryService $history,
+    ) {}
 
     /**
      * @return array<string, mixed>
@@ -134,13 +138,28 @@ class ClientLifecycleService
             ]);
         }
 
-        return DB::transaction(function () use ($client, $actor, $target, $reason, $now): Client {
+        return DB::transaction(function () use ($client, $actor, $target, $reason, $now, $payload): Client {
+            $previous = $client->status;
+            $effectiveOn = isset($payload['effective_on']) && filled($payload['effective_on'])
+                ? Carbon::parse((string) $payload['effective_on'])->toDateString()
+                : $this->settings->today();
+
             $client->forceFill([
                 'status' => $target,
                 'status_reason' => $reason,
                 'status_changed_at' => $now,
                 'status_changed_by_user_id' => $actor->id,
             ])->save();
+
+            $this->history->record($client, $actor, [
+                'category' => ClientAdminHistoryCategory::Lifecycle,
+                'summary' => 'Client lifecycle changed to '.$target->label(),
+                'old_value' => $previous->label(),
+                'new_value' => $target->label(),
+                'reason' => $reason,
+                'effective_on' => $effectiveOn,
+                'subject' => $client,
+            ]);
 
             return $client->refresh();
         });

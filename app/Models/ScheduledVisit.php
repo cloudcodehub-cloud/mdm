@@ -22,6 +22,15 @@ use RuntimeException;
 /**
  * @property int $id
  * @property int $client_id
+ * @property int|null $client_service_location_id
+ * @property string|null $service_location_label
+ * @property string|null $service_address_line_1
+ * @property string|null $service_address_line_2
+ * @property string|null $service_city
+ * @property string|null $service_state
+ * @property string|null $service_postal_code
+ * @property string|null $service_latitude
+ * @property string|null $service_longitude
  * @property int $employee_id
  * @property int|null $supervisor_id
  * @property int|null $shift_template_id
@@ -43,6 +52,7 @@ use RuntimeException;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Client $client
+ * @property-read ClientServiceLocation|null $serviceLocation
  * @property-read Employee $employee
  * @property-read Employee $dsp
  * @property-read Employee|null $supervisor
@@ -60,6 +70,15 @@ use RuntimeException;
  */
 #[Fillable([
     'client_id',
+    'client_service_location_id',
+    'service_location_label',
+    'service_address_line_1',
+    'service_address_line_2',
+    'service_city',
+    'service_state',
+    'service_postal_code',
+    'service_latitude',
+    'service_longitude',
     'employee_id',
     'supervisor_id',
     'shift_template_id',
@@ -94,6 +113,8 @@ class ScheduledVisit extends Model
             'status' => ScheduledVisitStatus::class,
             'needs_attention' => 'boolean',
             'cancelled_at' => 'datetime',
+            'service_latitude' => 'decimal:7',
+            'service_longitude' => 'decimal:7',
         ];
     }
 
@@ -103,6 +124,34 @@ class ScheduledVisit extends Model
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
+    }
+
+    /**
+     * @return BelongsTo<ClientServiceLocation, $this>
+     */
+    public function serviceLocation(): BelongsTo
+    {
+        return $this->belongsTo(ClientServiceLocation::class, 'client_service_location_id');
+    }
+
+    public function serviceLocationDisplayLabel(): ?string
+    {
+        if (filled($this->service_location_label) || filled($this->service_address_line_1)) {
+            $parts = array_values(array_filter([
+                $this->service_location_label,
+                $this->service_address_line_1,
+                $this->service_address_line_2,
+                trim(implode(', ', array_filter([
+                    $this->service_city,
+                    $this->service_state,
+                ]))),
+                $this->service_postal_code,
+            ], fn (?string $part): bool => filled($part)));
+
+            return $parts === [] ? null : implode(', ', $parts);
+        }
+
+        return null;
     }
 
     /**

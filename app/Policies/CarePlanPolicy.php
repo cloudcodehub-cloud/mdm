@@ -38,6 +38,14 @@ class CarePlanPolicy
         return $user->can('manageCarePlan', $carePlan->client);
     }
 
+    /**
+     * Decision 06-20 — Admin-only controlled effective-date correction.
+     */
+    public function correctEffectiveDate(User $user, CarePlan $carePlan): bool
+    {
+        return $user->isAdmin() && $user->can('view', $carePlan->client);
+    }
+
     public function delete(User $user, CarePlan $carePlan): bool
     {
         return false;

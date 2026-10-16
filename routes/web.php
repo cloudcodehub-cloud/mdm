@@ -7,8 +7,10 @@ use App\Http\Controllers\AvailabilityRequestController;
 use App\Http\Controllers\CarePlanController;
 use App\Http\Controllers\CareServiceController;
 use App\Http\Controllers\ClientCareSetupController;
+use App\Http\Controllers\ClientContactController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientDspAssignmentController;
+use App\Http\Controllers\ClientServiceLocationController;
 use App\Http\Controllers\CriticalAlertController;
 use App\Http\Controllers\ComplianceController;
 use App\Http\Controllers\DashboardController;
@@ -60,6 +62,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('care-plans/{care_plan}', [CarePlanController::class, 'update'])->name('care-plans.update');
     Route::put('care-plans/{care_plan}/tasks', [CarePlanController::class, 'syncTasks'])->name('care-plans.tasks.sync');
     Route::post('care-plans/{care_plan}/cancel-pending', [CarePlanController::class, 'cancelPending'])->name('care-plans.cancel-pending');
+    Route::post('care-plans/{care_plan}/correct-effective-date', [CarePlanController::class, 'correctEffectiveDate'])
+        ->name('care-plans.correct-effective-date');
     Route::patch('clients/{client}/status', [ClientController::class, 'updateStatus'])->name('clients.status');
     Route::get('clients/{client}/lifecycle-preview', [ClientController::class, 'lifecyclePreview'])
         ->name('clients.lifecycle.preview');
@@ -71,6 +75,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('clients.critical-alerts.update');
     Route::post('clients/{client}/critical-alerts/{critical_alert}/deactivate', [CriticalAlertController::class, 'deactivate'])
         ->name('clients.critical-alerts.deactivate');
+    Route::post('clients/{client}/contacts', [ClientContactController::class, 'store'])
+        ->name('clients.contacts.store');
+    Route::patch('clients/{client}/contacts/{contact}', [ClientContactController::class, 'update'])
+        ->name('clients.contacts.update');
+    Route::delete('clients/{client}/contacts/{contact}', [ClientContactController::class, 'destroy'])
+        ->name('clients.contacts.destroy');
+    Route::post('clients/{client}/service-locations', [ClientServiceLocationController::class, 'store'])
+        ->name('clients.service-locations.store');
+    Route::patch('clients/{client}/service-locations/{service_location}', [ClientServiceLocationController::class, 'update'])
+        ->name('clients.service-locations.update');
+    Route::post('clients/{client}/service-locations/{service_location}/deactivate', [ClientServiceLocationController::class, 'deactivate'])
+        ->name('clients.service-locations.deactivate');
 
     Route::get('care-services', [CareServiceController::class, 'index'])->name('care-services.index');
     Route::post('care-services', [CareServiceController::class, 'store'])->name('care-services.store');

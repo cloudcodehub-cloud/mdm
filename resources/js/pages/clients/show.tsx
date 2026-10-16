@@ -8,7 +8,13 @@ import {
 } from '@/components/mdm/live-build-summary';
 import { CareMessageDrawer } from '@/components/mdm/care-message-drawer';
 import { CareOverviewPanels } from '@/components/mdm/care-overview';
+import { ClientAdminHistoryPanel } from '@/components/mdm/client-admin-history-panel';
+import type { ClientAdminHistoryRecord } from '@/components/mdm/client-admin-history-panel';
+import { ClientContactsPanel } from '@/components/mdm/client-contacts-panel';
+import type { ClientContactRecord } from '@/components/mdm/client-contacts-panel';
 import { ClientCriticalAlertsPanel } from '@/components/mdm/client-critical-alerts-panel';
+import { ClientServiceLocationsPanel } from '@/components/mdm/client-service-locations-panel';
+import type { ClientServiceLocationRecord } from '@/components/mdm/client-service-locations-panel';
 import { ConfirmAction } from '@/components/mdm/confirm-action';
 import {
     Field,
@@ -75,6 +81,10 @@ export default function ClientsShow({
     dsp_access = null,
     critical_alerts = [],
     critical_alert_categories = [],
+    contacts = [],
+    contact_roles = [],
+    service_locations = [],
+    admin_history = [],
     care_plan_review_warnings = [],
     lifecycle_previews = null,
 }: {
@@ -97,6 +107,10 @@ export default function ClientsShow({
         manageAssignments: boolean;
         manageCarePlan: boolean;
         manageCriticalAlerts?: boolean;
+        manageContacts?: boolean;
+        manageServiceLocations?: boolean;
+        viewAdminHistory?: boolean;
+        correctCarePlanEffectiveDate?: boolean;
         manageLifecycle?: boolean;
         archive?: boolean;
         schedule_visit?: boolean;
@@ -105,6 +119,10 @@ export default function ClientsShow({
     dsp_access?: DspClientAccess | null;
     critical_alerts?: CriticalAlertRecord[];
     critical_alert_categories?: Array<{ value: string; label: string }>;
+    contacts?: ClientContactRecord[];
+    contact_roles?: Array<{ value: string; label: string }>;
+    service_locations?: ClientServiceLocationRecord[];
+    admin_history?: ClientAdminHistoryRecord[];
     care_plan_review_warnings?: Array<{
         care_plan_id: number;
         title: string;
@@ -320,79 +338,120 @@ export default function ClientsShow({
                         { id: 'care-plan', label: 'Care Plan' },
                         { id: 'assigned-dsps', label: 'Assigned DSPs' },
                         { id: 'scheduled-visits', label: 'Scheduled Visits' },
+                        ...(can.viewAdminHistory
+                            ? [{ id: 'history', label: 'History' }]
+                            : []),
                     ]}
                     value={tab}
                     onChange={setTab}
                 />
 
                 {tab === 'profile' && (
-                    <div className="grid gap-4 lg:grid-cols-2">
-                        <Panel title="Contact">
-                            <dl className="grid gap-3 text-sm">
-                                <Item label="Email" value={client.email} />
-                                <Item label="Phone" value={client.phone} />
-                                <Item label="Date of birth" value={client.date_of_birth} />
-                                <Item
-                                    label="Address"
-                                    value={[
-                                        client.address_line_1,
-                                        client.address_line_2,
-                                        [client.city, client.state, client.postal_code]
+                    <div className="space-y-4">
+                        <div className="grid gap-4 lg:grid-cols-2">
+                            <Panel title="Contact">
+                                <dl className="grid gap-3 text-sm">
+                                    <Item label="Email" value={client.email} />
+                                    <Item label="Phone" value={client.phone} />
+                                    <Item
+                                        label="Date of birth"
+                                        value={client.date_of_birth}
+                                    />
+                                    <Item
+                                        label="Address"
+                                        value={[
+                                            client.address_line_1,
+                                            client.address_line_2,
+                                            [
+                                                client.city,
+                                                client.state,
+                                                client.postal_code,
+                                            ]
+                                                .filter(Boolean)
+                                                .join(', '),
+                                        ]
                                             .filter(Boolean)
-                                            .join(', '),
-                                    ]
-                                        .filter(Boolean)
-                                        .join(', ')}
-                                />
-                            </dl>
-                        </Panel>
-                        <Panel title="Emergency contact">
-                            <dl className="grid gap-3 text-sm">
-                                <Item label="Name" value={client.emergency_contact_name} />
-                                <Item
-                                    label="Relationship"
-                                    value={client.emergency_contact_relationship}
-                                />
-                                <div>
-                                    <dt className="text-muted-foreground text-xs uppercase">
-                                        Phone
-                                    </dt>
-                                    <dd className="flex flex-wrap items-center gap-2">
-                                        <span>
-                                            {client.emergency_contact_phone ||
-                                                '—'}
-                                        </span>
-                                        {!preparationOnly &&
-                                        emergencyCallHref(
-                                            client.emergency_contact_phone,
-                                        ) ? (
-                                            <Button asChild size="sm" variant="secondary">
-                                                <a
-                                                    href={emergencyCallHref(
-                                                        client.emergency_contact_phone,
-                                                    )!}
+                                            .join(', ')}
+                                    />
+                                    <Item label="Notes" value={client.notes} />
+                                    <Item
+                                        label="Services"
+                                        value={
+                                            client.care_services &&
+                                            client.care_services.length > 0
+                                                ? client.care_services
+                                                      .map((service) => service.name)
+                                                      .join(', ')
+                                                : 'None assigned'
+                                        }
+                                    />
+                                </dl>
+                            </Panel>
+                            <Panel title="Emergency contact">
+                                <dl className="grid gap-3 text-sm">
+                                    <Item
+                                        label="Name"
+                                        value={client.emergency_contact_name}
+                                    />
+                                    <Item
+                                        label="Relationship"
+                                        value={
+                                            client.emergency_contact_relationship
+                                        }
+                                    />
+                                    <div>
+                                        <dt className="text-muted-foreground text-xs uppercase">
+                                            Phone
+                                        </dt>
+                                        <dd className="flex flex-wrap items-center gap-2">
+                                            <span>
+                                                {client.emergency_contact_phone ||
+                                                    '—'}
+                                            </span>
+                                            {!preparationOnly &&
+                                            emergencyCallHref(
+                                                client.emergency_contact_phone,
+                                            ) ? (
+                                                <Button
+                                                    asChild
+                                                    size="sm"
+                                                    variant="secondary"
                                                 >
-                                                    Call
-                                                </a>
-                                            </Button>
-                                        ) : null}
-                                    </dd>
-                                </div>
-                                <Item label="Notes" value={client.notes} />
-                                <Item
-                                    label="Services"
-                                    value={
-                                        client.care_services &&
-                                        client.care_services.length > 0
-                                            ? client.care_services
-                                                  .map((service) => service.name)
-                                                  .join(', ')
-                                            : 'None assigned'
-                                    }
-                                />
-                            </dl>
-                        </Panel>
+                                                    <a
+                                                        href={emergencyCallHref(
+                                                            client.emergency_contact_phone,
+                                                        )!}
+                                                    >
+                                                        Call
+                                                    </a>
+                                                </Button>
+                                            ) : null}
+                                        </dd>
+                                    </div>
+                                </dl>
+                            </Panel>
+                        </div>
+                        {(contacts.length > 0 || can.manageContacts) && (
+                            <ClientContactsPanel
+                                clientId={client.id}
+                                contacts={contacts}
+                                roles={contact_roles}
+                                canManage={Boolean(can.manageContacts)}
+                            />
+                        )}
+                        {(service_locations.length > 0 ||
+                            can.manageServiceLocations) && (
+                            <ClientServiceLocationsPanel
+                                clientId={client.id}
+                                locations={service_locations}
+                                canManage={Boolean(can.manageServiceLocations)}
+                            />
+                        )}
                     </div>
+                )}
+
+                {tab === 'history' && can.viewAdminHistory && (
+                    <ClientAdminHistoryPanel events={admin_history} />
                 )}
 
                 {tab === 'authorizations' && (
@@ -483,6 +542,9 @@ export default function ClientsShow({
                         overview={care_overview}
                         catalog={task_catalog}
                         canManage={can.manageCarePlan}
+                        canCorrectEffectiveDate={Boolean(
+                            can.correctCarePlanEffectiveDate,
+                        )}
                         isDsp={isDsp}
                         supervisor={supervisor_contact}
                         onHistory={(item) => {
@@ -643,6 +705,7 @@ function CarePlanTab({
     overview,
     catalog,
     canManage,
+    canCorrectEffectiveDate = false,
     isDsp,
     supervisor,
     onHistory,
@@ -654,6 +717,7 @@ function CarePlanTab({
     overview: CareOverview;
     catalog: TaskCatalogPayload | null;
     canManage: boolean;
+    canCorrectEffectiveDate?: boolean;
     isDsp: boolean;
     supervisor: SupervisorContact | null;
     onHistory: (item: CareHistoryItem) => void;
@@ -692,6 +756,10 @@ function CarePlanTab({
         () => editablePlan?.review_on ?? '',
     );
     const [revisionReason, setRevisionReason] = useState('');
+    const [correctionDate, setCorrectionDate] = useState(
+        () => activePlan?.starts_on ?? '',
+    );
+    const [correctionReason, setCorrectionReason] = useState('');
 
     const save = () => {
         setSaving(true);
@@ -982,6 +1050,60 @@ function CarePlanTab({
             {!isDsp && carePlans.length === 0 && !canManage && (
                 <Panel title="Care Plan">
                     <EmptyState message="No care plans on file." />
+                </Panel>
+            )}
+            {canCorrectEffectiveDate && activePlan && (
+                <Panel
+                    title="Controlled effective-date correction"
+                    description="Admin-only Decision 06-20 correction when MDM recorded the wrong effective date. Does not rewrite completed Visit snapshots."
+                >
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        <Field label="Corrected starts on">
+                            <Input
+                                type="date"
+                                className={controlClassName}
+                                value={correctionDate}
+                                onChange={(e) =>
+                                    setCorrectionDate(e.target.value)
+                                }
+                            />
+                        </Field>
+                        <Field label="Reason">
+                            <Input
+                                className={controlClassName}
+                                value={correctionReason}
+                                onChange={(e) =>
+                                    setCorrectionReason(e.target.value)
+                                }
+                                placeholder="Why was the recorded date incorrect?"
+                            />
+                        </Field>
+                    </div>
+                    <div className="mt-3">
+                        <Button
+                            type="button"
+                            disabled={
+                                !correctionDate ||
+                                correctionReason.trim().length < 5
+                            }
+                            onClick={() =>
+                                router.post(
+                                    `/care-plans/${activePlan.id}/correct-effective-date`,
+                                    {
+                                        corrected_starts_on: correctionDate,
+                                        reason: correctionReason.trim(),
+                                    },
+                                    {
+                                        preserveScroll: true,
+                                        onSuccess: () =>
+                                            setCorrectionReason(''),
+                                    },
+                                )
+                            }
+                        >
+                            Apply controlled correction
+                        </Button>
+                    </div>
                 </Panel>
             )}
         </div>

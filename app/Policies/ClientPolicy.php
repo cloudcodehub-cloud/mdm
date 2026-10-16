@@ -50,6 +50,29 @@ class ClientPolicy
         return $this->manageCarePlan($user, $client);
     }
 
+    public function manageContacts(User $user, Client $client): bool
+    {
+        return $this->manageCarePlan($user, $client);
+    }
+
+    public function manageServiceLocations(User $user, Client $client): bool
+    {
+        return $this->manageCarePlan($user, $client);
+    }
+
+    public function viewAdminHistory(User $user, Client $client): bool
+    {
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        if ($user->isSupervisor() && $user->employee) {
+            return $client->supervisor_id === $user->employee->id;
+        }
+
+        return false;
+    }
+
     public function manageLifecycle(User $user, Client $client): bool
     {
         if ($user->isAdmin()) {
