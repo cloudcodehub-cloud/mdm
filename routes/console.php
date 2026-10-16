@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('mdm:dispatch-shift-reminders')->everyMinute();
 Schedule::command('mdm:dispatch-active-visit-monitors')->everyMinute();
+Schedule::command('mdm:dispatch-care-plan-review-warnings')->dailyAt('06:15');

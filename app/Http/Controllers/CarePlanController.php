@@ -71,6 +71,7 @@ class CarePlanController extends Controller
             $validated['tasks'],
             [
                 'effective_on' => $validated['effective_on'] ?? null,
+                'review_on' => $validated['review_on'] ?? null,
                 'revision_reason' => $validated['revision_reason'] ?? null,
             ],
             $request->user(),

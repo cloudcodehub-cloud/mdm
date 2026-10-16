@@ -38,4 +38,18 @@ return [
         'grace_minutes' => (int) env('MDM_SAFETY_CHECK_GRACE_MINUTES', 2),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Authorization capacity warnings
+    |--------------------------------------------------------------------------
+    |
+    | Remaining-capacity pressure is a warning/review condition (Decision 06-12 /
+    | MASTER). Definitive expiration/exhaustion remains a hard block separately.
+    |
+    */
+
+    'authorization' => [
+        'remaining_capacity_warning_ratio' => (float) env('MDM_AUTH_REMAINING_WARNING_RATIO', 0.10),
+    ],
+
 ];

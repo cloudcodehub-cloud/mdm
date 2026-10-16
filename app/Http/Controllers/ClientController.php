@@ -15,6 +15,9 @@ use App\Models\ClientDspAssignment;
 use App\Models\ScheduledVisit;
 use App\Services\CareOverviewService;
 use App\Services\CarePlanRevisionService;
+use App\Services\AuthorizationUsageService;
+use App\Services\CarePlanReviewService;
+use App\Services\ClientLifecycleService;
 use App\Services\CriticalAlertService;
 use App\Services\DspClientAccessService;
 use App\Services\ProfileAttentionService;
@@ -126,6 +129,9 @@ class ClientController extends Controller
         ProfileCompletionService $completion,
         DspClientAccessService $dspAccess,
         CriticalAlertService $criticalAlerts,
+        AuthorizationUsageService $authorizationUsage,
+        CarePlanReviewService $carePlanReviews,
+        ClientLifecycleService $lifecycle,
     ): Response {
         $this->authorize('view', $client);
 
@@ -274,12 +280,30 @@ class ClientController extends Controller
                 includeInactive: ($user?->can('manageCriticalAlerts', $client) ?? false),
             ),
             'critical_alert_categories' => CriticalAlertCategory::options(),
+            'authorization_usage' => $isDsp
+                ? []
+                : $authorizationUsage->summarizeMany($authorizations),
+            'care_plan_review_warnings' => $carePlanReviews->warningsForClientPlans($carePlans),
+            'lifecycle_options' => ClientStatus::options(),
+            'lifecycle_previews' => ($user?->can('manageLifecycle', $client) ?? false)
+                ? [
+                    'paused' => $lifecycle->impactPreview($client, ClientStatus::Paused),
+                    'discharged' => $lifecycle->impactPreview($client, ClientStatus::Discharged),
+                    'archived' => ($user?->can('archive', $client) ?? false)
+                        ? $lifecycle->impactPreview($client, ClientStatus::Archived)
+                        : null,
+                    'active' => $lifecycle->impactPreview($client, ClientStatus::Active),
+                ]
+                : null,
             'can' => [
                 'update' => $user?->can('update', $client) ?? false,
                 'manageAssignments' => $user?->can('create', ClientDspAssignment::class) ?? false,
                 'manageCarePlan' => $canManageCarePlan,
                 'manageCriticalAlerts' => $user?->can('manageCriticalAlerts', $client) ?? false,
-                'schedule_visit' => $user?->can('create', ScheduledVisit::class) ?? false,
+                'manageLifecycle' => $user?->can('manageLifecycle', $client) ?? false,
+                'archive' => $user?->can('archive', $client) ?? false,
+                'schedule_visit' => ($user?->can('create', ScheduledVisit::class) ?? false)
+                    && $client->status->allowsFutureScheduling(),
             ],
         ]);
     }
@@ -321,12 +345,41 @@ class ClientController extends Controller
         return redirect()->route('clients.show', $client);
     }
 
-    public function updateStatus(UpdateClientStatusRequest $request, Client $client): RedirectResponse
-    {
-        $client->update(['status' => $request->validated('status')]);
+    public function updateStatus(
+        UpdateClientStatusRequest $request,
+        Client $client,
+        ClientLifecycleService $lifecycle,
+    ): RedirectResponse {
+        $user = $request->user();
+        abort_unless($user !== null, 401);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Client status updated.')]);
+        $lifecycle->transition($client, $user, $request->validated());
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Client lifecycle updated.')]);
 
         return redirect()->route('clients.show', $client);
+    }
+
+    public function lifecyclePreview(
+        Request $request,
+        Client $client,
+        ClientLifecycleService $lifecycle,
+    ): \Illuminate\Http\JsonResponse {
+        $this->authorize('manageLifecycle', $client);
+
+        $status = ClientStatus::tryFrom((string) $request->query('status', ''));
+        abort_unless($status !== null, 422);
+
+        if ($status === ClientStatus::Archived) {
+            $this->authorize('archive', $client);
+        }
+
+        return response()->json(
+            $lifecycle->impactPreview(
+                $client,
+                $status,
+                $request->query('effective_on'),
+            ),
+        );
     }
 }

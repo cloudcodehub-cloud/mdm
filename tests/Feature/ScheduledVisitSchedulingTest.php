@@ -112,7 +112,7 @@ class ScheduledVisitSchedulingTest extends TestCase
         ]);
         $client = Client::factory()->forSupervisor($supervisor)->create();
         $inactiveClient = Client::factory()->forSupervisor($supervisor)->create([
-            'status' => ClientStatus::Inactive,
+            'status' => ClientStatus::Paused,
         ]);
         ClientDspAssignment::factory()->forDsp($dsp)->forClient($client)->create();
 

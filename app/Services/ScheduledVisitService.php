@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\AuthorizationStatus;
 use App\Enums\ClientStatus;
 use App\Enums\JobType;
 use App\Enums\ScheduledVisitStatus;
@@ -9,6 +10,7 @@ use App\Enums\VisitAssignmentKind;
 use App\Models\CarePlanTaskTemplate;
 use App\Models\CareService;
 use App\Models\Client;
+use App\Models\ClientAuthorization;
 use App\Models\Employee;
 use App\Models\ScheduledVisit;
 use App\Models\ScheduledVisitOneOffTask;
@@ -28,6 +30,7 @@ class ScheduledVisitService
         private DspAvailabilityService $availability,
         private VisitAssignmentService $assignments,
         private SchedulingNotificationService $notifications,
+        private AuthorizationUsageService $authorizationUsage,
     ) {}
     /**
      * @param  array<string, mixed>  $data
@@ -123,9 +126,9 @@ class ScheduledVisitService
         }
 
         if ($status === ScheduledVisitStatus::Scheduled) {
-            if ($client->status !== ClientStatus::Active) {
+            if (! $client->status->allowsFutureScheduling()) {
                 throw ValidationException::withMessages([
-                    'client_id' => 'Scheduled visits require an active client.',
+                    'client_id' => 'Scheduled visits require an active client. Paused, discharged, or archived clients are not eligible for future scheduling.',
                 ]);
             }
 
@@ -134,6 +137,8 @@ class ScheduledVisitService
                     'employee_id' => 'Only active DSP employees can be scheduled.',
                 ]);
             }
+
+            $this->assertAuthorizationAllowsSchedule($client, (string) $data['service_type'], (string) $data['service_date']);
         }
 
         if ($supervisor !== null && $supervisor->job_type !== JobType::Supervisor) {
@@ -618,5 +623,42 @@ class ScheduledVisitService
         }
 
         return User::query()->find((int) $id);
+    }
+
+    private function assertAuthorizationAllowsSchedule(Client $client, string $serviceType, string $serviceDate): void
+    {
+        $serviceDate = Carbon::parse($serviceDate)->startOfDay();
+
+        $authorizations = ClientAuthorization::query()
+            ->where('client_id', $client->id)
+            ->where('service_type', $serviceType)
+            ->whereIn('status', [
+                AuthorizationStatus::Active->value,
+                AuthorizationStatus::Exhausted->value,
+                AuthorizationStatus::Expired->value,
+            ])
+            ->whereDate('starts_on', '<=', $serviceDate->toDateString())
+            ->orderByDesc('id')
+            ->get();
+
+        if ($authorizations->isEmpty()) {
+            // No matching operational authorization on file — do not invent a new hard block
+            // beyond configured authorization rows for this service type.
+            return;
+        }
+
+        $eligible = $authorizations->first(function (ClientAuthorization $authorization) use ($serviceDate): bool {
+            if ($authorization->ends_on !== null && $authorization->ends_on->lt($serviceDate)) {
+                return false;
+            }
+
+            return ! $this->authorizationUsage->blocksFutureService($authorization, $serviceDate);
+        });
+
+        if ($eligible === null) {
+            throw ValidationException::withMessages([
+                'service_type' => 'No valid authorization remains for this service on the selected date. Expired or exhausted authorizations block future unauthorized service.',
+            ]);
+        }
     }
 }

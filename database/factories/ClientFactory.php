@@ -41,8 +41,20 @@ class ClientFactory extends Factory
 
     public function inactive(): static
     {
+        return $this->paused();
+    }
+
+    public function paused(): static
+    {
         return $this->state(fn (array $attributes) => [
-            'status' => ClientStatus::Inactive,
+            'status' => ClientStatus::Paused,
+        ]);
+    }
+
+    public function archived(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => ClientStatus::Archived,
         ]);
     }
 

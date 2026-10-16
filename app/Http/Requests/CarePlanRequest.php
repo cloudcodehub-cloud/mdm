@@ -49,6 +49,7 @@ class CarePlanRequest extends FormRequest
             'title' => ['required', 'string', 'max:255'],
             'starts_on' => ['required', 'date'],
             'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
+            'review_on' => ['nullable', 'date'],
             'status' => ['required', Rule::enum(CarePlanStatus::class)],
             'notes' => ['nullable', 'string'],
             'effective_on' => ['nullable', 'date'],

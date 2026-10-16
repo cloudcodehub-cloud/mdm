@@ -75,6 +75,8 @@ export default function ClientsShow({
     dsp_access = null,
     critical_alerts = [],
     critical_alert_categories = [],
+    care_plan_review_warnings = [],
+    lifecycle_previews = null,
 }: {
     client: ClientDetail;
     authorizations: AuthorizationRecord[];
@@ -95,12 +97,22 @@ export default function ClientsShow({
         manageAssignments: boolean;
         manageCarePlan: boolean;
         manageCriticalAlerts?: boolean;
+        manageLifecycle?: boolean;
+        archive?: boolean;
         schedule_visit?: boolean;
     };
     profile_completion: ProfileCompletion;
     dsp_access?: DspClientAccess | null;
     critical_alerts?: CriticalAlertRecord[];
     critical_alert_categories?: Array<{ value: string; label: string }>;
+    care_plan_review_warnings?: Array<{
+        care_plan_id: number;
+        title: string;
+        warning: string | null;
+        status_label: string;
+        review_on: string | null;
+    }>;
+    lifecycle_previews?: Record<string, LifecyclePreview | null> | null;
 }) {
     const role = usePage().props.auth.user.role;
     const isDsp = role === 'DSP';
@@ -216,27 +228,52 @@ export default function ClientsShow({
                                 </Button>
                             )}
                             {can.update ? (
-                            <>
                                 <Button asChild variant="secondary">
                                     <Link href={edit(client.id)}>Edit</Link>
                                 </Button>
-                                {client.status !== 'active' && (
-                                    <StatusForm
-                                        clientId={client.id}
-                                        clientName={client.name}
-                                        statusValue="active"
-                                        label="Activate"
-                                    />
-                                )}
-                                {client.status === 'active' && (
-                                    <StatusForm
-                                        clientId={client.id}
-                                        clientName={client.name}
-                                        statusValue="inactive"
-                                        label="Set inactive"
-                                    />
-                                )}
-                            </>
+                            ) : null}
+                            {can.manageLifecycle ? (
+                                <>
+                                    {client.status !== 'active' && (
+                                        <StatusForm
+                                            clientId={client.id}
+                                            clientName={client.name}
+                                            statusValue="active"
+                                            label="Return to Active"
+                                            preview={lifecycle_previews?.active}
+                                        />
+                                    )}
+                                    {client.status === 'active' && (
+                                        <>
+                                            <StatusForm
+                                                clientId={client.id}
+                                                clientName={client.name}
+                                                statusValue="paused"
+                                                label="Pause"
+                                                preview={lifecycle_previews?.paused}
+                                                requireReason
+                                            />
+                                            <StatusForm
+                                                clientId={client.id}
+                                                clientName={client.name}
+                                                statusValue="discharged"
+                                                label="Discharge"
+                                                preview={lifecycle_previews?.discharged}
+                                                requireReason
+                                            />
+                                        </>
+                                    )}
+                                    {can.archive &&
+                                        client.status !== 'archived' && (
+                                            <StatusForm
+                                                clientId={client.id}
+                                                clientName={client.name}
+                                                statusValue="archived"
+                                                label="Archive"
+                                                preview={lifecycle_previews?.archived}
+                                            />
+                                        )}
+                                </>
                             ) : null}
                         </>
                     }
@@ -247,6 +284,22 @@ export default function ClientsShow({
                         todayVisit={today_visit}
                         activeVisit={activeForThisClient}
                     />
+                )}
+
+                {care_plan_review_warnings.length > 0 && (
+                    <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-50/70 p-4 text-sm dark:bg-amber-950/20">
+                        <p className="font-medium">Care Plan review warnings</p>
+                        <ul className="mt-2 space-y-1">
+                            {care_plan_review_warnings.map((warning) => (
+                                <li key={warning.care_plan_id}>
+                                    {warning.title}: {warning.warning}
+                                    {warning.review_on
+                                        ? ` (review ${warning.review_on})`
+                                        : ''}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
                 )}
 
                 {(critical_alerts.length > 0 || can.manageCriticalAlerts) && (
@@ -349,19 +402,73 @@ export default function ClientsShow({
                         ) : (
                             <ul className="space-y-3">
                                 {authorizations.map((authorization) => (
-                                    <li key={authorization.id} className="flex justify-between gap-3">
-                                        <div>
-                                            <p className="text-sm font-medium">
-                                                {authorization.authorization_number}
-                                            </p>
-                                            <p className="text-muted-foreground text-xs">
-                                                {authorization.payer} · {authorization.service_type}
-                                            </p>
+                                    <li
+                                        key={authorization.id}
+                                        className="space-y-2 rounded-md border px-3 py-3"
+                                    >
+                                        <div className="flex justify-between gap-3">
+                                            <div>
+                                                <p className="text-sm font-medium">
+                                                    {
+                                                        authorization.authorization_number
+                                                    }
+                                                </p>
+                                                <p className="text-muted-foreground text-xs">
+                                                    {authorization.payer} ·{' '}
+                                                    {authorization.service_type}
+                                                </p>
+                                                <p className="text-muted-foreground mt-1 text-xs">
+                                                    {authorization.starts_on} –{' '}
+                                                    {authorization.ends_on ??
+                                                        'open'}{' '}
+                                                    · {authorization.authorized_units}{' '}
+                                                    {authorization.unit}
+                                                </p>
+                                            </div>
+                                            <StatusBadge
+                                                status={authorization.status}
+                                                label={
+                                                    authorization.status_label
+                                                }
+                                            />
                                         </div>
-                                        <StatusBadge
-                                            status={authorization.status}
-                                            label={authorization.status_label}
-                                        />
+                                        {authorization.usage ? (
+                                            <div className="text-muted-foreground grid gap-1 text-xs sm:grid-cols-4">
+                                                <span>
+                                                    Actual:{' '}
+                                                    {authorization.usage.actual_used}
+                                                </span>
+                                                <span>
+                                                    Projected:{' '}
+                                                    {
+                                                        authorization.usage
+                                                            .projected_future
+                                                    }
+                                                </span>
+                                                <span>
+                                                    Total:{' '}
+                                                    {
+                                                        authorization.usage
+                                                            .projected_total
+                                                    }
+                                                </span>
+                                                <span>
+                                                    Remaining:{' '}
+                                                    {authorization.usage.remaining}
+                                                </span>
+                                            </div>
+                                        ) : null}
+                                        {authorization.usage?.warnings?.length ? (
+                                            <ul className="text-amber-800 dark:text-amber-200 space-y-1 text-xs">
+                                                {authorization.usage.warnings.map(
+                                                    (warning) => (
+                                                        <li key={warning}>
+                                                            {warning}
+                                                        </li>
+                                                    ),
+                                                )}
+                                            </ul>
+                                        ) : null}
                                     </li>
                                 ))}
                             </ul>
@@ -581,6 +688,9 @@ function CarePlanTab({
     const [effectiveOn, setEffectiveOn] = useState(
         () => new Date().toISOString().slice(0, 10),
     );
+    const [reviewOn, setReviewOn] = useState(
+        () => editablePlan?.review_on ?? '',
+    );
     const [revisionReason, setRevisionReason] = useState('');
 
     const save = () => {
@@ -588,6 +698,7 @@ function CarePlanTab({
         const payload = {
             tasks: selected,
             effective_on: effectiveOn,
+            review_on: reviewOn || null,
             revision_reason: revisionReason.trim() || null,
         };
 
@@ -696,6 +807,19 @@ function CarePlanTab({
                                     />
                                 </Field>
                                 <Field
+                                    label="Review date"
+                                    htmlFor="care-plan-review-on"
+                                >
+                                    <Input
+                                        id="care-plan-review-on"
+                                        type="date"
+                                        value={reviewOn}
+                                        onChange={(event) =>
+                                            setReviewOn(event.target.value)
+                                        }
+                                    />
+                                </Field>
+                                <Field
                                     label="Revision reason (optional)"
                                     htmlFor="care-plan-revision-reason"
                                 >
@@ -708,10 +832,17 @@ function CarePlanTab({
                                         placeholder="Why this change applies"
                                     />
                                 </Field>
+                                {editablePlan?.review?.warning ? (
+                                    <p className="text-amber-800 dark:text-amber-200 text-xs">
+                                        {editablePlan.review.warning}
+                                    </p>
+                                ) : null}
                                 <p className="text-muted-foreground text-xs">
                                     Saving material task changes creates a
                                     prospective revision. Active and completed
-                                    visit snapshots are not rewritten.
+                                    visit snapshots are not rewritten. Review
+                                    overdue is a warning, not an automatic hard
+                                    stop.
                                 </p>
                             </div>
                             <div>
@@ -989,37 +1120,76 @@ function TodayVisitCard({
     );
 }
 
+type LifecyclePreview = {
+    effective_on: string;
+    future_scheduled_count: number;
+    affected_services: Array<{ id: number; name: string }>;
+    active_visit?: { warning: string; dsp_name?: string | null } | null;
+    consequences: string[];
+};
+
 function StatusForm({
     clientId,
     clientName,
     statusValue,
     label,
+    preview = null,
+    requireReason = false,
 }: {
     clientId: number;
     clientName: string;
-    statusValue: 'active' | 'inactive';
+    statusValue: 'active' | 'paused' | 'discharged' | 'archived';
     label: string;
+    preview?: LifecyclePreview | null;
+    requireReason?: boolean;
 }) {
-    const inactivate = statusValue === 'inactive';
+    const destructive =
+        statusValue === 'paused' ||
+        statusValue === 'discharged' ||
+        statusValue === 'archived';
+    const impactLines = [
+        preview
+            ? `Effective ${preview.effective_on}. ${preview.future_scheduled_count} future scheduled visit(s) affected.`
+            : null,
+        preview?.active_visit?.warning ?? null,
+        ...(preview?.consequences ?? []),
+    ].filter(Boolean);
 
     return (
         <ConfirmAction
             triggerLabel={label}
-            triggerVariant={inactivate ? 'destructive' : 'outline'}
+            triggerVariant={destructive ? 'destructive' : 'outline'}
             title={`${label} ${clientName}?`}
             description={
-                inactivate
-                    ? `This will inactivate ${clientName}. Historical visits, assignments, and care records stay in MDM.`
-                    : `This will set ${clientName} back to active.`
+                impactLines.length > 0
+                    ? impactLines.join(' ')
+                    : `Update lifecycle status for ${clientName}. Historical visits and care records stay in MDM.`
             }
             confirmLabel={label}
-            destructive={inactivate}
+            destructive={destructive}
         >
-            <Form action={status.url(clientId)} method="patch">
+            <Form action={status.url(clientId)} method="patch" className="space-y-3">
                 <input type="hidden" name="status" value={statusValue} />
+                {requireReason ? (
+                    <div>
+                        <label
+                            className="text-sm font-medium"
+                            htmlFor={`lifecycle-reason-${statusValue}`}
+                        >
+                            Reason
+                        </label>
+                        <textarea
+                            id={`lifecycle-reason-${statusValue}`}
+                            name="reason"
+                            required
+                            rows={2}
+                            className={`${controlClassName} mt-1 h-auto py-2`}
+                        />
+                    </div>
+                ) : null}
                 <Button
                     type="submit"
-                    variant={inactivate ? 'destructive' : 'default'}
+                    variant={destructive ? 'destructive' : 'default'}
                 >
                     {label}
                 </Button>

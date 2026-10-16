@@ -127,6 +127,12 @@ class CarePlanRevisionService
         }
 
         if ($plan->status === CarePlanStatus::Pending || ! $plan->taskTemplates()->active()->exists()) {
+            if (array_key_exists('review_on', $options)) {
+                $plan->forceFill([
+                    'review_on' => $options['review_on'] ?: null,
+                ])->save();
+            }
+
             return $this->setup->syncTasks($plan, $tasks);
         }
 
@@ -156,6 +162,10 @@ class CarePlanRevisionService
 
         if (array_key_exists('notes', $payload)) {
             $allowed['notes'] = $this->nullableString($payload['notes']);
+        }
+
+        if (array_key_exists('review_on', $payload)) {
+            $allowed['review_on'] = $payload['review_on'] ?: null;
         }
 
         if ($allowed === []) {
@@ -298,6 +308,9 @@ class CarePlanRevisionService
                 : $source->title,
             'starts_on' => $effective->toDateString(),
             'ends_on' => $payload['ends_on'] ?? null,
+            'review_on' => array_key_exists('review_on', $payload)
+                ? ($payload['review_on'] ?: null)
+                : $source->review_on?->toDateString(),
             'status' => $isImmediate ? CarePlanStatus::Active : CarePlanStatus::Pending,
             'notes' => array_key_exists('notes', $payload)
                 ? $this->nullableString($payload['notes'])

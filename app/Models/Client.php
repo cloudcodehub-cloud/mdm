@@ -35,6 +35,9 @@ use Illuminate\Support\Carbon;
  * @property string|null $emergency_contact_relationship
  * @property string|null $emergency_contact_phone
  * @property ClientStatus $status
+ * @property string|null $status_reason
+ * @property Carbon|null $status_changed_at
+ * @property int|null $status_changed_by_user_id
  * @property int|null $supervisor_id
  * @property string|null $notes
  * @property string|null $profile_photo_path
@@ -43,6 +46,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $deleted_at
  * @property-read string $full_name
  * @property-read Employee|null $supervisor
+ * @property-read User|null $statusChangedBy
  * @property-read Collection<int, ClientAuthorization> $authorizations
  * @property-read Collection<int, CarePlan> $carePlans
  * @property-read Collection<int, CareService> $careServices
@@ -70,6 +74,9 @@ use Illuminate\Support\Carbon;
     'emergency_contact_relationship',
     'emergency_contact_phone',
     'status',
+    'status_reason',
+    'status_changed_at',
+    'status_changed_by_user_id',
     'supervisor_id',
     'notes',
     'profile_photo_path',
@@ -87,6 +94,7 @@ class Client extends Model
         return [
             'date_of_birth' => 'date',
             'status' => ClientStatus::class,
+            'status_changed_at' => 'datetime',
         ];
     }
 
@@ -96,6 +104,14 @@ class Client extends Model
     public function supervisor(): BelongsTo
     {
         return $this->belongsTo(Employee::class, 'supervisor_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function statusChangedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'status_changed_by_user_id');
     }
 
     /**

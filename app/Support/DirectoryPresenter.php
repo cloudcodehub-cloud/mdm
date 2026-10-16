@@ -259,7 +259,9 @@ final class DirectoryPresenter
             'city' => $client->city,
             'state' => $client->state,
             'status' => $client->status->value,
-            'status_label' => Str::headline($client->status->value),
+            'status_label' => $client->status->label(),
+            'status_reason' => $client->status_reason,
+            'status_changed_at' => $client->status_changed_at?->toIso8601String(),
             'supervisor_name' => $client->supervisor?->full_name,
             'active_dsp_count' => $client->relationLoaded('dspAssignments')
                 ? $client->dspAssignments->filter(fn (ClientDspAssignment $assignment): bool => $assignment->isActive())->count()
@@ -340,18 +342,25 @@ final class DirectoryPresenter
      */
     public static function authorizations(Collection $authorizations): array
     {
-        return self::values($authorizations->map(fn (ClientAuthorization $authorization): array => [
-            'id' => $authorization->id,
-            'authorization_number' => $authorization->authorization_number,
-            'payer' => $authorization->payer,
-            'service_type' => $authorization->service_type,
-            'starts_on' => self::date($authorization->starts_on),
-            'ends_on' => self::date($authorization->ends_on),
-            'authorized_units' => $authorization->authorized_units,
-            'unit' => Str::headline($authorization->unit->value),
-            'status' => $authorization->status->value,
-            'status_label' => Str::headline($authorization->status->value),
-        ]));
+        $usage = app(\App\Services\AuthorizationUsageService::class);
+
+        return self::values($authorizations->map(function (ClientAuthorization $authorization) use ($usage): array {
+            $summary = $usage->summarize($authorization);
+
+            return [
+                'id' => $authorization->id,
+                'authorization_number' => $authorization->authorization_number,
+                'payer' => $authorization->payer,
+                'service_type' => $authorization->service_type,
+                'starts_on' => self::date($authorization->starts_on),
+                'ends_on' => self::date($authorization->ends_on),
+                'authorized_units' => $authorization->authorized_units,
+                'unit' => Str::headline($authorization->unit->value),
+                'status' => $authorization->status->value,
+                'status_label' => Str::headline($authorization->status->value),
+                'usage' => $summary,
+            ];
+        }));
     }
 
     /**
@@ -360,13 +369,20 @@ final class DirectoryPresenter
      */
     public static function carePlans(Collection $carePlans): array
     {
-        return self::values($carePlans->map(fn (CarePlan $plan): array => [
+        $reviews = app(\App\Services\CarePlanReviewService::class);
+
+        return self::values($carePlans->map(function (CarePlan $plan) use ($reviews): array {
+            $review = $reviews->reviewState($plan);
+
+            return [
             'id' => $plan->id,
             'title' => $plan->title,
             'revision_number' => $plan->revision_number,
             'supersedes_care_plan_id' => $plan->supersedes_care_plan_id,
             'starts_on' => self::date($plan->starts_on),
             'ends_on' => self::date($plan->ends_on),
+            'review_on' => self::date($plan->review_on),
+            'review' => $review,
             'status' => $plan->status->value,
             'status_label' => Str::headline($plan->status->value),
             'notes' => $plan->notes,
@@ -393,7 +409,8 @@ final class DirectoryPresenter
                     'can_skip' => $task->can_skip,
                     'is_critical' => $task->is_critical,
                 ])),
-        ]));
+            ];
+        }));
     }
 
     /**

@@ -26,6 +26,7 @@ class SyncCarePlanTasksRequest extends FormRequest
     {
         return [
             'effective_on' => ['nullable', 'date'],
+            'review_on' => ['nullable', 'date'],
             'revision_reason' => ['nullable', 'string', 'max:1000'],
             'tasks' => ['present', 'array'],
             'tasks.*.id' => ['nullable', 'integer', 'exists:care_plan_task_templates,id'],

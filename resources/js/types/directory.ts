@@ -247,6 +247,23 @@ export type DspClientAccess = {
     allows_full_profile: boolean;
 };
 
+export type AuthorizationUsage = {
+    authorization_id: number;
+    authorized_units: number;
+    unit: string;
+    unit_label: string;
+    actual_used: number;
+    projected_future: number;
+    projected_total: number;
+    remaining: number;
+    days_to_expiry: number | null;
+    approaching_expiration: boolean;
+    capacity_pressure: boolean;
+    hard_block: boolean;
+    expired: boolean;
+    warnings: string[];
+};
+
 export type AuthorizationRecord = {
     id: number;
     authorization_number: string;
@@ -258,6 +275,17 @@ export type AuthorizationRecord = {
     unit: string;
     status: string;
     status_label: string;
+    usage?: AuthorizationUsage;
+};
+
+export type CarePlanReviewState = {
+    status: string;
+    status_label: string;
+    review_on: string | null;
+    days_until_review: number | null;
+    is_overdue: boolean;
+    is_approaching: boolean;
+    warning: string | null;
 };
 
 export type CarePlanRecord = {
@@ -267,6 +295,8 @@ export type CarePlanRecord = {
     supersedes_care_plan_id?: number | null;
     starts_on: string | null;
     ends_on: string | null;
+    review_on?: string | null;
+    review?: CarePlanReviewState;
     status: string;
     status_label: string;
     notes: string | null;

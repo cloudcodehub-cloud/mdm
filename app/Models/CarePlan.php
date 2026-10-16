@@ -22,6 +22,7 @@ use Illuminate\Support\Carbon;
  * @property string $title
  * @property Carbon $starts_on
  * @property Carbon|null $ends_on
+ * @property Carbon|null $review_on
  * @property CarePlanStatus $status
  * @property string|null $notes
  * @property int|null $timed_check_interval_minutes
@@ -47,6 +48,7 @@ use Illuminate\Support\Carbon;
     'title',
     'starts_on',
     'ends_on',
+    'review_on',
     'status',
     'notes',
     'timed_check_interval_minutes',
@@ -68,6 +70,7 @@ class CarePlan extends Model
         return [
             'starts_on' => 'date',
             'ends_on' => 'date',
+            'review_on' => 'date',
             'status' => CarePlanStatus::class,
             'revision_number' => 'integer',
             'effective_at' => 'datetime',

@@ -311,7 +311,7 @@ class DemoDataSeeder extends Seeder
             'malik' => $this->upsertClient('CLT-3004', 'Malik', null, 'Hassan', $priyaId, ClientStatus::Active, '1995-09-23', '61 Riverbend Court', '555-401-3004', 'Amina Hassan'),
             'ruby' => $this->upsertClient('CLT-3005', 'Ruby', 'Ann', 'Foster', $priyaId, ClientStatus::Active, '1999-12-01', '3 Sunset Place', '555-401-3005', 'June Foster'),
             'chloe' => $this->upsertClient('CLT-3008', 'Chloe', null, 'Nguyen', $priyaId, ClientStatus::Active, '1993-04-27', '19 Bayberry Street', '555-401-3008', 'Minh Nguyen'),
-            'ian' => $this->upsertClient('CLT-3006', 'Ian', null, 'Brooks', $priyaId, ClientStatus::Inactive, '1984-02-11', '70 Closed Lane', '555-401-3006', 'Helen Brooks'),
+            'ian' => $this->upsertClient('CLT-3006', 'Ian', null, 'Brooks', $priyaId, ClientStatus::Paused, '1984-02-11', '70 Closed Lane', '555-401-3006', 'Helen Brooks'),
         ];
     }
 

@@ -8,8 +8,9 @@ import type { ClientDetail, OptionItem } from '@/types/directory';
 
 const clientStatuses = [
     { value: 'active', label: 'Active' },
-    { value: 'inactive', label: 'Inactive' },
+    { value: 'paused', label: 'Paused' },
     { value: 'discharged', label: 'Discharged' },
+    { value: 'archived', label: 'Archived' },
 ];
 
 export function ClientForm({

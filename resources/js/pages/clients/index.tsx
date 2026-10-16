@@ -61,8 +61,9 @@ export default function ClientsIndex({
                         >
                             <option value="">All statuses</option>
                             <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
+                            <option value="paused">Paused</option>
                             <option value="discharged">Discharged</option>
+                            <option value="archived">Archived</option>
                         </select>
                         <select
                             name="supervisor_id"

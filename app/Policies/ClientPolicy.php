@@ -50,6 +50,24 @@ class ClientPolicy
         return $this->manageCarePlan($user, $client);
     }
 
+    public function manageLifecycle(User $user, Client $client): bool
+    {
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        if ($user->isSupervisor() && $user->employee) {
+            return $client->supervisor_id === $user->employee->id;
+        }
+
+        return false;
+    }
+
+    public function archive(User $user, Client $client): bool
+    {
+        return $user->isAdmin() && $this->view($user, $client);
+    }
+
     public function create(User $user): bool
     {
         return $user->isAdmin();

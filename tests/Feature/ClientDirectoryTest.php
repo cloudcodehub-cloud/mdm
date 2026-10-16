@@ -65,12 +65,13 @@ class ClientDirectoryTest extends TestCase
 
         $this->actingAs($admin)
             ->patch(route('clients.status', $client), [
-                'status' => ClientStatus::Inactive->value,
+                'status' => ClientStatus::Paused->value,
+                'reason' => 'Temporary pause for testing',
             ])
             ->assertRedirect(route('clients.show', $client));
 
         $this->assertSame('Cole-Updated', $client->fresh()?->last_name);
-        $this->assertSame(ClientStatus::Inactive, $client->fresh()?->status);
+        $this->assertSame(ClientStatus::Paused, $client->fresh()?->status);
     }
 
     public function test_admin_can_assign_and_deactivate_a_dsp_without_deleting_history(): void
