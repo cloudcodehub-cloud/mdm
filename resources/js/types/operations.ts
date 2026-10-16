@@ -69,6 +69,8 @@ export type VisitExceptionRecord = {
     is_high_priority_open?: boolean;
 };
 
+import type { IncidentListItem } from '@/types/incident';
+
 export type OperationsBoard = {
     today: string;
     timezone: string;
@@ -103,6 +105,10 @@ export type OperationsBoard = {
         dsp_name: string;
         service_type: string;
     }>;
+    incidents?: {
+        awaiting_acknowledgment: IncidentListItem[];
+        overdue_for_acknowledgment: IncidentListItem[];
+    };
     exceptions: {
         open: VisitExceptionRecord[];
         high_priority_open: VisitExceptionRecord[];

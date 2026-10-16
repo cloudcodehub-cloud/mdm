@@ -1,4 +1,5 @@
 import {
+    AlertTriangle,
     CalendarClock,
     CalendarDays,
     ChartColumn,
@@ -18,6 +19,7 @@ import { index as clients } from '@/routes/clients';
 import { index as compliance } from '@/routes/compliance';
 import { index as employees } from '@/routes/employees';
 import { index as messages } from '@/routes/messages';
+import { index as incidents } from '@/routes/incidents';
 import { index as operations } from '@/routes/operations';
 import { index as reports } from '@/routes/reports';
 import { index as scheduledVisits } from '@/routes/scheduled-visits';
@@ -77,6 +79,12 @@ export const mainNavigation: RoleNavItem[] = [
         href: operations(),
         icon: ListChecks,
         roles: ['ADMIN', 'SUPERVISOR'],
+    },
+    {
+        title: 'Incidents',
+        href: incidents(),
+        icon: AlertTriangle,
+        roles: ['ADMIN', 'SUPERVISOR', 'DSP'],
     },
     {
         title: 'Supervisors',

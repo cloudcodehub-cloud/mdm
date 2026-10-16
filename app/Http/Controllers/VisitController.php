@@ -12,6 +12,7 @@ use App\Models\VisitException;
 use App\Services\ActiveVisitAttentionService;
 use App\Services\CareOverviewService;
 use App\Services\CriticalAlertService;
+use App\Services\IncidentService;
 use App\Services\VisitSafetyCheckService;
 use App\Services\VisitSafetyInstructionService;
 use App\Services\VisitTaskGenerator;
@@ -31,6 +32,7 @@ class VisitController extends Controller
         ActiveVisitAttentionService $attention,
         CriticalAlertService $criticalAlerts,
         VisitSafetyInstructionService $safetyInstructions,
+        IncidentService $incidents,
     ): Response {
         $this->authorize('view', $visit);
 
@@ -64,6 +66,15 @@ class VisitController extends Controller
             fn (array $instruction): bool => (bool) ($instruction['requires_acknowledgment'] ?? false),
         );
         $tasksGated = $pendingCritical || $pendingInstructions;
+        $incidentPayload = $user !== null
+            ? $incidents->serializeForVisit($visit, $user)
+            : [
+                'draft' => null,
+                'submitted' => [],
+                'categories' => [],
+                'acknowledgment_threshold_minutes' => $incidents->acknowledgmentThresholdMinutes(),
+                'has_unresolved_draft' => false,
+            ];
 
         return Inertia::render('visits/show', [
             'visit' => [
@@ -75,6 +86,7 @@ class VisitController extends Controller
                 'critical_alerts' => $criticalAlertPayload,
                 'safety_instructions' => $safetyInstructionPayload,
                 'tasks_gated_by_safety' => $tasksGated,
+                'incidents' => $incidentPayload,
             ],
             'skip_reasons' => $canRecord && ! $tasksGated ? DirectoryPresenter::skipReasons() : [],
             'care_history' => $user !== null ? $overview->forClient($visit->client, $user)['history'] : [],
@@ -87,6 +99,7 @@ class VisitController extends Controller
                 'update_notes' => $user?->can('updateNotes', $visit) ?? false,
                 'clock_out' => $user?->can('clockOut', $visit) ?? false,
                 'issue_safety_instruction' => $user?->can('issueSafetyInstruction', $visit) ?? false,
+                'report_incident' => $user?->can('create', [\App\Models\Incident::class, $visit]) ?? false,
                 'request_correction' => $visit->status === VisitStatus::Completed
                     && ($user?->can('create', [AttendanceCorrection::class, $visit->scheduledVisit]) ?? false),
                 'view_exceptions' => $user?->can('viewAny', VisitException::class) ?? false,

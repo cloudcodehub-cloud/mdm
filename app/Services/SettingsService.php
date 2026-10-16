@@ -34,6 +34,7 @@ class SettingsService
                 'time_format' => TimeFormat::TwelveHour,
                 'first_day_of_week' => 0,
                 'credential_expiring_soon_days' => 30,
+                'incident_acknowledgment_minutes' => (int) config('mdm.incident.acknowledgment_minutes_default', 60),
             ]);
         }
 
@@ -51,9 +52,21 @@ class SettingsService
 
         $settings = $this->current();
         unset($data['logo'], $data['remove_logo']);
+        $previousAckMinutes = (int) $settings->incident_acknowledgment_minutes;
         $settings->fill($data);
         $settings->save();
         $this->resolved = $settings->fresh() ?? $settings;
+
+        if (array_key_exists('incident_acknowledgment_minutes', $data)) {
+            $actor = auth()->user();
+            if ($actor instanceof User) {
+                app(\App\Services\IncidentService::class)->recordThresholdChange(
+                    $actor,
+                    $previousAckMinutes,
+                    (int) $this->resolved->incident_acknowledgment_minutes,
+                );
+            }
+        }
 
         return $this->resolved;
     }
@@ -241,6 +254,15 @@ class SettingsService
     public function credentialExpiringSoonDays(): int
     {
         return $this->current()->credential_expiring_soon_days;
+    }
+
+    public function incidentAcknowledgmentMinutes(): int
+    {
+        $minutes = (int) $this->current()->incident_acknowledgment_minutes;
+
+        return $minutes > 0
+            ? $minutes
+            : (int) config('mdm.incident.acknowledgment_minutes_default', 60);
     }
 
     public function formatDate(CarbonInterface $value): string

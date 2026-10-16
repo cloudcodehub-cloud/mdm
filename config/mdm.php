@@ -52,4 +52,29 @@ return [
         'remaining_capacity_warning_ratio' => (float) env('MDM_AUTH_REMAINING_WARNING_RATIO', 0.10),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Incident management (MDM 07)
+    |--------------------------------------------------------------------------
+    |
+    | Acknowledgment threshold semantics are owned by MDM 07. Default is 60
+    | minutes (AMD-07-01 / RQ-05 / MF-05). Agency Settings may expose the value;
+    | open-visit escalation (visit.open_escalation_after_minutes) is separate.
+    |
+    | Exact Agency Category/Subcategory catalogs remain deferred (AMD-07-02);
+    | these starters are implementation defaults, not a severity model.
+    |
+    */
+
+    'incident' => [
+        'acknowledgment_minutes_default' => (int) env('MDM_INCIDENT_ACK_MINUTES', 60),
+        'categories' => [
+            'Injury / medical' => ['Fall', 'Observed injury', 'Seizure', 'Other medical'],
+            'Behavioral' => ['Aggression', 'Elopement', 'Self-injury', 'Other behavioral'],
+            'Medication / treatment' => ['Missed dose observed', 'Adverse reaction', 'Other'],
+            'Environmental / safety' => ['Property damage', 'Unsafe condition', 'Other'],
+            'Other' => ['Other'],
+        ],
+    ],
+
 ];

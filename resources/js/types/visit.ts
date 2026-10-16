@@ -1,3 +1,5 @@
+import type { VisitIncidentsPayload } from '@/types/incident';
+
 export type ActiveVisitTask = {
     id: number;
     title: string;
@@ -115,6 +117,7 @@ export type ActiveVisitRecord = {
     critical_alerts?: CriticalAlertRecord[];
     safety_instructions?: VisitSafetyInstructionRecord[];
     tasks_gated_by_safety?: boolean;
+    incidents?: VisitIncidentsPayload;
     task_summary: {
         total: number;
         completed: number;

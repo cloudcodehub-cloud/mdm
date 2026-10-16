@@ -63,6 +63,7 @@ export function VisitClockOutReview({
     const [locating, setLocating] = useState(false);
     const pageErrors = usePage().props.errors;
     const reasons = gpsFallbackReasons ?? DEFAULT_GPS_FALLBACK_REASONS;
+    const hasIncidentDraft = Boolean(visit.incidents?.has_unresolved_draft);
     const form = useForm({
         gps_fallback_reason: '',
         gps_fallback_note: '',
@@ -71,6 +72,7 @@ export function VisitClockOutReview({
         handover_note: visit.handover_note ?? '',
         extended_visit_reason: visit.extended_visit_reason ?? '',
         acknowledge_unfinished_required: false,
+        discard_incident_draft: false,
     });
 
     const selectedReason = reasons.find(
@@ -95,6 +97,7 @@ export function VisitClockOutReview({
             extended_visit_reason: form.data.extended_visit_reason || null,
             acknowledge_unfinished_required:
                 form.data.acknowledge_unfinished_required,
+            discard_incident_draft: form.data.discard_incident_draft,
         });
     };
 
@@ -245,6 +248,37 @@ export function VisitClockOutReview({
                 <InputError message={pageErrors.safety_checks} />
             ) : null}
 
+            {hasIncidentDraft ? (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-50/70 p-3 dark:bg-amber-950/20">
+                    <p className="text-sm font-medium">
+                        An unfinished Incident draft is still open.
+                    </p>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                        Submit or review the Incident above, or confirm discard
+                        here to clock out without formally reporting it.
+                    </p>
+                    <label className="mt-3 flex items-start gap-2 text-sm">
+                        <Checkbox
+                            checked={form.data.discard_incident_draft}
+                            onCheckedChange={(checked) =>
+                                form.setData(
+                                    'discard_incident_draft',
+                                    checked === true,
+                                )
+                            }
+                        />
+                        <span>
+                            Discard Incident draft and clock out (requires
+                            confirmation intent).
+                        </span>
+                    </label>
+                    <InputError
+                        className="mt-2"
+                        message={pageErrors.incident_draft}
+                    />
+                </div>
+            ) : null}
+
             {pendingRequired > 0 && (
                 <div className="rounded-xl border border-amber-500/30 bg-amber-50/70 p-3 dark:bg-amber-950/20">
                     <p className="text-sm font-medium">
@@ -289,6 +323,8 @@ export function VisitClockOutReview({
                             !form.data.handover_note ||
                             (visit.requires_extended_visit_reason &&
                                 !form.data.extended_visit_reason) ||
+                            (hasIncidentDraft &&
+                                !form.data.discard_incident_draft) ||
                             (pendingRequired > 0 &&
                                 !form.data.acknowledge_unfinished_required)
                         }

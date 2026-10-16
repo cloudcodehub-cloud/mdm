@@ -20,6 +20,7 @@ use Illuminate\Support\Carbon;
  * @property TimeFormat $time_format
  * @property int $first_day_of_week
  * @property int $credential_expiring_soon_days
+ * @property int $incident_acknowledgment_minutes
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -34,6 +35,7 @@ use Illuminate\Support\Carbon;
     'time_format',
     'first_day_of_week',
     'credential_expiring_soon_days',
+    'incident_acknowledgment_minutes',
 ])]
 class OrganizationSetting extends Model
 {
@@ -47,6 +49,7 @@ class OrganizationSetting extends Model
             'time_format' => TimeFormat::class,
             'first_day_of_week' => 'integer',
             'credential_expiring_soon_days' => 'integer',
+            'incident_acknowledgment_minutes' => 'integer',
         ];
     }
 }

@@ -27,6 +27,7 @@ class SupervisorOperationsService
     public function __construct(
         private SettingsService $settings,
         private VisitOperationsStatus $operationsStatus,
+        private IncidentService $incidents,
     ) {}
 
     /**
@@ -43,6 +44,7 @@ class SupervisorOperationsService
                     ->where('job_type', JobType::Dsp)
                     ->where('employment_status', EmploymentStatus::Active),
                 Client::query()->where('status', ClientStatus::Active),
+                $user,
             );
         }
 
@@ -52,6 +54,7 @@ class SupervisorOperationsService
             $this->exceptionQuery($user),
             $this->dspReportsQuery($user->employee),
             $this->supervisedClientsQuery($user->employee),
+            $user,
         );
     }
 
@@ -72,6 +75,7 @@ class SupervisorOperationsService
             $this->caseloadExceptionQuery($supervisor),
             $this->dspReportsQuery($supervisor),
             $this->supervisedClientsQuery($supervisor),
+            $user,
         );
     }
 
@@ -89,6 +93,7 @@ class SupervisorOperationsService
         Builder $exceptionQuery,
         Builder $dspQuery,
         Builder $clientQuery,
+        ?User $viewer = null,
     ): array {
         $today = $this->settings->today();
         $now = $this->settings->now();
@@ -166,6 +171,18 @@ class SupervisorOperationsService
             ->orderBy('first_name')
             ->get();
 
+        $incidentAttention = $viewer !== null
+            ? $this->incidents->attentionRowsFor($viewer)
+            : [];
+        $unacknowledgedIncidents = array_values(array_filter(
+            $incidentAttention,
+            fn (array $row): bool => (bool) ($row['requires_acknowledgment'] ?? false),
+        ));
+        $overdueIncidents = array_values(array_filter(
+            $incidentAttention,
+            fn (array $row): bool => (bool) ($row['overdue_for_acknowledgment'] ?? false),
+        ));
+
         return [
             'today' => $today,
             'timezone' => $this->settings->timezone(),
@@ -176,6 +193,13 @@ class SupervisorOperationsService
                 $this->metric('visits_today', "Today's scheduled visits", $todayVisits->count(), 'Service date in the operational timezone', route('scheduled-visits.index')),
                 $this->metric('active_visits', 'Active visits', $activeVisits->count(), 'Currently clocked-in visits', route('operations.index')),
                 $this->metric('open_exceptions', 'Open exceptions', $openExceptions->count(), 'Exceptions awaiting review or resolution', route('visit-exceptions.index')),
+                $this->metric(
+                    'incidents_awaiting_ack',
+                    'Incidents awaiting ack',
+                    count($unacknowledgedIncidents),
+                    'Submitted Incidents awaiting management acknowledgment',
+                    route('incidents.index'),
+                ),
             ],
             'assigned_dsps' => $this->people($assignedDsps),
             'assigned_clients' => $this->clients($assignedClients),
@@ -184,6 +208,10 @@ class SupervisorOperationsService
             'completed_visits' => $this->boardVisits($completedVisits, $now),
             'skipped_tasks' => $this->skippedTasks($skippedTasks),
             'handover_notes' => $this->handovers($handovers),
+            'incidents' => [
+                'awaiting_acknowledgment' => $unacknowledgedIncidents,
+                'overdue_for_acknowledgment' => $overdueIncidents,
+            ],
             'exceptions' => [
                 'open' => DirectoryPresenter::visitExceptions($openExceptions),
                 'high_priority_open' => DirectoryPresenter::visitExceptions($highPriorityOpen),

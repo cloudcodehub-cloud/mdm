@@ -56,6 +56,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, VisitSafetyCheck> $safetyChecks
  * @property-read Collection<int, VisitSafetyInstruction> $safetyInstructions
  * @property-read Collection<int, AttendanceCorrection> $attendanceCorrections
+ * @property-read Collection<int, Incident> $incidents
  *
  * @method static Builder<static> inProgress()
  * @method static Builder<static> visibleTo(User $user)
@@ -190,6 +191,16 @@ class Visit extends Model
     public function attendanceCorrections(): HasMany
     {
         return $this->hasMany(AttendanceCorrection::class)->orderByDesc('id');
+    }
+
+    /**
+     * Clinical/service Incidents (MDM 07), not HR security incidents.
+     *
+     * @return HasMany<Incident, $this>
+     */
+    public function incidents(): HasMany
+    {
+        return $this->hasMany(Incident::class)->orderByDesc('id');
     }
 
     public function isInProgress(): bool

@@ -136,6 +136,7 @@ class OrganizationContextTest extends TestCase
             'time_format' => TimeFormat::TwelveHour->value,
             'first_day_of_week' => 0,
             'credential_expiring_soon_days' => 30,
+            'incident_acknowledgment_minutes' => 60,
         ];
 
         $this->actingAs($admin)

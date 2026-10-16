@@ -22,6 +22,7 @@ use App\Http\Controllers\DspAvailabilityController;
 use App\Http\Controllers\DspComplianceController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\EmployeeProfileChangeController;
+use App\Http\Controllers\IncidentController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrganizationLogoController;
@@ -159,6 +160,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('visits.tasks.skip');
 
     Route::get('operations', SupervisorOperationsController::class)->name('operations.index');
+    Route::get('incidents', [IncidentController::class, 'index'])->name('incidents.index');
+    Route::get('incidents/{incident}', [IncidentController::class, 'show'])->name('incidents.show');
+    Route::post('visits/{visit}/incidents', [IncidentController::class, 'store'])->name('visits.incidents.store');
+    Route::patch('incidents/{incident}', [IncidentController::class, 'update'])->name('incidents.update');
+    Route::post('incidents/{incident}/discard', [IncidentController::class, 'discard'])->name('incidents.discard');
+    Route::post('incidents/{incident}/acknowledge', [IncidentController::class, 'acknowledge'])
+        ->name('incidents.acknowledge');
     Route::get('visit-exceptions', [VisitExceptionController::class, 'index'])->name('visit-exceptions.index');
     Route::get('visit-exceptions/{visit_exception}', [VisitExceptionController::class, 'show'])->name('visit-exceptions.show');
     Route::patch('visit-exceptions/{visit_exception}/review', [VisitExceptionController::class, 'review'])->name('visit-exceptions.review');

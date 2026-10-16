@@ -44,6 +44,7 @@ class ClockOutRequest extends FormRequest
 
         $merge = [
             'acknowledge_unfinished_required' => $this->boolean('acknowledge_unfinished_required'),
+            'discard_incident_draft' => $this->boolean('discard_incident_draft'),
         ];
 
         if ($this->exists('visit_notes')) {
@@ -86,6 +87,7 @@ class ClockOutRequest extends FormRequest
             'handover_note' => ['required', 'string', 'max:5000'],
             'extended_visit_reason' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'acknowledge_unfinished_required' => ['sometimes', 'boolean'],
+            'discard_incident_draft' => ['sometimes', 'boolean'],
         ];
     }
 

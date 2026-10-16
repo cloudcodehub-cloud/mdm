@@ -21,6 +21,7 @@ class VisitClockOutService
         private VisitSafetyCheckService $safetyChecks,
         private ActiveVisitAttentionService $attention,
         private SettingsService $settings,
+        private IncidentService $incidents,
     ) {}
 
     /**
@@ -78,6 +79,18 @@ class VisitClockOutService
                 throw ValidationException::withMessages([
                     'handover_note' => 'Enter the Visit Wrap-Up / Handover Note before clocking out.',
                 ]);
+            }
+
+            $draft = $this->incidents->activeDraftForVisit($visit);
+
+            if ($draft !== null) {
+                if ((bool) ($payload['discard_incident_draft'] ?? false)) {
+                    $this->incidents->discardDraft($user, $draft, 'Discarded during clock-out.');
+                } else {
+                    throw ValidationException::withMessages([
+                        'incident_draft' => 'Resolve the unfinished Incident draft before clocking out (submit, review, or discard).',
+                    ]);
+                }
             }
 
             $safetyBlockers = $this->safetyChecks->undocumentedBlockers($visit, $now);

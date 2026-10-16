@@ -36,6 +36,7 @@ class OrganizationSettingsTest extends TestCase
             'time_format' => TimeFormat::TwentyFourHour->value,
             'first_day_of_week' => 1,
             'credential_expiring_soon_days' => 14,
+            'incident_acknowledgment_minutes' => 60,
         ], $overrides);
     }
 

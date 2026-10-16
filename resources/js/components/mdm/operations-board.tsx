@@ -5,6 +5,7 @@ import { EmptyState, Panel, StatCard } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { show as showClient } from '@/routes/clients';
 import { show as showEmployee } from '@/routes/employees';
+import { index as incidentsIndex, show as showIncident } from '@/routes/incidents';
 import { index as exceptionsIndex, show as showException } from '@/routes/visit-exceptions';
 import { show as showScheduled } from '@/routes/scheduled-visits';
 import { show as showVisit } from '@/routes/visits';
@@ -31,9 +32,14 @@ export function OperationsBoardView({
                             `Caseload board for ${operations.today} (${operations.timezone_label}).`}
                     </p>
                 </div>
-                <Button asChild variant="secondary">
-                    <Link href={exceptionsIndex()}>Exception review</Link>
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                    <Button asChild variant="secondary">
+                        <Link href={incidentsIndex()}>Incident register</Link>
+                    </Button>
+                    <Button asChild variant="secondary">
+                        <Link href={exceptionsIndex()}>Exception review</Link>
+                    </Button>
+                </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -200,6 +206,75 @@ export function OperationsBoardView({
                         ]}
                         empty="No open extended-visit or escalation exceptions."
                     />
+                </Panel>
+                <Panel
+                    title="Incidents awaiting acknowledgment"
+                    description="Submitted Incidents needing management acknowledgment (not resolution)."
+                    className="lg:col-span-6"
+                >
+                    {(operations.incidents?.awaiting_acknowledgment ?? []).length ===
+                    0 ? (
+                        <EmptyState
+                            compact
+                            message="No Incidents awaiting acknowledgment."
+                        />
+                    ) : (
+                        <ul className="space-y-2 text-sm">
+                            {(operations.incidents?.awaiting_acknowledgment ?? []).map(
+                                (incident) => (
+                                    <li key={incident.id}>
+                                        <Link
+                                            href={showIncident.url(incident.id)}
+                                            className="hover:text-foreground font-medium"
+                                        >
+                                            {incident.tracking_number ??
+                                                `Incident #${incident.id}`}
+                                        </Link>
+                                        <p className="text-muted-foreground text-xs">
+                                            {incident.client.name}
+                                            {incident.overdue_for_acknowledgment
+                                                ? ' · Overdue for acknowledgment'
+                                                : ''}
+                                        </p>
+                                    </li>
+                                ),
+                            )}
+                        </ul>
+                    )}
+                </Panel>
+                <Panel
+                    title="Incidents overdue for acknowledgment"
+                    description="Derived overdue condition after the Agency threshold."
+                    className="lg:col-span-6"
+                >
+                    {(operations.incidents?.overdue_for_acknowledgment ?? [])
+                        .length === 0 ? (
+                        <EmptyState
+                            compact
+                            message="No Incidents overdue for acknowledgment."
+                        />
+                    ) : (
+                        <ul className="space-y-2 text-sm">
+                            {(
+                                operations.incidents?.overdue_for_acknowledgment ??
+                                []
+                            ).map((incident) => (
+                                <li key={incident.id}>
+                                    <Link
+                                        href={showIncident.url(incident.id)}
+                                        className="hover:text-foreground font-medium"
+                                    >
+                                        {incident.tracking_number ??
+                                            `Incident #${incident.id}`}
+                                    </Link>
+                                    <p className="text-muted-foreground text-xs">
+                                        {incident.client.name} ·{' '}
+                                        {incident.submitted_at_label}
+                                    </p>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
                 </Panel>
             </div>
         </div>

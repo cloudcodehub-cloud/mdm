@@ -24,6 +24,7 @@ type Props = {
         time_format: string;
         first_day_of_week: number;
         credential_expiring_soon_days: number;
+        incident_acknowledgment_minutes: number;
         logo_url?: string | null;
         has_logo?: boolean;
     };
@@ -257,6 +258,34 @@ export default function General({
                                 />
                                 <InputError
                                     message={errors.credential_expiring_soon_days}
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="incident_acknowledgment_minutes">
+                                    Incident acknowledgment threshold (minutes)
+                                </Label>
+                                <Input
+                                    id="incident_acknowledgment_minutes"
+                                    name="incident_acknowledgment_minutes"
+                                    type="number"
+                                    min={1}
+                                    max={1440}
+                                    required
+                                    defaultValue={
+                                        settings.incident_acknowledgment_minutes
+                                    }
+                                />
+                                <p className="text-muted-foreground text-xs">
+                                    MDM 07 default is 60 minutes. Changes apply
+                                    prospectively and do not rewrite historical
+                                    acknowledgment timestamps. Separate from
+                                    open-visit escalation.
+                                </p>
+                                <InputError
+                                    message={
+                                        errors.incident_acknowledgment_minutes
+                                    }
                                 />
                             </div>
 

@@ -25,6 +25,7 @@ import { ProgressRing } from '@/components/mdm/visual-summaries';
 import { EmptyState } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { VisitClockOutReview } from '@/components/mdm/visit-clock-out-review';
+import { VisitIncidentPanel } from '@/components/mdm/visit-incident-panel';
 import { VisitNotesForm } from '@/components/mdm/visit-notes-form';
 import { VisitCriticalSafetyPanel } from '@/components/mdm/visit-critical-safety-panel';
 import { VisitSafetyPanel } from '@/components/mdm/visit-safety-panel';
@@ -64,6 +65,7 @@ export default function VisitsShow({
         update_notes?: boolean;
         clock_out?: boolean;
         issue_safety_instruction?: boolean;
+        report_incident?: boolean;
         request_correction?: boolean;
         view_exceptions?: boolean;
         follow_up?: boolean;
@@ -263,6 +265,7 @@ function ActiveVisit({
         update_notes?: boolean;
         clock_out?: boolean;
         issue_safety_instruction?: boolean;
+        report_incident?: boolean;
     };
     careHistory: CareHistoryItem[];
     supervisor: SupervisorContact | null;
@@ -350,6 +353,26 @@ function ActiveVisit({
                 visit={visit}
                 canRecord={Boolean(can?.record_safety)}
             />
+
+            <RecordSection
+                title="Incident reporting"
+                description="Report a clinical/service Incident without ending the visit. Drafts stay private until submit."
+                className="lg:col-span-12"
+            >
+                <VisitIncidentPanel
+                    visitId={visit.id}
+                    incidents={
+                        visit.incidents ?? {
+                            draft: null,
+                            submitted: [],
+                            categories: [],
+                            acknowledgment_threshold_minutes: 60,
+                            has_unresolved_draft: false,
+                        }
+                    }
+                    canReport={Boolean(can?.report_incident)}
+                />
+            </RecordSection>
 
             <RecordSection
                 title="Care-plan tasks"
