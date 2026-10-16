@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\IdempotentMigration;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -9,7 +10,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('client_contacts', function (Blueprint $table) {
+        IdempotentMigration::createIfMissing('client_contacts', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('client_id')->constrained()->cascadeOnDelete();
             $table->string('role');
@@ -24,7 +25,7 @@ return new class extends Migration
             $table->index(['client_id', 'role']);
         });
 
-        Schema::create('client_service_locations', function (Blueprint $table) {
+        IdempotentMigration::createIfMissing('client_service_locations', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('client_id')->constrained()->cascadeOnDelete();
             $table->string('label');
@@ -42,7 +43,7 @@ return new class extends Migration
             $table->index(['client_id', 'is_primary', 'is_active']);
         });
 
-        Schema::create('care_plan_effective_date_corrections', function (Blueprint $table) {
+        IdempotentMigration::createIfMissing('care_plan_effective_date_corrections', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('care_plan_id')->constrained()->cascadeOnDelete();
             $table->date('previous_starts_on');
@@ -54,7 +55,7 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::create('client_admin_history_events', function (Blueprint $table) {
+        IdempotentMigration::createIfMissing('client_admin_history_events', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('client_id')->constrained()->cascadeOnDelete();
             $table->string('category');
@@ -71,40 +72,64 @@ return new class extends Migration
             $table->index(['client_id', 'created_at']);
         });
 
-        Schema::table('scheduled_visits', function (Blueprint $table) {
-            $table->foreignId('client_service_location_id')
-                ->nullable()
-                ->after('client_id')
-                ->constrained('client_service_locations')
-                ->nullOnDelete();
-            $table->string('service_location_label')->nullable()->after('client_service_location_id');
-            $table->string('service_address_line_1')->nullable()->after('service_location_label');
-            $table->string('service_address_line_2')->nullable()->after('service_address_line_1');
-            $table->string('service_city')->nullable()->after('service_address_line_2');
-            $table->string('service_state', 32)->nullable()->after('service_city');
-            $table->string('service_postal_code', 32)->nullable()->after('service_state');
-            $table->decimal('service_latitude', 10, 7)->nullable()->after('service_postal_code');
-            $table->decimal('service_longitude', 10, 7)->nullable()->after('service_latitude');
-        });
+        if (Schema::hasTable('scheduled_visits') && ! Schema::hasColumn('scheduled_visits', 'client_service_location_id')) {
+            Schema::table('scheduled_visits', function (Blueprint $table): void {
+                $table->foreignId('client_service_location_id')
+                    ->nullable()
+                    ->after('client_id')
+                    ->constrained('client_service_locations')
+                    ->nullOnDelete();
+            });
+        }
+        foreach ([
+            'service_location_label' => 'string',
+            'service_address_line_1' => 'string',
+            'service_address_line_2' => 'string',
+            'service_city' => 'string',
+            'service_state' => 'state',
+            'service_postal_code' => 'postal',
+            'service_latitude' => 'lat',
+            'service_longitude' => 'lng',
+        ] as $column => $kind) {
+            if (! Schema::hasTable('scheduled_visits') || Schema::hasColumn('scheduled_visits', $column)) {
+                continue;
+            }
+            Schema::table('scheduled_visits', function (Blueprint $table) use ($column, $kind): void {
+                match ($kind) {
+                    'state', 'postal' => $table->string($column, 32)->nullable(),
+                    'lat', 'lng' => $table->decimal($column, 10, 7)->nullable(),
+                    default => $table->string($column)->nullable(),
+                };
+            });
+        }
 
         $this->backfillContactsAndLocations();
     }
 
     public function down(): void
     {
-        Schema::table('scheduled_visits', function (Blueprint $table) {
-            $table->dropConstrainedForeignId('client_service_location_id');
-            $table->dropColumn([
-                'service_location_label',
-                'service_address_line_1',
-                'service_address_line_2',
-                'service_city',
-                'service_state',
-                'service_postal_code',
-                'service_latitude',
-                'service_longitude',
-            ]);
-        });
+        if (Schema::hasColumn('scheduled_visits', 'client_service_location_id')) {
+            Schema::table('scheduled_visits', function (Blueprint $table): void {
+                $table->dropConstrainedForeignId('client_service_location_id');
+            });
+        }
+
+        $columns = array_values(array_filter([
+            'service_location_label',
+            'service_address_line_1',
+            'service_address_line_2',
+            'service_city',
+            'service_state',
+            'service_postal_code',
+            'service_latitude',
+            'service_longitude',
+        ], fn (string $column): bool => Schema::hasColumn('scheduled_visits', $column)));
+
+        if ($columns !== []) {
+            Schema::table('scheduled_visits', function (Blueprint $table) use ($columns): void {
+                $table->dropColumn($columns);
+            });
+        }
 
         Schema::dropIfExists('client_admin_history_events');
         Schema::dropIfExists('care_plan_effective_date_corrections');
@@ -114,6 +139,11 @@ return new class extends Migration
 
     private function backfillContactsAndLocations(): void
     {
+        // Only seed when the new tables are empty so a resumed migration does not duplicate.
+        if (DB::table('client_contacts')->exists() || DB::table('client_service_locations')->exists()) {
+            return;
+        }
+
         $clients = DB::table('clients')->orderBy('id')->get([
             'id',
             'address_line_1',

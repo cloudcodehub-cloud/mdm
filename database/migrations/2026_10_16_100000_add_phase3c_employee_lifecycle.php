@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\IdempotentMigration;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -9,15 +10,25 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('employees', function (Blueprint $table) {
-            $table->string('status_reason')->nullable()->after('employment_status');
-            $table->timestamp('status_changed_at')->nullable()->after('status_reason');
-            $table->foreignId('status_changed_by_user_id')
-                ->nullable()
-                ->after('status_changed_at')
-                ->constrained('users')
-                ->nullOnDelete();
-        });
+        if (Schema::hasTable('employees') && ! Schema::hasColumn('employees', 'status_reason')) {
+            Schema::table('employees', function (Blueprint $table): void {
+                $table->string('status_reason')->nullable()->after('employment_status');
+            });
+        }
+        if (Schema::hasTable('employees') && ! Schema::hasColumn('employees', 'status_changed_at')) {
+            Schema::table('employees', function (Blueprint $table): void {
+                $table->timestamp('status_changed_at')->nullable()->after('status_reason');
+            });
+        }
+        if (Schema::hasTable('employees') && ! Schema::hasColumn('employees', 'status_changed_by_user_id')) {
+            Schema::table('employees', function (Blueprint $table): void {
+                $table->foreignId('status_changed_by_user_id')
+                    ->nullable()
+                    ->after('status_changed_at')
+                    ->constrained('users')
+                    ->nullOnDelete();
+            });
+        }
 
         DB::table('employees')
             ->where('employment_status', 'inactive')
@@ -27,7 +38,7 @@ return new class extends Migration
             ->where('employment_status', 'terminated')
             ->update(['employment_status' => 'employment_ended']);
 
-        Schema::create('employee_admin_history_events', function (Blueprint $table) {
+        IdempotentMigration::createIfMissing('employee_admin_history_events', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('employee_id')->constrained()->cascadeOnDelete();
             $table->string('category');
@@ -44,43 +55,33 @@ return new class extends Migration
             $table->index(['employee_id', 'created_at']);
         });
 
-        Schema::table('scheduled_visits', function (Blueprint $table) {
-            $table->boolean('staffing_needed')->default(false)->after('needs_attention');
-            $table->unsignedBigInteger('released_employee_id')->nullable()->after('employee_id');
-        });
+        if (Schema::hasTable('scheduled_visits') && ! Schema::hasColumn('scheduled_visits', 'staffing_needed')) {
+            Schema::table('scheduled_visits', function (Blueprint $table): void {
+                $table->boolean('staffing_needed')->default(false)->after('needs_attention');
+            });
+        }
+        if (Schema::hasTable('scheduled_visits') && ! Schema::hasColumn('scheduled_visits', 'released_employee_id')) {
+            Schema::table('scheduled_visits', function (Blueprint $table): void {
+                $table->unsignedBigInteger('released_employee_id')->nullable()->after('employee_id');
+            });
+        }
 
-        Schema::table('scheduled_visits', function (Blueprint $table) {
-            $table->dropForeign(['employee_id']);
-        });
-
-        Schema::table('scheduled_visits', function (Blueprint $table) {
-            $table->unsignedBigInteger('employee_id')->nullable()->change();
-            $table->foreign('employee_id')
-                ->references('id')
-                ->on('employees')
-                ->nullOnDelete();
-            $table->foreign('released_employee_id')
-                ->references('id')
-                ->on('employees')
-                ->nullOnDelete();
-        });
+        $this->ensureNullableEmployeeAssignment();
     }
 
     public function down(): void
     {
-        Schema::table('scheduled_visits', function (Blueprint $table) {
-            $table->dropForeign(['released_employee_id']);
-            $table->dropColumn(['staffing_needed', 'released_employee_id']);
-            $table->dropForeign(['employee_id']);
-        });
-
-        Schema::table('scheduled_visits', function (Blueprint $table) {
-            $table->unsignedBigInteger('employee_id')->nullable(false)->change();
-            $table->foreign('employee_id')
-                ->references('id')
-                ->on('employees')
-                ->cascadeOnDelete();
-        });
+        if (Schema::hasColumn('scheduled_visits', 'released_employee_id')) {
+            Schema::table('scheduled_visits', function (Blueprint $table): void {
+                $table->dropForeign(['released_employee_id']);
+                $table->dropColumn('released_employee_id');
+            });
+        }
+        if (Schema::hasColumn('scheduled_visits', 'staffing_needed')) {
+            Schema::table('scheduled_visits', function (Blueprint $table): void {
+                $table->dropColumn('staffing_needed');
+            });
+        }
 
         Schema::dropIfExists('employee_admin_history_events');
 
@@ -92,9 +93,88 @@ return new class extends Migration
             ->where('employment_status', 'employment_ended')
             ->update(['employment_status' => 'terminated']);
 
-        Schema::table('employees', function (Blueprint $table) {
-            $table->dropConstrainedForeignId('status_changed_by_user_id');
-            $table->dropColumn(['status_reason', 'status_changed_at']);
+        if (Schema::hasColumn('employees', 'status_changed_by_user_id')) {
+            Schema::table('employees', function (Blueprint $table): void {
+                $table->dropConstrainedForeignId('status_changed_by_user_id');
+            });
+        }
+
+        $columns = array_values(array_filter([
+            Schema::hasColumn('employees', 'status_reason') ? 'status_reason' : null,
+            Schema::hasColumn('employees', 'status_changed_at') ? 'status_changed_at' : null,
+        ]));
+        if ($columns !== []) {
+            Schema::table('employees', function (Blueprint $table) use ($columns): void {
+                $table->dropColumn($columns);
+            });
+        }
+    }
+
+    private function ensureNullableEmployeeAssignment(): void
+    {
+        if (! Schema::hasTable('scheduled_visits')) {
+            return;
+        }
+
+        $driver = Schema::getConnection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            // SQLite cannot ALTER COLUMN nullability in place; rebuild only when still NOT NULL.
+            $info = DB::select('PRAGMA table_info(scheduled_visits)');
+            $employeeCol = collect($info)->firstWhere('name', 'employee_id');
+            $needsNullable = $employeeCol !== null && (int) $employeeCol->notnull === 1;
+
+            if ($needsNullable) {
+                Schema::table('scheduled_visits', function (Blueprint $table): void {
+                    $table->dropForeign(['employee_id']);
+                });
+
+                Schema::table('scheduled_visits', function (Blueprint $table): void {
+                    $table->unsignedBigInteger('employee_id')->nullable()->change();
+                });
+
+                Schema::table('scheduled_visits', function (Blueprint $table): void {
+                    $table->foreign('employee_id')
+                        ->references('id')
+                        ->on('employees')
+                        ->nullOnDelete();
+                });
+            }
+
+            $foreignKeys = collect(DB::select("PRAGMA foreign_key_list(scheduled_visits)"))
+                ->pluck('from')
+                ->all();
+
+            if (Schema::hasColumn('scheduled_visits', 'released_employee_id')
+                && ! in_array('released_employee_id', $foreignKeys, true)) {
+                Schema::table('scheduled_visits', function (Blueprint $table): void {
+                    $table->foreign('released_employee_id')
+                        ->references('id')
+                        ->on('employees')
+                        ->nullOnDelete();
+                });
+            }
+
+            return;
+        }
+
+        // MySQL/MariaDB path (fresh installs and non-SQLite environments).
+        Schema::table('scheduled_visits', function (Blueprint $table): void {
+            $table->dropForeign(['employee_id']);
+        });
+
+        Schema::table('scheduled_visits', function (Blueprint $table): void {
+            $table->unsignedBigInteger('employee_id')->nullable()->change();
+            $table->foreign('employee_id')
+                ->references('id')
+                ->on('employees')
+                ->nullOnDelete();
+            if (Schema::hasColumn('scheduled_visits', 'released_employee_id')) {
+                $table->foreign('released_employee_id')
+                    ->references('id')
+                    ->on('employees')
+                    ->nullOnDelete();
+            }
         });
     }
 };

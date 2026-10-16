@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\IdempotentMigration;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -8,7 +9,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('compliance_requirements', function (Blueprint $table) {
+        IdempotentMigration::createIfMissing('compliance_requirements', function (Blueprint $table): void {
             $table->id();
             $table->string('code')->unique();
             $table->string('name');
@@ -25,7 +26,7 @@ return new class extends Migration
             $table->index(['source_kind', 'source_key']);
         });
 
-        Schema::create('compliance_temporary_exceptions', function (Blueprint $table) {
+        IdempotentMigration::createIfMissing('compliance_temporary_exceptions', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('employee_id')->constrained()->cascadeOnDelete();
             $table->foreignId('compliance_requirement_id')->constrained()->cascadeOnDelete();

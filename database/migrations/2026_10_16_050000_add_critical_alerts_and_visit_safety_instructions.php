@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\IdempotentMigration;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -8,7 +9,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('client_critical_alerts', function (Blueprint $table) {
+        IdempotentMigration::createIfMissing('client_critical_alerts', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('client_id')->constrained()->cascadeOnDelete();
             $table->string('category');
@@ -26,7 +27,7 @@ return new class extends Migration
             $table->index(['client_id', 'is_active']);
         });
 
-        Schema::create('client_critical_alert_acknowledgments', function (Blueprint $table) {
+        IdempotentMigration::createIfMissing('client_critical_alert_acknowledgments', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('client_critical_alert_id')
                 ->constrained('client_critical_alerts')
@@ -43,7 +44,7 @@ return new class extends Migration
             );
         });
 
-        Schema::create('visit_safety_instructions', function (Blueprint $table) {
+        IdempotentMigration::createIfMissing('visit_safety_instructions', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('visit_id')->constrained()->cascadeOnDelete();
             $table->text('content');

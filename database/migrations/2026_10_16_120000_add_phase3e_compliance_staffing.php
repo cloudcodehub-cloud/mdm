@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\IdempotentMigration;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -8,13 +9,23 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('scheduled_visits', function (Blueprint $table) {
-            $table->string('compliance_staffing_status')->nullable()->after('staffing_needed');
-            $table->timestamp('compliance_staffing_marked_at')->nullable()->after('compliance_staffing_status');
-            $table->text('compliance_staffing_reason')->nullable()->after('compliance_staffing_marked_at');
-        });
+        if (Schema::hasTable('scheduled_visits') && ! Schema::hasColumn('scheduled_visits', 'compliance_staffing_status')) {
+            Schema::table('scheduled_visits', function (Blueprint $table): void {
+                $table->string('compliance_staffing_status')->nullable()->after('staffing_needed');
+            });
+        }
+        if (Schema::hasTable('scheduled_visits') && ! Schema::hasColumn('scheduled_visits', 'compliance_staffing_marked_at')) {
+            Schema::table('scheduled_visits', function (Blueprint $table): void {
+                $table->timestamp('compliance_staffing_marked_at')->nullable()->after('compliance_staffing_status');
+            });
+        }
+        if (Schema::hasTable('scheduled_visits') && ! Schema::hasColumn('scheduled_visits', 'compliance_staffing_reason')) {
+            Schema::table('scheduled_visits', function (Blueprint $table): void {
+                $table->text('compliance_staffing_reason')->nullable()->after('compliance_staffing_marked_at');
+            });
+        }
 
-        Schema::create('compliance_staffing_episodes', function (Blueprint $table) {
+        IdempotentMigration::createIfMissing('compliance_staffing_episodes', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('employee_id')->constrained()->cascadeOnDelete();
             $table->foreignId('grace_scheduled_visit_id')->nullable()->constrained('scheduled_visits')->nullOnDelete();
@@ -34,12 +45,16 @@ return new class extends Migration
     {
         Schema::dropIfExists('compliance_staffing_episodes');
 
-        Schema::table('scheduled_visits', function (Blueprint $table) {
-            $table->dropColumn([
-                'compliance_staffing_status',
-                'compliance_staffing_marked_at',
-                'compliance_staffing_reason',
-            ]);
-        });
+        $columns = array_values(array_filter([
+            Schema::hasColumn('scheduled_visits', 'compliance_staffing_status') ? 'compliance_staffing_status' : null,
+            Schema::hasColumn('scheduled_visits', 'compliance_staffing_marked_at') ? 'compliance_staffing_marked_at' : null,
+            Schema::hasColumn('scheduled_visits', 'compliance_staffing_reason') ? 'compliance_staffing_reason' : null,
+        ]));
+
+        if ($columns !== []) {
+            Schema::table('scheduled_visits', function (Blueprint $table) use ($columns): void {
+                $table->dropColumn($columns);
+            });
+        }
     }
 };
