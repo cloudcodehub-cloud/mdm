@@ -12,7 +12,9 @@ use App\Models\Employee;
 use App\Models\ScheduledVisit;
 use App\Models\User;
 use App\Models\Visit;
+use Carbon\CarbonInterface;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -24,6 +26,7 @@ class VisitClockInService
         private SettingsService $settings,
         private VisitSafetyCheckService $safetyChecks,
         private CarePlanRevisionService $carePlanRevisions,
+        private ComplianceEligibilityService $complianceEligibility,
     ) {}
 
     /**
@@ -68,6 +71,13 @@ class VisitClockInService
             }
 
             $now = $this->settings->now();
+
+            $complianceBlock = $this->complianceEligibility->serviceBlockReason($employee, $now);
+            if ($complianceBlock !== null) {
+                throw ValidationException::withMessages([
+                    'scheduled_visit' => $complianceBlock.' Start Visit is blocked until the Hard Stop is resolved or an authorized temporary exception is active.',
+                ]);
+            }
 
             if ($scheduledVisit->status === ScheduledVisitStatus::Scheduled && ! $scheduledVisit->isEligibleToStart($now)) {
                 throw ValidationException::withMessages([
@@ -152,9 +162,9 @@ class VisitClockInService
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, ScheduledVisit>
+     * @return Collection<int, ScheduledVisit>
      */
-    public function laterTodayScheduledVisits(Employee $employee, ?ScheduledVisit $primary = null): \Illuminate\Support\Collection
+    public function laterTodayScheduledVisits(Employee $employee, ?ScheduledVisit $primary = null): Collection
     {
         $primaryId = $primary?->id;
 
@@ -180,9 +190,9 @@ class VisitClockInService
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, ScheduledVisit>
+     * @return Collection<int, ScheduledVisit>
      */
-    private function todayScheduledVisits(Employee $employee): \Illuminate\Support\Collection
+    private function todayScheduledVisits(Employee $employee): Collection
     {
         $today = $this->settings->today();
 
@@ -205,7 +215,7 @@ class VisitClockInService
         ScheduledVisit $scheduledVisit,
         Employee $employee,
         array $payload,
-        \Carbon\CarbonInterface $now,
+        CarbonInterface $now,
     ): array {
         $status = ClockInLocationStatus::from((string) $payload['location_status']);
         $captured = $status === ClockInLocationStatus::Captured;
@@ -254,7 +264,7 @@ class VisitClockInService
         Visit $visit,
         ScheduledVisit $scheduledVisit,
         array $payload,
-        \Carbon\CarbonInterface $now,
+        CarbonInterface $now,
     ): void {
         $status = ClockInLocationStatus::from((string) $payload['location_status']);
 
@@ -291,7 +301,7 @@ class VisitClockInService
         }
     }
 
-    private function ineligibleMessage(ScheduledVisit $scheduledVisit, \Carbon\CarbonInterface $now): string
+    private function ineligibleMessage(ScheduledVisit $scheduledVisit, CarbonInterface $now): string
     {
         try {
             $start = $scheduledVisit->startsAtOn();

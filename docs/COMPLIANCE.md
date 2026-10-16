@@ -21,7 +21,16 @@ Summary buckets: Valid, Expiring Soon, Expired, and Missing. Missing stays at ze
 
 Employee attention and credential/training drill-down link to existing employee records. DSP users keep viewing their own credentials and training on the employee profile; they do not have a separate Compliance navigation item.
 
-## Planned later
+## Phase 3A — Hard Stop & DSP self-view
 
-- Document completeness
-- Automated expiry alerts
+MDM 08 owns Compliance Requirement policy. Evidence (`employee_credentials` / `employee_trainings`) is separate from policy.
+
+- `compliance_requirements` — applicability, enforcement level (informational / warning / required / Hard Stop), override policy (Non-Overrideable vs Temporary Exception)
+- `compliance_temporary_exceptions` — audited Admin/HR temporary exceptions (reason, start/end, actor, timestamps); do not change underlying expired/missing state
+- `ComplianceEligibilityService` — single eligibility result consumed by Scheduling assignment and Start Visit / clock-in
+- Expiring Soon is a warning only and never creates a Hard Stop by itself
+- Only Hard Stop / Mandatory for Service requirements block service
+- Ordinary Supervisors cannot waive Hard Stops; Admin cannot bypass Non-Overrideable requirements
+- DSP read-only self-view: `/my-compliance` (credentials, training, expiration warnings, eligibility). DSPs cannot modify compliance or apply overrides
+
+Employee lifecycle, leave, and account deactivation remain distinct from compliance eligibility.

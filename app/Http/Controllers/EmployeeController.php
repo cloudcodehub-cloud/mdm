@@ -8,6 +8,7 @@ use App\Http\Requests\StoreEmployeeRequest;
 use App\Http\Requests\UpdateEmployeeRequest;
 use App\Http\Requests\UpdateEmployeeStatusRequest;
 use App\Models\Employee;
+use App\Services\ComplianceEligibilityService;
 use App\Services\EmployeeManagementService;
 use App\Services\ProfileCompletionService;
 use App\Services\ProfilePhotoService;
@@ -97,11 +98,13 @@ class EmployeeController extends Controller
         Employee $employee,
         ProfileCompletionService $completion,
         ProfilePhotoService $photos,
+        ComplianceEligibilityService $eligibility,
     ): Response {
         $this->authorize('view', $employee);
 
         $user = $request->user();
         $includeSensitive = $user?->can('viewSensitive', $employee) ?? false;
+        $canOverrideCompliance = $user?->isAdmin() ?? false;
 
         $employee->load([
             'supervisor',
@@ -115,15 +118,19 @@ class EmployeeController extends Controller
             'securityIncidents' => fn ($query) => $includeSensitive ? $query : $query->whereRaw('1 = 0'),
         ]);
 
+        $compliance = $eligibility->evaluate($employee);
+
         return Inertia::render('employees/show', [
             'employee' => DirectoryPresenter::employeeDetail($employee, $includeSensitive, $photos),
             'credentials' => DirectoryPresenter::credentials($employee->credentials),
             'trainings' => DirectoryPresenter::trainings($employee->trainings),
             'activity' => DirectoryPresenter::employeeActivity($employee),
             'profile_completion' => $completion->forEmployee($employee),
+            'compliance_eligibility' => $compliance,
             'can' => [
                 'update' => $user?->can('update', $employee) ?? false,
                 'view_sensitive' => $includeSensitive,
+                'override_compliance' => $canOverrideCompliance,
             ],
         ]);
     }

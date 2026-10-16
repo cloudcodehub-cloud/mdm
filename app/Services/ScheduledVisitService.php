@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Enums\AuthorizationStatus;
-use App\Enums\ClientStatus;
 use App\Enums\JobType;
 use App\Enums\ScheduledVisitStatus;
 use App\Enums\VisitAssignmentKind;
@@ -13,11 +12,11 @@ use App\Models\Client;
 use App\Models\ClientAuthorization;
 use App\Models\Employee;
 use App\Models\ScheduledVisit;
+use App\Models\ScheduledVisitAssignment;
 use App\Models\ScheduledVisitOneOffTask;
 use App\Models\ScheduledVisitTaskOverride;
 use App\Models\ShiftTemplate;
 use App\Models\User;
-use App\Support\ClockMinutes;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +31,9 @@ class ScheduledVisitService
         private SchedulingNotificationService $notifications,
         private AuthorizationUsageService $authorizationUsage,
         private ClientServiceLocationService $serviceLocations,
+        private ComplianceEligibilityService $complianceEligibility,
     ) {}
+
     /**
      * @param  array<string, mixed>  $data
      */
@@ -136,6 +137,13 @@ class ScheduledVisitService
             if (! $dsp->isActiveDsp()) {
                 throw ValidationException::withMessages([
                     'employee_id' => 'Only active DSP employees can be scheduled.',
+                ]);
+            }
+
+            $complianceBlock = $this->complianceEligibility->serviceBlockReason($dsp);
+            if ($complianceBlock !== null) {
+                throw ValidationException::withMessages([
+                    'employee_id' => $complianceBlock.' New assignments are blocked until the Hard Stop is resolved or an authorized temporary exception is active.',
                 ]);
             }
 
@@ -489,14 +497,14 @@ class ScheduledVisitService
 
             $sort++;
             $attributes = [
-                    'title' => $title,
-                    'catalog_item_id' => isset($task['catalog_item_id']) && is_numeric($task['catalog_item_id'])
-                        ? (int) $task['catalog_item_id']
-                        : null,
-                    'instructions' => $this->nullableString($task['instructions'] ?? null),
-                    'note_required' => filter_var($task['note_required'] ?? false, FILTER_VALIDATE_BOOLEAN),
-                    'is_required' => filter_var($task['is_required'] ?? true, FILTER_VALIDATE_BOOLEAN),
-                    'sort_order' => $sort,
+                'title' => $title,
+                'catalog_item_id' => isset($task['catalog_item_id']) && is_numeric($task['catalog_item_id'])
+                    ? (int) $task['catalog_item_id']
+                    : null,
+                'instructions' => $this->nullableString($task['instructions'] ?? null),
+                'note_required' => filter_var($task['note_required'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                'is_required' => filter_var($task['is_required'] ?? true, FILTER_VALIDATE_BOOLEAN),
+                'sort_order' => $sort,
             ];
 
             $existing = null;
@@ -603,7 +611,7 @@ class ScheduledVisitService
                 $current->forceFill(['ended_at' => now()])->save();
             }
 
-            \App\Models\ScheduledVisitAssignment::query()->create([
+            ScheduledVisitAssignment::query()->create([
                 'scheduled_visit_id' => $visit->id,
                 'employee_id' => $visit->employee_id,
                 'assigned_by_user_id' => $actor->id,

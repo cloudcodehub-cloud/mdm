@@ -11,11 +11,13 @@ use App\Http\Controllers\ClientContactController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientDspAssignmentController;
 use App\Http\Controllers\ClientServiceLocationController;
-use App\Http\Controllers\CriticalAlertController;
 use App\Http\Controllers\ComplianceController;
+use App\Http\Controllers\ComplianceTemporaryExceptionController;
+use App\Http\Controllers\CriticalAlertController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DspAvailabilityController;
+use App\Http\Controllers\DspComplianceController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
@@ -28,9 +30,9 @@ use App\Http\Controllers\SupervisorOperationsController;
 use App\Http\Controllers\VisitClockInController;
 use App\Http\Controllers\VisitClockOutController;
 use App\Http\Controllers\VisitController;
+use App\Http\Controllers\VisitExceptionController;
 use App\Http\Controllers\VisitSafetyCheckController;
 use App\Http\Controllers\VisitSafetyInstructionController;
-use App\Http\Controllers\VisitExceptionController;
 use App\Http\Controllers\VisitTaskController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -174,6 +176,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('attendance/corrections/{attendance_correction}/reject', [AttendanceCorrectionController::class, 'reject'])
         ->name('attendance.corrections.reject');
     Route::get('compliance', ComplianceController::class)->name('compliance.index');
+    Route::get('my-compliance', DspComplianceController::class)->name('my-compliance.index');
+    Route::post('employees/{employee}/compliance-exceptions', [ComplianceTemporaryExceptionController::class, 'store'])
+        ->name('employees.compliance-exceptions.store');
+    Route::post('compliance-exceptions/{exception}/revoke', [ComplianceTemporaryExceptionController::class, 'revoke'])
+        ->name('compliance-exceptions.revoke');
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('reports/{report}/download', [ReportController::class, 'download'])->name('reports.download');
     Route::get('reports/{report}', [ReportController::class, 'show'])->name('reports.show');

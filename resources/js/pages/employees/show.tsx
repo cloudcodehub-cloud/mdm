@@ -1,5 +1,6 @@
 import { Form, Head, Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
+import { ComplianceEligibilityPanel } from '@/components/mdm/compliance-eligibility-panel';
 import { ConfirmAction } from '@/components/mdm/confirm-action';
 import { ModuleTabs, StatusBadge } from '@/components/mdm/directory';
 import { BackLink } from '@/components/mdm/back-link';
@@ -15,6 +16,7 @@ import {
     show,
     status,
 } from '@/routes/employees';
+import type { ComplianceEligibility } from '@/types/compliance';
 import type {
     ActivityRecord,
     CredentialRecord,
@@ -29,6 +31,7 @@ export default function EmployeesShow({
     trainings,
     activity,
     profile_completion,
+    compliance_eligibility,
     can,
 }: {
     employee: EmployeeDetail;
@@ -36,15 +39,20 @@ export default function EmployeesShow({
     trainings: TrainingRecord[];
     activity: ActivityRecord[];
     profile_completion: ProfileCompletion;
-    can: { update: boolean; view_sensitive: boolean };
+    compliance_eligibility: ComplianceEligibility;
+    can: {
+        update: boolean;
+        view_sensitive: boolean;
+        override_compliance: boolean;
+    };
 }) {
     const [tab, setTab] = useState('profile');
     const role = usePage().props.auth.user.role;
-    const expiredCredentials = credentials.filter(
-        (item) => item.status === 'expired' || item.status === 'revoked',
-    ).length;
-    const complianceLabel =
-        expiredCredentials > 0 ? 'Attention required' : 'Tracked separately';
+    const complianceLabel = compliance_eligibility.hard_stop
+        ? 'Hard Stop'
+        : compliance_eligibility.warnings.length > 0
+          ? 'Warning'
+          : 'Eligible';
 
     return (
         <>
@@ -131,6 +139,7 @@ export default function EmployeesShow({
                         { id: 'background', label: 'Background' },
                         { id: 'credentials', label: 'Credentials' },
                         { id: 'training', label: 'Training' },
+                        { id: 'compliance', label: 'Compliance' },
                         { id: 'activity', label: 'Activity' },
                         ...(can.view_sensitive
                             ? [{ id: 'security', label: 'Security' }]
@@ -144,6 +153,13 @@ export default function EmployeesShow({
                 {tab === 'background' && <BackgroundTab employee={employee} />}
                 {tab === 'security' && can.view_sensitive && (
                     <SecurityTab employee={employee} />
+                )}
+                {tab === 'compliance' && (
+                    <ComplianceEligibilityPanel
+                        eligibility={compliance_eligibility}
+                        employeeId={employee.id}
+                        canOverride={can.override_compliance}
+                    />
                 )}
                 {tab === 'credentials' && (
                     <Panel title="Credentials">

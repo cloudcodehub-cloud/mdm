@@ -275,6 +275,14 @@ class Employee extends Model
     }
 
     /**
+     * @return HasMany<ComplianceTemporaryException, $this>
+     */
+    public function complianceTemporaryExceptions(): HasMany
+    {
+        return $this->hasMany(ComplianceTemporaryException::class);
+    }
+
+    /**
      * @return HasMany<EmployeeEducation, $this>
      */
     public function educations(): HasMany

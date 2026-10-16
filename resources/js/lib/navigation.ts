@@ -61,6 +61,12 @@ export const mainNavigation: RoleNavItem[] = [
         roles: ['DSP'],
     },
     {
+        title: 'My Compliance',
+        href: '/my-compliance',
+        icon: ShieldCheck,
+        roles: ['DSP'],
+    },
+    {
         title: 'Availability Requests',
         href: '/availability-requests',
         icon: CalendarDays,
