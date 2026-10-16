@@ -10,10 +10,13 @@ use App\Http\Requests\UpdateEmployeeRequest;
 use App\Http\Requests\UpdateEmployeeStatusRequest;
 use App\Models\Employee;
 use App\Services\ComplianceEligibilityService;
+use App\Services\EmployeeAdminHistoryService;
+use App\Services\EmployeeLifecycleService;
 use App\Services\EmployeeManagementService;
 use App\Services\ProfileCompletionService;
 use App\Services\ProfilePhotoService;
 use App\Support\DirectoryPresenter;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -33,13 +36,16 @@ class EmployeeController extends Controller
             'job_type' => $request->string('job_type')->value(),
         ];
 
+        $statusFilter = EmploymentStatus::tryFrom($filters['employment_status']);
+
         $employees = Employee::query()
             ->with('supervisor')
             ->visibleTo($user)
             ->search($filters['search'] !== '' ? $filters['search'] : null)
             ->when(
-                $filters['employment_status'] !== '' && EmploymentStatus::tryFrom($filters['employment_status']),
-                fn ($query) => $query->where('employment_status', $filters['employment_status']),
+                $statusFilter !== null,
+                fn ($query) => $query->where('employment_status', $statusFilter),
+                fn ($query) => $query->operational(),
             )
             ->when(
                 $filters['job_type'] !== '' && JobType::tryFrom($filters['job_type']),
@@ -100,16 +106,20 @@ class EmployeeController extends Controller
         ProfileCompletionService $completion,
         ProfilePhotoService $photos,
         ComplianceEligibilityService $eligibility,
+        EmployeeLifecycleService $lifecycle,
+        EmployeeAdminHistoryService $adminHistory,
     ): Response {
         $this->authorize('view', $employee);
 
         $user = $request->user();
         $includeSensitive = $user?->can('viewSensitive', $employee) ?? false;
         $canOverrideCompliance = $user?->isAdmin() ?? false;
+        $canManageLifecycle = $user?->can('manageLifecycle', $employee) ?? false;
 
         $employee->load([
             'supervisor',
             'user',
+            'statusChangedBy',
             'credentials' => fn ($query) => $query->orderByDesc('expires_on')->orderBy('name'),
             'trainings' => fn ($query) => $query->orderByDesc('completed_on')->orderBy('title'),
             'educations',
@@ -126,8 +136,20 @@ class EmployeeController extends Controller
             'credentials' => DirectoryPresenter::credentials($employee->credentials),
             'trainings' => DirectoryPresenter::trainings($employee->trainings),
             'activity' => DirectoryPresenter::employeeActivity($employee),
+            'admin_history' => $canManageLifecycle ? $adminHistory->serializeForEmployee($employee) : [],
             'profile_completion' => $completion->forEmployee($employee),
             'compliance_eligibility' => $compliance,
+            'lifecycle_options' => EmploymentStatus::options(),
+            'lifecycle_previews' => $canManageLifecycle
+                ? [
+                    'active' => $lifecycle->impactPreview($employee, EmploymentStatus::Active),
+                    'suspended' => $lifecycle->impactPreview($employee, EmploymentStatus::Suspended),
+                    'employment_ended' => $lifecycle->impactPreview($employee, EmploymentStatus::EmploymentEnded),
+                    'archived' => ($user?->can('archive', $employee) ?? false)
+                        ? $lifecycle->impactPreview($employee, EmploymentStatus::Archived)
+                        : null,
+                ]
+                : null,
             'credential_type_options' => collect(CredentialType::cases())
                 ->map(fn (CredentialType $type): array => [
                     'value' => $type->value,
@@ -137,6 +159,8 @@ class EmployeeController extends Controller
                 ->all(),
             'can' => [
                 'update' => $user?->can('update', $employee) ?? false,
+                'manage_lifecycle' => $canManageLifecycle,
+                'archive' => $user?->can('archive', $employee) ?? false,
                 'view_sensitive' => $includeSensitive,
                 'override_compliance' => $canOverrideCompliance,
                 'verify_compliance' => $user?->isAdmin() ?? false,
@@ -178,13 +202,41 @@ class EmployeeController extends Controller
         return redirect()->route('employees.show', $employee);
     }
 
-    public function updateStatus(UpdateEmployeeStatusRequest $request, Employee $employee, EmployeeManagementService $employees): RedirectResponse
-    {
-        $status = EmploymentStatus::from($request->validated('employment_status'));
-        $employees->updateStatus($employee, $status, $request->validated('terminated_on'));
+    public function updateStatus(
+        UpdateEmployeeStatusRequest $request,
+        Employee $employee,
+        EmployeeLifecycleService $lifecycle,
+    ): RedirectResponse {
+        $user = $request->user();
+        abort_unless($user !== null, 401);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Employment status updated.')]);
+        $lifecycle->transition($employee, $user, $request->validated());
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Employee lifecycle updated.')]);
 
         return redirect()->route('employees.show', $employee);
+    }
+
+    public function lifecyclePreview(
+        Request $request,
+        Employee $employee,
+        EmployeeLifecycleService $lifecycle,
+    ): JsonResponse {
+        $this->authorize('manageLifecycle', $employee);
+
+        $status = EmploymentStatus::tryFrom((string) $request->query('status', ''));
+        abort_unless($status !== null, 422);
+
+        if ($status === EmploymentStatus::Archived) {
+            $this->authorize('archive', $employee);
+        }
+
+        return response()->json(
+            $lifecycle->impactPreview(
+                $employee,
+                $status,
+                $request->query('effective_on'),
+            ),
+        );
     }
 }

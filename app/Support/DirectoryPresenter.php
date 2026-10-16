@@ -55,7 +55,7 @@ final class DirectoryPresenter
             'job_type' => $employee->job_type->value,
             'job_type_label' => $employee->job_type->label(),
             'employment_status' => $employee->employment_status->value,
-            'employment_status_label' => Str::headline($employee->employment_status->value),
+            'employment_status_label' => $employee->employment_status->label(),
             'supervisor_name' => $employee->supervisor?->full_name,
             'has_login' => $employee->user_id !== null,
             'photo_url' => $photos->employeeUrl($employee),
@@ -93,6 +93,9 @@ final class DirectoryPresenter
             'emergency_contact_phone' => $employee->emergency_contact_phone,
             'hired_on' => self::date($employee->hired_on),
             'terminated_on' => self::date($employee->terminated_on),
+            'status_reason' => $employee->status_reason,
+            'status_changed_at' => $employee->status_changed_at?->toIso8601String(),
+            'status_changed_by' => $employee->statusChangedBy?->name,
             'employment_type' => $employee->employment_type?->value,
             'preferred_shift_type' => $employee->preferred_shift_type,
             'desired_hours_per_week' => $employee->desired_hours_per_week,
@@ -227,12 +230,33 @@ final class DirectoryPresenter
             ],
         ];
 
-        if ($employee->terminated_on !== null) {
+        if ($employee->employment_status === EmploymentStatus::EmploymentEnded
+            || $employee->terminated_on !== null) {
             $items[] = [
-                'id' => 'terminated-'.$employee->id,
-                'title' => 'Terminated',
-                'detail' => 'Employment ended',
-                'occurred_on' => self::date($employee->terminated_on) ?? '',
+                'id' => 'employment-ended-'.$employee->id,
+                'title' => 'Employment Ended',
+                'detail' => $employee->status_reason ?: 'Formal end of employment',
+                'occurred_on' => self::date($employee->terminated_on)
+                    ?? self::date($employee->status_changed_at)
+                    ?? '',
+            ];
+        }
+
+        if ($employee->employment_status === EmploymentStatus::Suspended) {
+            $items[] = [
+                'id' => 'suspended-'.$employee->id,
+                'title' => 'Suspended',
+                'detail' => $employee->status_reason ?: 'Temporary suspension from service',
+                'occurred_on' => self::date($employee->status_changed_at) ?? self::date($employee->updated_at) ?? '',
+            ];
+        }
+
+        if ($employee->employment_status === EmploymentStatus::Archived) {
+            $items[] = [
+                'id' => 'archived-'.$employee->id,
+                'title' => 'Archived',
+                'detail' => $employee->status_reason ?: 'Removed from ordinary active operations',
+                'occurred_on' => self::date($employee->status_changed_at) ?? self::date($employee->updated_at) ?? '',
             ];
         }
 
@@ -476,13 +500,18 @@ final class DirectoryPresenter
             'status_label' => Str::headline($visit->status->value),
             'time_label' => self::visitTimeLabel($visit),
             'spans_overnight' => $visit->spansOvernight(),
-            'dsp_name' => $visit->employee->full_name,
+            'dsp_name' => $visit->employee?->full_name ?? ($visit->staffing_needed ? 'Staffing Needed' : null),
             'client_name' => $visit->client->full_name,
             'client_id' => $visit->client_id,
             'employee_id' => $visit->employee_id,
+            'released_employee_id' => $visit->released_employee_id,
+            'released_dsp_name' => $visit->relationLoaded('releasedEmployee')
+                ? $visit->releasedEmployee?->full_name
+                : null,
             'shift_name' => $visit->shiftTemplate?->name,
             'supervisor_name' => $visit->supervisor?->full_name,
             'needs_attention' => $visit->needs_attention,
+            'staffing_needed' => $visit->staffing_needed || $visit->employee_id === null,
             'attention_reason' => $visit->attention_reason,
             'series_id' => $visit->series_id,
             'duration_label' => $visit->relationLoaded('visit') && $visit->visit
@@ -521,10 +550,15 @@ final class DirectoryPresenter
                 'name' => $visit->client->full_name,
                 'client_number' => $visit->client->client_number,
             ],
-            'employee' => [
+            'employee' => $visit->employee === null ? null : [
                 'id' => $visit->employee->id,
                 'name' => $visit->employee->full_name,
                 'employee_number' => $visit->employee->employee_number,
+            ],
+            'released_employee' => $visit->releasedEmployee === null ? null : [
+                'id' => $visit->releasedEmployee->id,
+                'name' => $visit->releasedEmployee->full_name,
+                'employee_number' => $visit->releasedEmployee->employee_number,
             ],
             'supervisor' => $visit->supervisor === null ? null : [
                 'id' => $visit->supervisor->id,

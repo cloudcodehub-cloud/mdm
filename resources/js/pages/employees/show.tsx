@@ -30,25 +30,53 @@ import type {
     TrainingRecord,
 } from '@/types/directory';
 
+type LifecyclePreview = {
+    effective_on: string;
+    future_scheduled_count: number;
+    will_release_to_staffing_needed?: boolean;
+    active_visit?: { warning: string } | null;
+    login_consequence?: string;
+    consequences: string[];
+};
+
+type AdminHistoryRecord = {
+    id: number;
+    category: string;
+    category_label: string;
+    summary: string;
+    old_value: string | null;
+    new_value: string | null;
+    reason: string | null;
+    effective_on: string | null;
+    actor_name: string | null;
+    occurred_at_label: string | null;
+};
+
 export default function EmployeesShow({
     employee,
     credentials,
     trainings,
     activity,
+    admin_history = [],
     profile_completion,
     compliance_eligibility,
     credential_type_options = [],
+    lifecycle_previews = null,
     can,
 }: {
     employee: EmployeeDetail;
     credentials: CredentialRecord[];
     trainings: TrainingRecord[];
     activity: ActivityRecord[];
+    admin_history?: AdminHistoryRecord[];
     profile_completion: ProfileCompletion;
     compliance_eligibility: ComplianceEligibility;
     credential_type_options?: Array<{ value: string; label: string }>;
+    lifecycle_previews?: Record<string, LifecyclePreview | null> | null;
     can: {
         update: boolean;
+        manage_lifecycle?: boolean;
+        archive?: boolean;
         view_sensitive: boolean;
         override_compliance: boolean;
         verify_compliance: boolean;
@@ -107,36 +135,67 @@ export default function EmployeesShow({
                                 complianceLabel={complianceLabel}
                             />
                             {can.update ? (
-                            <>
                                 <Button asChild variant="secondary">
                                     <Link href={edit(employee.id)}>Edit</Link>
                                 </Button>
-                                {employee.employment_status !== 'active' && (
-                                    <StatusForm
-                                        employeeId={employee.id}
-                                        employeeName={employee.name}
-                                        statusValue="active"
-                                        label="Activate"
-                                    />
-                                )}
-                                {employee.employment_status === 'active' && (
-                                    <StatusForm
-                                        employeeId={employee.id}
-                                        employeeName={employee.name}
-                                        statusValue="inactive"
-                                        label="Inactivate"
-                                    />
-                                )}
-                                {employee.employment_status !== 'terminated' && (
-                                    <StatusForm
-                                        employeeId={employee.id}
-                                        employeeName={employee.name}
-                                        statusValue="terminated"
-                                        label="Terminate"
-                                        destructive
-                                    />
-                                )}
-                            </>
+                            ) : null}
+                            {can.manage_lifecycle ? (
+                                <>
+                                    {employee.employment_status !== 'active' && (
+                                        <StatusForm
+                                            employeeId={employee.id}
+                                            employeeName={employee.name}
+                                            statusValue="active"
+                                            label="Return to Active"
+                                            preview={lifecycle_previews?.active}
+                                        />
+                                    )}
+                                    {(employee.employment_status === 'active' ||
+                                        employee.employment_status ===
+                                            'suspended') && (
+                                        <>
+                                            {employee.employment_status ===
+                                                'active' && (
+                                                <StatusForm
+                                                    employeeId={employee.id}
+                                                    employeeName={employee.name}
+                                                    statusValue="suspended"
+                                                    label="Suspend"
+                                                    preview={
+                                                        lifecycle_previews?.suspended
+                                                    }
+                                                    requireReason
+                                                />
+                                            )}
+                                            <StatusForm
+                                                employeeId={employee.id}
+                                                employeeName={employee.name}
+                                                statusValue="employment_ended"
+                                                label="End Employment"
+                                                preview={
+                                                    lifecycle_previews?.employment_ended
+                                                }
+                                                requireReason
+                                                destructive
+                                            />
+                                        </>
+                                    )}
+                                    {can.archive &&
+                                        employee.employment_status !==
+                                            'archived' && (
+                                            <StatusForm
+                                                employeeId={employee.id}
+                                                employeeName={employee.name}
+                                                statusValue="archived"
+                                                label="Archive"
+                                                preview={
+                                                    lifecycle_previews?.archived
+                                                }
+                                                requireReason
+                                                destructive
+                                            />
+                                        )}
+                                </>
                             ) : null}
                         </>
                     }
@@ -150,6 +209,9 @@ export default function EmployeesShow({
                         { id: 'training', label: 'Training' },
                         { id: 'compliance', label: 'Compliance' },
                         { id: 'activity', label: 'Activity' },
+                        ...(can.manage_lifecycle
+                            ? [{ id: 'lifecycle', label: 'Lifecycle' }]
+                            : []),
                         ...(can.view_sensitive
                             ? [{ id: 'security', label: 'Security' }]
                             : []),
@@ -159,6 +221,12 @@ export default function EmployeesShow({
                 />
 
                 {tab === 'profile' && <ProfileTab employee={employee} />}
+                {tab === 'lifecycle' && can.manage_lifecycle && (
+                    <LifecycleHistoryPanel
+                        employee={employee}
+                        history={admin_history}
+                    />
+                )}
                 {tab === 'background' && <BackgroundTab employee={employee} />}
                 {tab === 'security' && can.view_sensitive && (
                     <SecurityTab employee={employee} />
@@ -598,55 +666,157 @@ function RecordTable({
     );
 }
 
+function LifecycleHistoryPanel({
+    employee,
+    history,
+}: {
+    employee: EmployeeDetail;
+    history: AdminHistoryRecord[];
+}) {
+    return (
+        <div className="grid gap-4">
+            <Panel title="Lifecycle status">
+                <dl className="grid gap-3 sm:grid-cols-2">
+                    <Item
+                        label="Status"
+                        value={employee.employment_status_label}
+                    />
+                    <Item label="Reason" value={employee.status_reason} />
+                    <Item
+                        label="Changed by"
+                        value={employee.status_changed_by}
+                    />
+                    <Item
+                        label="Employment ended on"
+                        value={employee.terminated_on}
+                    />
+                </dl>
+                <p className="text-muted-foreground mt-3 text-sm">
+                    Suspension is not account deactivation. Employment Ended is
+                    not Archive. Leave and compliance remain separate
+                    dimensions.
+                </p>
+            </Panel>
+            <Panel title="Lifecycle audit history">
+                {history.length === 0 ? (
+                    <EmptyState message="No lifecycle history recorded yet." />
+                ) : (
+                    <ul className="space-y-3">
+                        {history.map((event) => (
+                            <li
+                                key={event.id}
+                                className="border-border/60 border-b pb-3 last:border-0 last:pb-0"
+                            >
+                                <p className="text-sm font-medium">
+                                    {event.summary}
+                                </p>
+                                <p className="text-muted-foreground text-xs">
+                                    {event.category_label}
+                                    {event.old_value && event.new_value
+                                        ? ` · ${event.old_value} → ${event.new_value}`
+                                        : ''}
+                                    {event.actor_name
+                                        ? ` · ${event.actor_name}`
+                                        : ''}
+                                    {event.occurred_at_label
+                                        ? ` · ${event.occurred_at_label}`
+                                        : ''}
+                                </p>
+                                {event.reason ? (
+                                    <p className="mt-1 text-sm">{event.reason}</p>
+                                ) : null}
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </Panel>
+        </div>
+    );
+}
+
 function StatusForm({
     employeeId,
     employeeName,
     statusValue,
     label,
+    preview,
+    requireReason = false,
     destructive = false,
 }: {
     employeeId: number;
     employeeName: string;
-    statusValue: 'active' | 'inactive' | 'terminated';
+    statusValue:
+        | 'active'
+        | 'suspended'
+        | 'employment_ended'
+        | 'archived';
     label: string;
+    preview?: LifecyclePreview | null;
+    requireReason?: boolean;
     destructive?: boolean;
 }) {
-    const description =
-        statusValue === 'terminated'
-            ? `This will terminate ${employeeName}. Records stay in MDM, but they will no longer be able to sign in or start visits.`
-            : statusValue === 'inactive'
-              ? `This will inactivate ${employeeName}. They will no longer appear as available for scheduling.`
-              : `This will set ${employeeName} back to active.`;
+    const impactLines = [
+        preview
+            ? `Effective ${preview.effective_on}. ${preview.future_scheduled_count} future scheduled visit(s) affected.`
+            : null,
+        preview?.will_release_to_staffing_needed
+            ? 'Affected future assignments will move to Staffing Needed; history is preserved.'
+            : null,
+        preview?.active_visit?.warning ?? null,
+        preview?.login_consequence ?? null,
+        ...(preview?.consequences ?? []),
+    ].filter(Boolean);
 
     return (
         <ConfirmAction
             triggerLabel={label}
             triggerVariant={destructive ? 'destructive' : 'outline'}
             title={`${label} ${employeeName}?`}
-            description={description}
+            description={
+                impactLines.length > 0
+                    ? impactLines.join(' ')
+                    : `Update lifecycle status for ${employeeName}. Historical visits and attendance stay in MDM.`
+            }
             confirmLabel={label}
-            destructive={destructive || statusValue === 'inactive'}
+            destructive={destructive}
         >
-            <Form action={status.url(employeeId)} method="patch">
+            <Form
+                action={status.url(employeeId)}
+                method="patch"
+                className="space-y-3"
+            >
                 <input
                     type="hidden"
                     name="employment_status"
                     value={statusValue}
                 />
-                {statusValue === 'terminated' && (
+                {statusValue === 'employment_ended' && (
                     <input
                         type="hidden"
                         name="terminated_on"
                         value={new Date().toISOString().slice(0, 10)}
                     />
                 )}
+                {requireReason ? (
+                    <div>
+                        <label
+                            className="text-sm font-medium"
+                            htmlFor={`lifecycle-reason-${statusValue}`}
+                        >
+                            Reason
+                        </label>
+                        <textarea
+                            id={`lifecycle-reason-${statusValue}`}
+                            name="reason"
+                            required
+                            rows={2}
+                            className={`${controlClassName} mt-1 h-auto py-2`}
+                        />
+                    </div>
+                ) : null}
                 <Button
                     type="submit"
-                    variant={
-                        destructive || statusValue === 'inactive'
-                            ? 'destructive'
-                            : 'default'
-                    }
+                    variant={destructive ? 'destructive' : 'default'}
                 >
                     {label}
                 </Button>

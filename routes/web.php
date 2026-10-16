@@ -54,6 +54,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::resource('employees', EmployeeController::class)->except(['destroy']);
     Route::patch('employees/{employee}/status', [EmployeeController::class, 'updateStatus'])->name('employees.status');
+    Route::get('employees/{employee}/lifecycle-preview', [EmployeeController::class, 'lifecyclePreview'])
+        ->name('employees.lifecycle.preview');
     Route::get('employees/{employee}/photo', [ProfilePhotoController::class, 'employee'])->name('employees.photo');
     Route::delete('employees/{employee}/photo', [ProfilePhotoController::class, 'destroyEmployee'])->name('employees.photo.destroy');
 

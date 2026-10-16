@@ -108,7 +108,7 @@ class ScheduledVisitSchedulingTest extends TestCase
         $dsp = Employee::factory()->dsp()->forSupervisor($supervisor)->create();
         $otherJob = Employee::factory()->create(['job_type' => JobType::Other, 'user_id' => null]);
         $inactiveDsp = Employee::factory()->dsp()->forSupervisor($supervisor)->create([
-            'employment_status' => EmploymentStatus::Inactive,
+            'employment_status' => EmploymentStatus::Suspended,
         ]);
         $client = Client::factory()->forSupervisor($supervisor)->create();
         $inactiveClient = Client::factory()->forSupervisor($supervisor)->create([

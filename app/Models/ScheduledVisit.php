@@ -31,7 +31,8 @@ use RuntimeException;
  * @property string|null $service_postal_code
  * @property string|null $service_latitude
  * @property string|null $service_longitude
- * @property int $employee_id
+ * @property int|null $employee_id
+ * @property int|null $released_employee_id
  * @property int|null $supervisor_id
  * @property int|null $shift_template_id
  * @property Carbon $service_date
@@ -44,6 +45,7 @@ use RuntimeException;
  * @property int|null $created_by_user_id
  * @property int|null $updated_by_user_id
  * @property bool $needs_attention
+ * @property bool $staffing_needed
  * @property string|null $attention_reason
  * @property Carbon|null $cancelled_at
  * @property int|null $cancelled_by_user_id
@@ -53,8 +55,9 @@ use RuntimeException;
  * @property Carbon|null $updated_at
  * @property-read Client $client
  * @property-read ClientServiceLocation|null $serviceLocation
- * @property-read Employee $employee
- * @property-read Employee $dsp
+ * @property-read Employee|null $employee
+ * @property-read Employee|null $dsp
+ * @property-read Employee|null $releasedEmployee
  * @property-read Employee|null $supervisor
  * @property-read ShiftTemplate|null $shiftTemplate
  * @property-read ScheduledVisitSeries|null $series
@@ -80,6 +83,7 @@ use RuntimeException;
     'service_latitude',
     'service_longitude',
     'employee_id',
+    'released_employee_id',
     'supervisor_id',
     'shift_template_id',
     'service_date',
@@ -92,6 +96,7 @@ use RuntimeException;
     'created_by_user_id',
     'updated_by_user_id',
     'needs_attention',
+    'staffing_needed',
     'attention_reason',
     'cancelled_at',
     'cancelled_by_user_id',
@@ -112,6 +117,7 @@ class ScheduledVisit extends Model
             'service_date' => 'date',
             'status' => ScheduledVisitStatus::class,
             'needs_attention' => 'boolean',
+            'staffing_needed' => 'boolean',
             'cancelled_at' => 'datetime',
             'service_latitude' => 'decimal:7',
             'service_longitude' => 'decimal:7',
@@ -172,6 +178,21 @@ class ScheduledVisit extends Model
     public function dsp(): BelongsTo
     {
         return $this->belongsTo(Employee::class, 'employee_id');
+    }
+
+    /**
+     * Previous DSP retained when a visit is released to Staffing Needed.
+     *
+     * @return BelongsTo<Employee, $this>
+     */
+    public function releasedEmployee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'released_employee_id');
+    }
+
+    public function isStaffingNeeded(): bool
+    {
+        return $this->staffing_needed || $this->employee_id === null;
     }
 
     /**

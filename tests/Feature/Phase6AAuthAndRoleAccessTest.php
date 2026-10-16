@@ -79,7 +79,7 @@ class Phase6AAuthAndRoleAccessTest extends TestCase
         $employee = Employee::factory()->dsp()->create();
         $user = $employee->user()->firstOrFail();
 
-        $employee->update(['employment_status' => EmploymentStatus::Terminated]);
+        $employee->update(['employment_status' => EmploymentStatus::EmploymentEnded]);
 
         $this->actingAs($user)
             ->get(route('dashboard'))
@@ -89,7 +89,7 @@ class Phase6AAuthAndRoleAccessTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $user->id, 'role' => Role::Dsp->value]);
         $this->assertDatabaseHas('employees', [
             'id' => $employee->id,
-            'employment_status' => EmploymentStatus::Terminated->value,
+            'employment_status' => EmploymentStatus::EmploymentEnded->value,
         ]);
     }
 

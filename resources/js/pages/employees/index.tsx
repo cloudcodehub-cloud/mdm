@@ -72,10 +72,11 @@ export default function EmployeesIndex({
                             defaultValue={filters.employment_status}
                             className={controlClassName}
                         >
-                            <option value="">All statuses</option>
+                            <option value="">Operational (exclude archived)</option>
                             <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                            <option value="terminated">Terminated</option>
+                            <option value="suspended">Suspended</option>
+                            <option value="employment_ended">Employment Ended</option>
+                            <option value="archived">Archived</option>
                         </select>
                         <Button type="submit" variant="secondary">
                             Apply

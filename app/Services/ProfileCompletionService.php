@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Enums\AuthorizationStatus;
 use App\Enums\AssignmentStatus;
+use App\Enums\AuthorizationStatus;
 use App\Enums\CarePlanStatus;
 use App\Enums\ClientStatus;
 use App\Enums\CredentialType;
@@ -20,7 +20,6 @@ use App\Models\EmployeeWorkHistory;
 
 class ProfileCompletionService
 {
-
     /**
      * @return array<string, mixed>
      */
@@ -358,7 +357,10 @@ class ProfileCompletionService
      */
     public function needsAttention(array $report, EmploymentStatus|ClientStatus|null $status = null): bool
     {
-        if ($status instanceof EmploymentStatus && $status === EmploymentStatus::Terminated) {
+        if ($status instanceof EmploymentStatus && in_array($status, [
+            EmploymentStatus::EmploymentEnded,
+            EmploymentStatus::Archived,
+        ], true)) {
             return false;
         }
 

@@ -54,6 +54,16 @@ class EmployeePolicy
         return $user->isAdmin();
     }
 
+    public function manageLifecycle(User $user, Employee $employee): bool
+    {
+        return $user->isAdmin();
+    }
+
+    public function archive(User $user, Employee $employee): bool
+    {
+        return $user->isAdmin();
+    }
+
     public function overrideWeeklyAvailability(User $user, Employee $employee): bool
     {
         return $user->isAdmin() && $employee->job_type === JobType::Dsp;

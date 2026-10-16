@@ -126,6 +126,9 @@ export type EmployeeDetail = EmployeeSummary & {
     emergency_contact_phone: string | null;
     hired_on: string | null;
     terminated_on: string | null;
+    status_reason?: string | null;
+    status_changed_at?: string | null;
+    status_changed_by?: string | null;
     employment_type?: string | null;
     preferred_shift_type?: string | null;
     desired_hours_per_week?: number | null;

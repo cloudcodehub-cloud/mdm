@@ -15,8 +15,9 @@ const jobTypes = [
 
 const employmentStatuses = [
     { value: 'active', label: 'Active' },
-    { value: 'inactive', label: 'Inactive' },
-    { value: 'terminated', label: 'Terminated' },
+    { value: 'suspended', label: 'Suspended' },
+    { value: 'employment_ended', label: 'Employment Ended' },
+    { value: 'archived', label: 'Archived' },
 ];
 
 export function EmployeeForm({
@@ -157,7 +158,7 @@ export function EmployeeForm({
                                 ))}
                             </select>
                         </Field>
-                        <Field label="Terminated on" htmlFor="terminated_on" error={errors.terminated_on}>
+                        <Field label="Employment ended on" htmlFor="terminated_on" error={errors.terminated_on}>
                             <Input id="terminated_on" name="terminated_on" type="date" defaultValue={employee?.terminated_on ?? ''} />
                         </Field>
                         <Field label="Notes" htmlFor="notes" error={errors.notes}>

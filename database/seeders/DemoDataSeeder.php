@@ -58,9 +58,10 @@ use App\Models\VisitException;
 use App\Models\VisitTask;
 use App\Services\SettingsService;
 use App\Services\VisitTaskGenerator;
+use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
-use Carbon\CarbonInterface;
 
 class DemoDataSeeder extends Seeder
 {
@@ -239,7 +240,7 @@ class DemoDataSeeder extends Seeder
             'emergency_contact_relationship' => 'Sibling',
             'emergency_contact_phone' => '555-301-2098',
             'hired_on' => '2019-08-12',
-            'employment_status' => EmploymentStatus::Inactive,
+            'employment_status' => EmploymentStatus::Suspended,
             'job_title' => 'Direct Support Professional',
             'job_type' => JobType::Dsp,
             'supervisor_id' => $jordan->id,
@@ -262,7 +263,7 @@ class DemoDataSeeder extends Seeder
             'emergency_contact_phone' => '555-301-2095',
             'hired_on' => '2017-05-01',
             'terminated_on' => '2025-12-31',
-            'employment_status' => EmploymentStatus::Terminated,
+            'employment_status' => EmploymentStatus::EmploymentEnded,
             'job_title' => 'Direct Support Professional',
             'job_type' => JobType::Dsp,
             'supervisor_id' => $jordan->id,
@@ -1889,7 +1890,7 @@ class DemoDataSeeder extends Seeder
      * @param  class-string<T>  $class
      * @return T|null
      */
-    private function findSeeded(string $key, string $class): ?\Illuminate\Database\Eloquent\Model
+    private function findSeeded(string $key, string $class): ?Model
     {
         $record = DemoSeedRecord::query()->where('key', $key)->first();
 
@@ -1902,7 +1903,7 @@ class DemoDataSeeder extends Seeder
         return $model instanceof $class ? $model : null;
     }
 
-    private function remember(string $key, \Illuminate\Database\Eloquent\Model $model): void
+    private function remember(string $key, Model $model): void
     {
         DemoSeedRecord::query()->updateOrCreate(
             ['key' => $key],

@@ -66,7 +66,7 @@ trait EmployeeFormRules
             'emergency_contact_relationship' => ['nullable', 'string', 'max:100'],
             'emergency_contact_phone' => ['nullable', 'string', 'max:50'],
             'hired_on' => ['nullable', 'date'],
-            'terminated_on' => ['nullable', 'date', 'required_if:employment_status,'.EmploymentStatus::Terminated->value],
+            'terminated_on' => ['nullable', 'date', 'required_if:employment_status,'.EmploymentStatus::EmploymentEnded->value],
             'employment_status' => ['required', Rule::enum(EmploymentStatus::class)],
             'job_title' => ['nullable', 'string', 'max:255'],
             'job_type' => ['required', Rule::enum(JobType::class)],

@@ -55,7 +55,7 @@ class AccountAccessTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
-    public function test_terminated_dsp_cannot_log_in_and_records_are_preserved(): void
+    public function test_employment_ended_dsp_cannot_log_in_and_records_are_preserved(): void
     {
         $employee = Employee::factory()->dsp()->terminated()->create();
         $user = $this->userFor($employee);
@@ -70,26 +70,28 @@ class AccountAccessTest extends TestCase
         $this->assertDatabaseHas('employees', [
             'id' => $employee->id,
             'user_id' => $user->id,
-            'employment_status' => EmploymentStatus::Terminated->value,
+            'employment_status' => EmploymentStatus::EmploymentEnded->value,
         ]);
     }
 
-    public function test_inactive_dsp_cannot_log_in_and_records_are_preserved(): void
+    public function test_suspended_dsp_can_log_in_but_cannot_perform_service(): void
     {
         $employee = Employee::factory()->dsp()->inactive()->create();
         $user = $this->userFor($employee);
 
+        $this->assertSame(EmploymentStatus::Suspended, $employee->employment_status);
+        $this->assertFalse($employee->isActiveDsp());
+
         $this->post(route('login.store'), [
             'email' => $user->email,
             'password' => 'password',
-        ])->assertSessionHasErrors(['email']);
+        ])->assertRedirect(route('dashboard', absolute: false));
 
-        $this->assertGuest();
-        $this->assertDatabaseHas('users', ['id' => $user->id, 'role' => Role::Dsp->value]);
+        $this->assertAuthenticatedAs($user);
         $this->assertDatabaseHas('employees', [
             'id' => $employee->id,
             'user_id' => $user->id,
-            'employment_status' => EmploymentStatus::Inactive->value,
+            'employment_status' => EmploymentStatus::Suspended->value,
         ]);
     }
 

@@ -37,6 +37,10 @@ class EmployeeManagementService
                 ? $data['employee_number']
                 : Employee::nextEmployeeNumber();
 
+            // Decision 08-14: new employees start Active; lifecycle transitions are explicit actions.
+            $attributes['employment_status'] = EmploymentStatus::Active->value;
+            $attributes['terminated_on'] = null;
+
             $employee = Employee::query()->create($attributes);
             $this->syncLoginAccount($employee, $data, creating: true);
             $this->syncRelated($employee, $data);
@@ -59,8 +63,10 @@ class EmployeeManagementService
                 $attributes['employee_number'] = $data['employee_number'];
             }
 
+            // Lifecycle status changes go through EmployeeLifecycleService only.
+            unset($attributes['employment_status'], $attributes['terminated_on']);
+
             $employee->update($attributes);
-            $this->applyEmploymentStatus($employee, EmploymentStatus::from($data['employment_status']), $data['terminated_on'] ?? null);
             $this->syncLoginAccount($employee->fresh() ?? $employee, $data, creating: false);
             $this->syncRelated($employee->fresh() ?? $employee, $data);
             $this->attention->syncEmployee($employee->fresh() ?? $employee);
@@ -69,8 +75,23 @@ class EmployeeManagementService
         });
     }
 
-    public function updateStatus(Employee $employee, EmploymentStatus $status, ?string $terminatedOn): Employee
-    {
+    public function updateStatus(
+        Employee $employee,
+        EmploymentStatus $status,
+        ?string $terminatedOn,
+        ?User $actor = null,
+        ?string $reason = null,
+        ?string $effectiveOn = null,
+    ): Employee {
+        if ($actor !== null) {
+            return app(EmployeeLifecycleService::class)->transition($employee, $actor, [
+                'employment_status' => $status->value,
+                'reason' => $reason,
+                'effective_on' => $effectiveOn ?? $terminatedOn,
+                'terminated_on' => $terminatedOn,
+            ]);
+        }
+
         return DB::transaction(function () use ($employee, $status, $terminatedOn): Employee {
             $this->applyEmploymentStatus($employee, $status, $terminatedOn);
 
@@ -351,9 +372,9 @@ class EmployeeManagementService
 
         $employee->fill([
             'employment_status' => $status,
-            'terminated_on' => $status === EmploymentStatus::Terminated
+            'terminated_on' => $status === EmploymentStatus::EmploymentEnded
                 ? ($terminatedDate ?? now()->toDateString())
-                : null,
+                : ($status === EmploymentStatus::Active ? null : $employee->terminated_on),
         ])->save();
     }
 
@@ -467,7 +488,6 @@ class EmployeeManagementService
     }
 
     /**
-     * @param  mixed  $rows
      * @return list<array<string, mixed>>|null
      */
     private function relatedRows(mixed $rows): ?array

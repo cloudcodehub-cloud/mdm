@@ -94,18 +94,18 @@ class MessagingTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_inactive_users_cannot_be_messaged_and_are_not_listed(): void
+    public function test_employment_ended_users_cannot_be_messaged_and_are_not_listed(): void
     {
         $admin = User::factory()->admin()->create();
-        $inactive = Employee::factory()->dsp()->inactive()->create();
-        $inactive->refresh();
-        $inactiveUser = $inactive->user;
-        $this->assertNotNull($inactiveUser);
-        $this->assertSame(EmploymentStatus::Inactive, $inactive->employment_status);
+        $ended = Employee::factory()->dsp()->terminated()->create();
+        $ended->refresh();
+        $endedUser = $ended->user;
+        $this->assertNotNull($endedUser);
+        $this->assertSame(EmploymentStatus::EmploymentEnded, $ended->employment_status);
 
         $this->actingAs($admin)
             ->post(route('conversations.store'), [
-                'user_id' => $inactiveUser->id,
+                'user_id' => $endedUser->id,
                 'body' => 'Hello',
             ])
             ->assertSessionHasErrors('user_id');
@@ -115,7 +115,7 @@ class MessagingTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('recipients', fn ($recipients) => collect($recipients)->every(
-                    fn (array $recipient): bool => $recipient['id'] !== $inactiveUser->id,
+                    fn (array $recipient): bool => $recipient['id'] !== $endedUser->id,
                 ))
             );
     }

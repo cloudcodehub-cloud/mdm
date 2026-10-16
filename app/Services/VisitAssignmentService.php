@@ -2,16 +2,22 @@
 
 namespace App\Services;
 
+use App\Enums\ScheduledVisitStatus;
 use App\Enums\VisitAssignmentKind;
 use App\Models\Employee;
 use App\Models\ScheduledVisit;
 use App\Models\ScheduledVisitAssignment;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 
 class VisitAssignmentService
 {
     public function recordInitial(ScheduledVisit $visit, User $actor, ?string $reason = null): ScheduledVisitAssignment
     {
+        if ($visit->employee_id === null) {
+            throw new \InvalidArgumentException('Cannot record an assignment for a Staffing Needed visit without a DSP.');
+        }
+
         return ScheduledVisitAssignment::query()->create([
             'scheduled_visit_id' => $visit->id,
             'employee_id' => $visit->employee_id,
@@ -32,13 +38,15 @@ class VisitAssignmentService
     ): ScheduledVisit {
         $current = $visit->assignments()->whereNull('ended_at')->first();
 
-        if ($current === null) {
+        if ($current === null && $visit->employee_id !== null) {
             $current = $this->recordInitial($visit, $actor, 'Original assignment');
         }
 
         $original = $visit->employee;
 
-        $current->forceFill(['ended_at' => now()])->save();
+        if ($current !== null) {
+            $current->forceFill(['ended_at' => now()])->save();
+        }
 
         ScheduledVisitAssignment::query()->create([
             'scheduled_visit_id' => $visit->id,
@@ -51,13 +59,15 @@ class VisitAssignmentService
 
         $visit->update([
             'employee_id' => $replacement->id,
+            'released_employee_id' => null,
+            'staffing_needed' => false,
             'replacement_reason' => $reason,
             'updated_by_user_id' => $actor->id,
             'needs_attention' => false,
             'attention_reason' => null,
         ]);
 
-        if ($markCallOff) {
+        if ($markCallOff && $original !== null) {
             app(DspAvailabilityService::class)->upsertException($original, [
                 'exception_date' => $visit->service_date->toDateString(),
                 'is_available' => false,
@@ -66,6 +76,67 @@ class VisitAssignmentService
                 'note' => 'Call-off / unavailable for visit #'.$visit->id,
             ]);
         }
+
+        return $visit->fresh(['employee', 'assignments.employee', 'assignments.assignedBy']) ?? $visit;
+    }
+
+    /**
+     * Release future scheduled assignments for an employee to Staffing Needed.
+     * Preserves assignment history; does not cancel visits or invent clock-outs.
+     */
+    public function releaseFutureAssignmentsToStaffingNeeded(
+        Employee $employee,
+        User $actor,
+        string $effectiveOn,
+        string $reason,
+    ): int {
+        $visits = ScheduledVisit::query()
+            ->where('employee_id', $employee->id)
+            ->where('status', ScheduledVisitStatus::Scheduled)
+            ->whereDate('service_date', '>=', Carbon::parse($effectiveOn)->toDateString())
+            ->orderBy('service_date')
+            ->orderBy('id')
+            ->get();
+
+        $count = 0;
+
+        foreach ($visits as $visit) {
+            $this->releaseToStaffingNeeded($visit, $actor, $reason);
+            $count++;
+        }
+
+        return $count;
+    }
+
+    public function releaseToStaffingNeeded(ScheduledVisit $visit, User $actor, string $reason): ScheduledVisit
+    {
+        if ($visit->employee_id === null && $visit->staffing_needed) {
+            return $visit;
+        }
+
+        $current = $visit->assignments()->whereNull('ended_at')->first();
+
+        if ($current === null && $visit->employee_id !== null) {
+            $current = $this->recordInitial($visit, $actor, 'Original assignment before Staffing Needed release');
+        }
+
+        if ($current !== null) {
+            $current->forceFill([
+                'ended_at' => now(),
+                'reason' => trim(($current->reason ? $current->reason.' | ' : '').$reason),
+            ])->save();
+        }
+
+        $releasedEmployeeId = $visit->employee_id ?? $visit->released_employee_id;
+
+        $visit->forceFill([
+            'released_employee_id' => $releasedEmployeeId,
+            'employee_id' => null,
+            'staffing_needed' => true,
+            'needs_attention' => true,
+            'attention_reason' => 'Staffing Needed: '.$reason,
+            'updated_by_user_id' => $actor->id,
+        ])->save();
 
         return $visit->fresh(['employee', 'assignments.employee', 'assignments.assignedBy']) ?? $visit;
     }

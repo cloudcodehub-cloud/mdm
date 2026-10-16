@@ -270,12 +270,12 @@ class Phase6BAuthorizationSweepTest extends TestCase
         $this->get(route('dashboard'))->assertRedirect(route('login'));
     }
 
-    public function test_inactive_workforce_session_cannot_use_messages_or_clock_in(): void
+    public function test_employment_ended_workforce_session_cannot_use_messages_or_clock_in(): void
     {
-        $inactive = Employee::factory()->dsp()->inactive()->create();
+        $ended = Employee::factory()->dsp()->terminated()->create();
         $peer = Employee::factory()->dsp()->create()->user()->firstOrFail();
-        $scheduled = ScheduledVisit::factory()->forDsp($inactive)->create();
-        $user = $inactive->user()->firstOrFail();
+        $scheduled = ScheduledVisit::factory()->forDsp($ended)->create();
+        $user = $ended->user()->firstOrFail();
 
         $this->actingAs($user)
             ->get(route('messages.index'))
@@ -298,6 +298,27 @@ class Phase6BAuthorizationSweepTest extends TestCase
             ])
             ->assertRedirect(route('login'));
         $this->assertGuest();
+        $this->assertSame(0, Visit::query()->count());
+    }
+
+    public function test_suspended_dsp_keeps_session_but_cannot_clock_in(): void
+    {
+        $suspended = Employee::factory()->dsp()->inactive()->create();
+        $scheduled = ScheduledVisit::factory()->forDsp($suspended)->create();
+        $user = $suspended->user()->firstOrFail();
+
+        $this->actingAs($user)
+            ->get(route('messages.index'))
+            ->assertOk();
+
+        $this->actingAs($user)
+            ->post(route('scheduled-visits.clock-in', $scheduled), [
+                'location_method' => 'gps_unavailable',
+                'location_status' => 'denied',
+                'gps_fallback_reason' => 'permission_denied',
+            ])
+            ->assertForbidden();
+
         $this->assertSame(0, Visit::query()->count());
     }
 

@@ -75,18 +75,45 @@ class EmployeeFactory extends Factory
         ])->withUser(Role::Dsp);
     }
 
+    /**
+     * Legacy alias: Inactive maps to Suspended (MDM 08 lifecycle).
+     */
     public function inactive(): static
     {
+        return $this->suspended();
+    }
+
+    public function suspended(): static
+    {
         return $this->state(fn (array $attributes) => [
-            'employment_status' => EmploymentStatus::Inactive,
+            'employment_status' => EmploymentStatus::Suspended,
+            'status_reason' => 'Suspended for testing',
         ]);
     }
 
+    /**
+     * Legacy alias: Terminated maps to Employment Ended (MDM 08 lifecycle).
+     */
     public function terminated(): static
     {
+        return $this->employmentEnded();
+    }
+
+    public function employmentEnded(): static
+    {
         return $this->state(fn (array $attributes) => [
-            'employment_status' => EmploymentStatus::Terminated,
+            'employment_status' => EmploymentStatus::EmploymentEnded,
             'terminated_on' => now()->toDateString(),
+            'status_reason' => 'Employment ended for testing',
+        ]);
+    }
+
+    public function archived(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'employment_status' => EmploymentStatus::Archived,
+            'terminated_on' => now()->toDateString(),
+            'status_reason' => 'Archived for testing',
         ]);
     }
 

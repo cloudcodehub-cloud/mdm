@@ -47,6 +47,9 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $hired_on
  * @property Carbon|null $terminated_on
  * @property EmploymentStatus $employment_status
+ * @property string|null $status_reason
+ * @property Carbon|null $status_changed_at
+ * @property int|null $status_changed_by_user_id
  * @property string|null $job_title
  * @property EmploymentType|null $employment_type
  * @property string|null $preferred_shift_type
@@ -100,9 +103,12 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, EmployeeWorkHistory> $workHistories
  * @property-read Collection<int, EmployeeSecurityIncident> $securityIncidents
  * @property-read Collection<int, EmployeeTimeOff> $timeOff
+ * @property-read Collection<int, EmployeeAdminHistoryEvent> $adminHistoryEvents
+ * @property-read User|null $statusChangedBy
  *
  * @method static Builder<static> visibleTo(User $user)
  * @method static Builder<static> search(?string $term)
+ * @method static Builder<static> operational()
  */
 #[Fillable([
     'employee_number',
@@ -131,6 +137,9 @@ use Illuminate\Support\Carbon;
     'hired_on',
     'terminated_on',
     'employment_status',
+    'status_reason',
+    'status_changed_at',
+    'status_changed_by_user_id',
     'job_title',
     'employment_type',
     'preferred_shift_type',
@@ -188,6 +197,7 @@ class Employee extends Model
             'hired_on' => 'date',
             'terminated_on' => 'date',
             'employment_status' => EmploymentStatus::class,
+            'status_changed_at' => 'datetime',
             'job_type' => JobType::class,
             'employment_type' => EmploymentType::class,
             'desired_hours_per_week' => 'integer',
@@ -394,13 +404,45 @@ class Employee extends Model
     public function isActiveDsp(): bool
     {
         return $this->job_type === JobType::Dsp
-            && $this->employment_status === EmploymentStatus::Active;
+            && $this->employment_status->allowsService();
     }
 
     public function isActiveSupervisor(): bool
     {
         return $this->job_type === JobType::Supervisor
-            && $this->employment_status === EmploymentStatus::Active;
+            && $this->employment_status->allowsService();
+    }
+
+    public function canPerformService(): bool
+    {
+        return $this->employment_status->allowsService();
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function statusChangedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'status_changed_by_user_id');
+    }
+
+    /**
+     * @return HasMany<EmployeeAdminHistoryEvent, $this>
+     */
+    public function adminHistoryEvents(): HasMany
+    {
+        return $this->hasMany(EmployeeAdminHistoryEvent::class)->orderByDesc('created_at')->orderByDesc('id');
+    }
+
+    /**
+     * Ordinary operational directories exclude Archived employees.
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeOperational(Builder $query): Builder
+    {
+        return $query->where('employment_status', '!=', EmploymentStatus::Archived);
     }
 
     public function hasPhoto(): bool

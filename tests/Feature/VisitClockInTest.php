@@ -143,17 +143,19 @@ class VisitClockInTest extends TestCase
         $this->assertTrue(Gate::forUser($inactive->user()->firstOrFail())->denies('clockIn', $inactiveVisit));
         $this->assertTrue(Gate::forUser($terminated->user()->firstOrFail())->denies('clockIn', $terminatedVisit));
 
+        // Suspended retains login but cannot perform service (policy denies clock-in).
         $this->actingAs($inactive->user()->firstOrFail())
             ->post(route('scheduled-visits.clock-in', $inactiveVisit), $this->unavailablePayload())
-            ->assertRedirect(route('login'));
+            ->assertForbidden();
 
+        // Employment Ended deactivates login access.
         $this->actingAs($terminated->user()->firstOrFail())
             ->post(route('scheduled-visits.clock-in', $terminatedVisit), $this->unavailablePayload())
             ->assertRedirect(route('login'));
 
         $this->assertSame(0, Visit::query()->count());
-        $this->assertContains($inactive->employment_status, [EmploymentStatus::Inactive]);
-        $this->assertSame(EmploymentStatus::Terminated, $terminated->employment_status);
+        $this->assertContains($inactive->employment_status, [EmploymentStatus::Suspended]);
+        $this->assertSame(EmploymentStatus::EmploymentEnded, $terminated->employment_status);
     }
 
     public function test_second_active_visit_is_blocked(): void

@@ -70,6 +70,8 @@ export function StatusBadge({
               : status === 'pending'
                 ? 'bg-status-info/10 text-status-info'
                 : status === 'terminated' ||
+                    status === 'employment_ended' ||
+                    status === 'archived' ||
                     status === 'discharged' ||
                     status === 'cancelled' ||
                     status === 'revoked' ||
@@ -77,9 +79,11 @@ export function StatusBadge({
                     status === 'late' ||
                     status === 'exception'
                   ? 'bg-destructive/10 text-destructive'
-                  : status === 'resolved'
-                    ? 'bg-status-success/10 text-status-success'
-                    : 'bg-status-warning/10 text-status-warning';
+                  : status === 'suspended'
+                    ? 'bg-status-warning/10 text-status-warning'
+                    : status === 'resolved'
+                      ? 'bg-status-success/10 text-status-success'
+                      : 'bg-status-warning/10 text-status-warning';
 
     return (
         <span

@@ -48,11 +48,11 @@ class EmployeeTest extends TestCase
     {
         $employee = Employee::factory()->terminated()->create();
 
-        $this->assertSame(EmploymentStatus::Terminated, $employee->employment_status);
+        $this->assertSame(EmploymentStatus::EmploymentEnded, $employee->employment_status);
         $this->assertNotNull($employee->terminated_on);
         $this->assertDatabaseHas('employees', [
             'id' => $employee->id,
-            'employment_status' => EmploymentStatus::Terminated->value,
+            'employment_status' => EmploymentStatus::EmploymentEnded->value,
         ]);
 
         $employee->delete();

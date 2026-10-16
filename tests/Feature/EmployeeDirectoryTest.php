@@ -74,22 +74,23 @@ class EmployeeDirectoryTest extends TestCase
                 'last_name' => 'Updated',
                 'email' => $employee->email,
                 'job_type' => JobType::Dsp->value,
-                'employment_status' => EmploymentStatus::Inactive->value,
+                'employment_status' => EmploymentStatus::Active->value,
             ])
             ->assertRedirect(route('employees.show', $employee));
 
         $this->assertSame('Updated', $employee->fresh()?->last_name);
-        $this->assertSame(EmploymentStatus::Inactive, $employee->fresh()?->employment_status);
+        $this->assertSame(EmploymentStatus::Active, $employee->fresh()?->employment_status);
 
         $this->actingAs($admin)
             ->patch(route('employees.status', $employee), [
-                'employment_status' => EmploymentStatus::Terminated->value,
+                'employment_status' => EmploymentStatus::EmploymentEnded->value,
+                'reason' => 'Voluntary resignation',
                 'terminated_on' => '2026-09-10',
             ])
             ->assertRedirect(route('employees.show', $employee));
 
         $employee->refresh();
-        $this->assertSame(EmploymentStatus::Terminated, $employee->employment_status);
+        $this->assertSame(EmploymentStatus::EmploymentEnded, $employee->employment_status);
         $this->assertSame('2026-09-10', $employee->terminated_on?->toDateString());
         $this->assertDatabaseHas('employees', ['id' => $employee->id]);
     }

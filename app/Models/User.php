@@ -154,7 +154,10 @@ class User extends Authenticatable implements PasskeyUser
             $builder->where('role', Role::Admin)
                 ->orWhereHas(
                     'employee',
-                    fn (Builder $employee) => $employee->where('employment_status', EmploymentStatus::Active),
+                    fn (Builder $employee) => $employee->whereIn('employment_status', [
+                        EmploymentStatus::Active,
+                        EmploymentStatus::Suspended,
+                    ]),
                 );
         });
     }

@@ -82,7 +82,10 @@ class ProfileAttentionService
 
         foreach (Employee::query()
             ->visibleTo($user)
-            ->where('employment_status', '!=', EmploymentStatus::Terminated)
+            ->whereNotIn('employment_status', [
+                EmploymentStatus::EmploymentEnded,
+                EmploymentStatus::Archived,
+            ])
             ->with(['credentials', 'educations', 'personalReferences', 'workHistories', 'weeklyAvailabilities', 'user'])
             ->orderBy('last_name')
             ->get() as $employee) {

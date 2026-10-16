@@ -14,8 +14,19 @@ class UpdateEmployeeStatusRequest extends FormRequest
     {
         $employee = $this->route('employee');
 
-        return $employee instanceof Employee
-            && ($this->user()?->can('update', $employee) ?? false);
+        if (! $employee instanceof Employee) {
+            return false;
+        }
+
+        $status = EmploymentStatus::tryFrom((string) (
+            $this->input('employment_status') ?? $this->input('status') ?? ''
+        ));
+
+        if ($status === EmploymentStatus::Archived) {
+            return $this->user()?->can('archive', $employee) ?? false;
+        }
+
+        return $this->user()?->can('manageLifecycle', $employee) ?? false;
     }
 
     /**
@@ -23,9 +34,29 @@ class UpdateEmployeeStatusRequest extends FormRequest
      */
     public function rules(): array
     {
+        $status = EmploymentStatus::tryFrom((string) (
+            $this->input('employment_status') ?? $this->input('status') ?? ''
+        ));
+        $requiresReason = in_array($status, [
+            EmploymentStatus::Suspended,
+            EmploymentStatus::EmploymentEnded,
+            EmploymentStatus::Archived,
+        ], true);
+
         return [
             'employment_status' => ['required', Rule::enum(EmploymentStatus::class)],
-            'terminated_on' => ['nullable', 'date', 'required_if:employment_status,'.EmploymentStatus::Terminated->value],
+            'reason' => [$requiresReason ? 'required' : 'nullable', 'string', 'max:1000'],
+            'effective_on' => ['nullable', 'date'],
+            'terminated_on' => ['nullable', 'date'],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if (! $this->filled('employment_status') && $this->filled('status')) {
+            $this->merge([
+                'employment_status' => $this->input('status'),
+            ]);
+        }
     }
 }

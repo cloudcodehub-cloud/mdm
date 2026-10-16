@@ -29,7 +29,7 @@ class ScheduleCalendarService
         };
 
         $visits = ScheduledVisit::query()
-            ->with(['client', 'employee', 'supervisor', 'shiftTemplate', 'careServices'])
+            ->with(['client', 'employee', 'releasedEmployee', 'supervisor', 'shiftTemplate', 'careServices'])
             ->visibleTo($user)
             ->whereDate('service_date', '>=', $start->toDateString())
             ->whereDate('service_date', '<=', $end->toDateString())
@@ -60,12 +60,16 @@ class ScheduleCalendarService
         $rows = [];
 
         foreach ($visits as $visit) {
-            $key = $group === 'client' ? 'c-'.$visit->client_id : 'e-'.$visit->employee_id;
-            $name = $group === 'client' ? $visit->client->full_name : $visit->employee->full_name;
+            $key = $group === 'client'
+                ? 'c-'.$visit->client_id
+                : 'e-'.($visit->employee_id ?? 'staffing');
+            $name = $group === 'client'
+                ? $visit->client->full_name
+                : ($visit->employee?->full_name ?? 'Staffing Needed');
 
             if (! isset($rows[$key])) {
                 $rows[$key] = [
-                    'id' => $group === 'client' ? $visit->client_id : $visit->employee_id,
+                    'id' => $group === 'client' ? $visit->client_id : ($visit->employee_id ?? 0),
                     'name' => $name,
                     'visits' => [],
                 ];
@@ -75,7 +79,7 @@ class ScheduleCalendarService
                 ...DirectoryPresenter::scheduledVisitSummary($visit),
                 'starts_minute' => $this->minute($visit, true),
                 'ends_minute' => $this->minute($visit, false),
-                'needs_attention' => $visit->needs_attention,
+                'needs_attention' => $visit->needs_attention || $visit->staffing_needed,
             ];
         }
 
