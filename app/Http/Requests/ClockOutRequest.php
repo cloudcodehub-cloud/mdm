@@ -45,6 +45,7 @@ class ClockOutRequest extends FormRequest
         $merge = [
             'acknowledge_unfinished_required' => $this->boolean('acknowledge_unfinished_required'),
             'discard_incident_draft' => $this->boolean('discard_incident_draft'),
+            'submit_incident_draft' => $this->boolean('submit_incident_draft'),
         ];
 
         if ($this->exists('visit_notes')) {
@@ -88,11 +89,20 @@ class ClockOutRequest extends FormRequest
             'extended_visit_reason' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'acknowledge_unfinished_required' => ['sometimes', 'boolean'],
             'discard_incident_draft' => ['sometimes', 'boolean'],
+            'submit_incident_draft' => ['sometimes', 'boolean'],
         ];
     }
 
     public function withValidator(Validator $validator): void
     {
+        $validator->after(function (Validator $validator): void {
+            if ($this->boolean('submit_incident_draft') && $this->boolean('discard_incident_draft')) {
+                $validator->errors()->add(
+                    'incident_draft',
+                    'Choose either submit or discard for the unfinished Incident draft, not both.',
+                );
+            }
+        });
         $validator->after(fn (Validator $validator) => $this->afterLocationAttestation($validator));
     }
 }

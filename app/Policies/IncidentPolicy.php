@@ -102,6 +102,31 @@ class IncidentPolicy
         return false;
     }
 
+    public function amend(User $user, Incident $incident): bool
+    {
+        if (! $incident->status->isFormal() || $incident->status === IncidentStatus::Closed) {
+            return false;
+        }
+
+        $isReporter = $user->isDsp()
+            && $user->employee !== null
+            && $incident->reporter_employee_id === $user->employee->id;
+
+        return $isReporter || $this->manage($user, $incident);
+    }
+
+    public function close(User $user, Incident $incident): bool
+    {
+        return $this->manage($user, $incident)
+            && $incident->status !== IncidentStatus::Closed
+            && $incident->status !== IncidentStatus::Draft;
+    }
+
+    public function reopen(User $user, Incident $incident): bool
+    {
+        return $user->isAdmin() && $incident->status === IncidentStatus::Closed;
+    }
+
     private function ownsDraft(User $user, Incident $incident): bool
     {
         return $user->isDsp()

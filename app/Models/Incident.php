@@ -77,6 +77,9 @@ use Illuminate\Support\Carbon;
     'original_subcategory',
     'official_category',
     'official_subcategory',
+    'finding',
+    'cause_contributing_factors',
+    'prevention_plan',
     'summary',
     'immediate_action',
     'injured',
@@ -84,6 +87,7 @@ use Illuminate\Support\Carbon;
     'injury_body_location',
     'injury_medical_check',
     'injury_notes',
+    'injury_occurred_at',
     'intervention',
     'intervention_type',
     'intervention_started_at',
@@ -100,6 +104,15 @@ use Illuminate\Support\Carbon;
     'acknowledged_at',
     'acknowledged_by_user_id',
     'acknowledgment_overdue_notified_at',
+    'closed_at',
+    'closed_by_user_id',
+    'closure_note',
+    'original_closed_at',
+    'original_closed_by_user_id',
+    'original_closure_note',
+    'reopened_at',
+    'reopened_by_user_id',
+    'reopen_reason',
     'discarded_at',
     'discarded_by_user_id',
 ])]
@@ -119,6 +132,7 @@ class Incident extends Model
             'injured' => 'boolean',
             'intervention' => 'boolean',
             'supervisor_notified' => 'boolean',
+            'injury_occurred_at' => 'datetime',
             'intervention_started_at' => 'datetime',
             'intervention_stopped_at' => 'datetime',
             'location_method' => ClockInLocationMethod::class,
@@ -126,6 +140,9 @@ class Incident extends Model
             'submitted_at' => 'datetime',
             'acknowledged_at' => 'datetime',
             'acknowledgment_overdue_notified_at' => 'datetime',
+            'closed_at' => 'datetime',
+            'original_closed_at' => 'datetime',
+            'reopened_at' => 'datetime',
             'discarded_at' => 'datetime',
         ];
     }
@@ -184,6 +201,62 @@ class Incident extends Model
     public function historyEvents(): HasMany
     {
         return $this->hasMany(IncidentHistoryEvent::class)->orderBy('id');
+    }
+
+    /**
+     * @return HasMany<IncidentParty, $this>
+     */
+    public function parties(): HasMany
+    {
+        return $this->hasMany(IncidentParty::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * @return HasMany<IncidentReview, $this>
+     */
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(IncidentReview::class)->orderBy('id');
+    }
+
+    /**
+     * @return HasMany<IncidentFollowUp, $this>
+     */
+    public function followUps(): HasMany
+    {
+        return $this->hasMany(IncidentFollowUp::class)->orderBy('id');
+    }
+
+    /**
+     * @return HasMany<IncidentReportingRecord, $this>
+     */
+    public function reportingRecords(): HasMany
+    {
+        return $this->hasMany(IncidentReportingRecord::class)->orderBy('id');
+    }
+
+    /**
+     * @return HasMany<IncidentAmendment, $this>
+     */
+    public function amendments(): HasMany
+    {
+        return $this->hasMany(IncidentAmendment::class)->orderBy('id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function closedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'closed_by_user_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function reopenedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reopened_by_user_id');
     }
 
     /**

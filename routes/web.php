@@ -136,6 +136,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('documents.completed-visit.preview');
     Route::get('visits/{visit}/documents/completed-visit/download', [DocumentController::class, 'completedVisitPdf'])
         ->name('documents.completed-visit.pdf');
+    Route::get('incidents/{incident}/documents/submitted', [DocumentController::class, 'incidentSubmittedPreview'])
+        ->name('documents.incident-submitted.preview');
+    Route::get('incidents/{incident}/documents/submitted/download', [DocumentController::class, 'incidentSubmittedPdf'])
+        ->name('documents.incident-submitted.pdf');
+    Route::get('incidents/{incident}/documents/final', [DocumentController::class, 'incidentFinalPreview'])
+        ->name('documents.incident-final.preview');
+    Route::get('incidents/{incident}/documents/final/download', [DocumentController::class, 'incidentFinalPdf'])
+        ->name('documents.incident-final.pdf');
     Route::get('reports/hours-attendance/documents', [DocumentController::class, 'hoursAttendancePreview'])
         ->name('documents.hours-attendance.preview');
     Route::get('reports/hours-attendance/documents/download', [DocumentController::class, 'hoursAttendancePdf'])
@@ -167,6 +175,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('incidents/{incident}/discard', [IncidentController::class, 'discard'])->name('incidents.discard');
     Route::post('incidents/{incident}/acknowledge', [IncidentController::class, 'acknowledge'])
         ->name('incidents.acknowledge');
+    Route::patch('incidents/{incident}/classification', [IncidentController::class, 'updateClassification'])
+        ->name('incidents.classification.update');
+    Route::post('incidents/{incident}/reviews', [IncidentController::class, 'storeReview'])
+        ->name('incidents.reviews.store');
+    Route::patch('incidents/{incident}/investigation', [IncidentController::class, 'updateInvestigation'])
+        ->name('incidents.investigation.update');
+    Route::post('incidents/{incident}/follow-ups', [IncidentController::class, 'storeFollowUp'])
+        ->name('incidents.follow-ups.store');
+    Route::post('incidents/follow-ups/{incident_follow_up}/complete', [IncidentController::class, 'completeFollowUp'])
+        ->name('incidents.follow-ups.complete');
+    Route::patch('incidents/follow-ups/{incident_follow_up}/reassign', [IncidentController::class, 'reassignFollowUp'])
+        ->name('incidents.follow-ups.reassign');
+    Route::post('incidents/{incident}/reporting-records', [IncidentController::class, 'storeReportingRecord'])
+        ->name('incidents.reporting-records.store');
+    Route::post('incidents/{incident}/amendments', [IncidentController::class, 'storeAmendment'])
+        ->name('incidents.amendments.store');
+    Route::post('incidents/{incident}/close', [IncidentController::class, 'close'])->name('incidents.close');
+    Route::post('incidents/{incident}/reopen', [IncidentController::class, 'reopen'])->name('incidents.reopen');
     Route::get('visit-exceptions', [VisitExceptionController::class, 'index'])->name('visit-exceptions.index');
     Route::get('visit-exceptions/{visit_exception}', [VisitExceptionController::class, 'show'])->name('visit-exceptions.show');
     Route::patch('visit-exceptions/{visit_exception}/review', [VisitExceptionController::class, 'review'])->name('visit-exceptions.review');

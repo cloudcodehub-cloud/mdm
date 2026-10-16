@@ -1,50 +1,50 @@
-import { router, useForm, usePage } from '@inertiajs/react';
-import { MapPin } from 'lucide-react';
-import { useState } from 'react';
-import InputError from '@/components/input-error';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import { clockOut } from '@/routes/visits';
-import type { GpsFallbackReasonOption } from '@/types/dashboard';
-import type { ActiveVisitRecord } from '@/types/visit';
+import { router, useForm, usePage } from "@inertiajs/react";
+import { MapPin } from "lucide-react";
+import { useState } from "react";
+import InputError from "@/components/input-error";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { clockOut } from "@/routes/visits";
+import type { GpsFallbackReasonOption } from "@/types/dashboard";
+import type { ActiveVisitRecord } from "@/types/visit";
 
-type LocationStatus = 'captured' | 'denied' | 'unavailable' | 'unsupported';
+type LocationStatus = "captured" | "denied" | "unavailable" | "unsupported";
 
 const DEFAULT_GPS_FALLBACK_REASONS: GpsFallbackReasonOption[] = [
     {
-        value: 'permission_denied',
-        label: 'Location permission unavailable',
+        value: "permission_denied",
+        label: "Location permission unavailable",
         requires_note: false,
     },
     {
-        value: 'gps_unavailable',
-        label: 'GPS/location service unavailable',
+        value: "gps_unavailable",
+        label: "GPS/location service unavailable",
         requires_note: false,
     },
     {
-        value: 'poor_signal',
-        label: 'Poor/no signal',
+        value: "poor_signal",
+        label: "Poor/no signal",
         requires_note: false,
     },
     {
-        value: 'device_issue',
-        label: 'Device issue',
+        value: "device_issue",
+        label: "Device issue",
         requires_note: false,
     },
     {
-        value: 'indoor_accuracy',
-        label: 'Indoor/location accuracy issue',
+        value: "indoor_accuracy",
+        label: "Indoor/location accuracy issue",
         requires_note: false,
     },
     {
-        value: 'app_technical_issue',
-        label: 'MDM/app technical issue',
+        value: "app_technical_issue",
+        label: "MDM/app technical issue",
         requires_note: false,
     },
     {
-        value: 'other',
-        label: 'Other',
+        value: "other",
+        label: "Other",
         requires_note: true,
     },
 ];
@@ -65,27 +65,28 @@ export function VisitClockOutReview({
     const reasons = gpsFallbackReasons ?? DEFAULT_GPS_FALLBACK_REASONS;
     const hasIncidentDraft = Boolean(visit.incidents?.has_unresolved_draft);
     const form = useForm({
-        gps_fallback_reason: '',
-        gps_fallback_note: '',
-        location_status: 'unavailable' as LocationStatus,
-        visit_notes: visit.visit_notes ?? '',
-        handover_note: visit.handover_note ?? '',
-        extended_visit_reason: visit.extended_visit_reason ?? '',
+        gps_fallback_reason: "",
+        gps_fallback_note: "",
+        location_status: "unavailable" as LocationStatus,
+        visit_notes: visit.visit_notes ?? "",
+        handover_note: visit.handover_note ?? "",
+        extended_visit_reason: visit.extended_visit_reason ?? "",
         acknowledge_unfinished_required: false,
         discard_incident_draft: false,
+        submit_incident_draft: false,
     });
 
     const selectedReason = reasons.find(
         (reason) => reason.value === form.data.gps_fallback_reason,
     );
-    const skipped = visit.tasks.filter((task) => task.status === 'skipped');
+    const skipped = visit.tasks.filter((task) => task.status === "skipped");
     const pendingRequired = visit.task_summary.pending_required;
 
     const postClockOut = (payload: {
         latitude?: number | null;
         longitude?: number | null;
         accuracy?: number | null;
-        location_method: 'browser_gps' | 'gps_unavailable';
+        location_method: "browser_gps" | "gps_unavailable";
         location_status: LocationStatus;
         gps_fallback_reason?: string | null;
         gps_fallback_note?: string | null;
@@ -98,6 +99,7 @@ export function VisitClockOutReview({
             acknowledge_unfinished_required:
                 form.data.acknowledge_unfinished_required,
             discard_incident_draft: form.data.discard_incident_draft,
+            submit_incident_draft: form.data.submit_incident_draft,
         });
     };
 
@@ -105,7 +107,7 @@ export function VisitClockOutReview({
         setLocating(true);
 
         if (!navigator.geolocation) {
-            form.setData('location_status', 'unsupported');
+            form.setData("location_status", "unsupported");
             setNeedsAttestation(true);
             setLocating(false);
             return;
@@ -117,8 +119,8 @@ export function VisitClockOutReview({
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude,
                     accuracy: position.coords.accuracy ?? null,
-                    location_method: 'browser_gps',
-                    location_status: 'captured',
+                    location_method: "browser_gps",
+                    location_status: "captured",
                 });
                 setLocating(false);
             },
@@ -127,11 +129,11 @@ export function VisitClockOutReview({
                     ...data,
                     location_status:
                         error.code === error.PERMISSION_DENIED
-                            ? 'denied'
-                            : 'unavailable',
+                            ? "denied"
+                            : "unavailable",
                     gps_fallback_reason:
                         error.code === error.PERMISSION_DENIED
-                            ? 'permission_denied'
+                            ? "permission_denied"
                             : data.gps_fallback_reason,
                 }));
                 setNeedsAttestation(true);
@@ -175,22 +177,22 @@ export function VisitClockOutReview({
                     label="Skipped items"
                     value={
                         skipped.length === 0
-                            ? 'None'
+                            ? "None"
                             : skipped
                                   .map(
                                       (task) =>
-                                          `${task.title}${task.skip_reason_name ? ` (${task.skip_reason_name})` : ''}`,
+                                          `${task.title}${task.skip_reason_name ? ` (${task.skip_reason_name})` : ""}`,
                                   )
-                                  .join('; ')
+                                  .join("; ")
                     }
                 />
                 <ReviewItem
                     label="Visit notes"
-                    value={form.data.visit_notes || 'None'}
+                    value={form.data.visit_notes || "None"}
                 />
                 <ReviewItem
                     label="Wrap-up / handover"
-                    value={form.data.handover_note || 'Required — add above'}
+                    value={form.data.handover_note || "Required — add above"}
                 />
                 <ReviewItem
                     label="Clock-in location"
@@ -230,7 +232,7 @@ export function VisitClockOutReview({
                         value={form.data.extended_visit_reason}
                         onChange={(event) =>
                             form.setData(
-                                'extended_visit_reason',
+                                "extended_visit_reason",
                                 event.target.value,
                             )
                         }
@@ -254,17 +256,41 @@ export function VisitClockOutReview({
                         An unfinished Incident draft is still open.
                     </p>
                     <p className="text-muted-foreground mt-1 text-sm">
-                        Submit or review the Incident above, or confirm discard
-                        here to clock out without formally reporting it.
+                        Choose Submit & Clock Out to formally report the stored
+                        draft, or confirm discard to clock out without reporting
+                        it.
                     </p>
                     <label className="mt-3 flex items-start gap-2 text-sm">
                         <Checkbox
+                            checked={form.data.submit_incident_draft}
+                            onCheckedChange={(checked) =>
+                                form.setData((data) => ({
+                                    ...data,
+                                    submit_incident_draft: checked === true,
+                                    discard_incident_draft:
+                                        checked === true
+                                            ? false
+                                            : data.discard_incident_draft,
+                                }))
+                            }
+                        />
+                        <span>
+                            Submit Incident draft and clock out (Submit & Clock
+                            Out).
+                        </span>
+                    </label>
+                    <label className="mt-2 flex items-start gap-2 text-sm">
+                        <Checkbox
                             checked={form.data.discard_incident_draft}
                             onCheckedChange={(checked) =>
-                                form.setData(
-                                    'discard_incident_draft',
-                                    checked === true,
-                                )
+                                form.setData((data) => ({
+                                    ...data,
+                                    discard_incident_draft: checked === true,
+                                    submit_incident_draft:
+                                        checked === true
+                                            ? false
+                                            : data.submit_incident_draft,
+                                }))
                             }
                         />
                         <span>
@@ -283,7 +309,7 @@ export function VisitClockOutReview({
                 <div className="rounded-xl border border-amber-500/30 bg-amber-50/70 p-3 dark:bg-amber-950/20">
                     <p className="text-sm font-medium">
                         {pendingRequired} required task
-                        {pendingRequired === 1 ? '' : 's'} still unfinished.
+                        {pendingRequired === 1 ? "" : "s"} still unfinished.
                     </p>
                     <p className="text-muted-foreground mt-1 text-sm">
                         Clocking out will leave them unfinished and create a
@@ -295,7 +321,7 @@ export function VisitClockOutReview({
                             checked={form.data.acknowledge_unfinished_required}
                             onCheckedChange={(checked) =>
                                 form.setData(
-                                    'acknowledge_unfinished_required',
+                                    "acknowledge_unfinished_required",
                                     checked === true,
                                 )
                             }
@@ -324,13 +350,19 @@ export function VisitClockOutReview({
                             (visit.requires_extended_visit_reason &&
                                 !form.data.extended_visit_reason) ||
                             (hasIncidentDraft &&
+                                !form.data.submit_incident_draft &&
                                 !form.data.discard_incident_draft) ||
                             (pendingRequired > 0 &&
                                 !form.data.acknowledge_unfinished_required)
                         }
                     >
                         <MapPin className="size-4" />
-                        {locating ? 'Getting location…' : 'Clock out'}
+                        {locating
+                            ? "Getting location…"
+                            : hasIncidentDraft &&
+                                form.data.submit_incident_draft
+                              ? "Submit & Clock Out"
+                              : "Clock out"}
                     </Button>
                     <Button
                         type="button"
@@ -349,7 +381,7 @@ export function VisitClockOutReview({
                             latitude: null,
                             longitude: null,
                             accuracy: null,
-                            location_method: 'gps_unavailable',
+                            location_method: "gps_unavailable",
                             location_status: form.data.location_status,
                             gps_fallback_reason: form.data.gps_fallback_reason,
                             gps_fallback_note: selectedReason?.requires_note
@@ -372,7 +404,7 @@ export function VisitClockOutReview({
                             value={form.data.gps_fallback_reason}
                             onChange={(event) =>
                                 form.setData(
-                                    'gps_fallback_reason',
+                                    "gps_fallback_reason",
                                     event.target.value,
                                 )
                             }
@@ -404,7 +436,7 @@ export function VisitClockOutReview({
                                 value={form.data.gps_fallback_note}
                                 onChange={(event) =>
                                     form.setData(
-                                        'gps_fallback_note',
+                                        "gps_fallback_note",
                                         event.target.value,
                                     )
                                 }

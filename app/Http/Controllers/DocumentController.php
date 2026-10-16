@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\IncidentStatus;
 use App\Enums\ReportType;
 use App\Http\Requests\ViewReportRequest;
+use App\Models\Incident;
 use App\Models\ScheduledVisit;
 use App\Models\User;
 use App\Models\Visit;
@@ -61,6 +63,52 @@ class DocumentController extends Controller
         $this->authorize('view', $visit);
 
         return $this->renderer->download($this->documents->completedVisit($visit, $user));
+    }
+
+    public function incidentSubmittedPreview(Request $request, Incident $incident): Response
+    {
+        $user = $this->viewer($request);
+        $this->authorize('view', $incident);
+        abort_unless($incident->status->isFormal(), 404);
+        $document = $this->documents->incidentSubmitted($incident, $user);
+
+        return $this->renderer->preview(
+            $document,
+            route('incidents.show', $incident),
+            route('documents.incident-submitted.pdf', $incident),
+        );
+    }
+
+    public function incidentSubmittedPdf(Request $request, Incident $incident): SymfonyResponse
+    {
+        $user = $this->viewer($request);
+        $this->authorize('view', $incident);
+        abort_unless($incident->status->isFormal(), 404);
+
+        return $this->renderer->download($this->documents->incidentSubmitted($incident, $user));
+    }
+
+    public function incidentFinalPreview(Request $request, Incident $incident): Response
+    {
+        $user = $this->viewer($request);
+        $this->authorize('manage', $incident);
+        abort_unless($incident->status === IncidentStatus::Closed, 404);
+        $document = $this->documents->incidentFinal($incident, $user);
+
+        return $this->renderer->preview(
+            $document,
+            route('incidents.show', $incident),
+            route('documents.incident-final.pdf', $incident),
+        );
+    }
+
+    public function incidentFinalPdf(Request $request, Incident $incident): SymfonyResponse
+    {
+        $user = $this->viewer($request);
+        $this->authorize('manage', $incident);
+        abort_unless($incident->status === IncidentStatus::Closed, 404);
+
+        return $this->renderer->download($this->documents->incidentFinal($incident, $user));
     }
 
     public function hoursAttendancePreview(ViewReportRequest $request, SettingsService $settings): Response

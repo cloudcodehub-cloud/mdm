@@ -84,7 +84,18 @@ class VisitClockOutService
             $draft = $this->incidents->activeDraftForVisit($visit);
 
             if ($draft !== null) {
-                if ((bool) ($payload['discard_incident_draft'] ?? false)) {
+                $submitDraft = (bool) ($payload['submit_incident_draft'] ?? false);
+                $discardDraft = (bool) ($payload['discard_incident_draft'] ?? false);
+
+                if ($submitDraft && $discardDraft) {
+                    throw ValidationException::withMessages([
+                        'incident_draft' => 'Choose either submit or discard for the unfinished Incident draft, not both.',
+                    ]);
+                }
+
+                if ($submitDraft) {
+                    $this->incidents->submitActiveDraft($user, $visit);
+                } elseif ($discardDraft) {
                     $this->incidents->discardDraft($user, $draft, 'Discarded during clock-out.');
                 } else {
                     throw ValidationException::withMessages([

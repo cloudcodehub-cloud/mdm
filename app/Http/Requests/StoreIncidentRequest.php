@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\IncidentPartyKind;
 use App\Models\Visit;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -33,11 +34,33 @@ class StoreIncidentRequest extends FormRequest
             'injury_body_location' => $this->blankToNull($this->input('injury_body_location')),
             'injury_medical_check' => $this->blankToNull($this->input('injury_medical_check')),
             'injury_notes' => $this->blankToNull($this->input('injury_notes')),
+            'injury_occurred_at' => $this->blankToNull($this->input('injury_occurred_at')),
             'intervention_type' => $this->blankToNull($this->input('intervention_type')),
             'intervention_notes' => $this->blankToNull($this->input('intervention_notes')),
             'intervention_started_at' => $this->blankToNull($this->input('intervention_started_at')),
             'intervention_stopped_at' => $this->blankToNull($this->input('intervention_stopped_at')),
         ]);
+
+        $parties = $this->input('parties');
+
+        if (is_array($parties)) {
+            $this->merge([
+                'parties' => array_values(array_map(
+                    fn (mixed $row): mixed => is_array($row)
+                        ? [
+                            ...$row,
+                            'party_kind' => $this->blankToNull($row['party_kind'] ?? null),
+                            'client_id' => $this->blankToNull($row['client_id'] ?? null),
+                            'employee_id' => $this->blankToNull($row['employee_id'] ?? null),
+                            'name' => $this->blankToNull($row['name'] ?? null),
+                            'organization' => $this->blankToNull($row['organization'] ?? null),
+                            'involvement' => $this->blankToNull($row['involvement'] ?? null),
+                        ]
+                        : $row,
+                    $parties,
+                )),
+            ]);
+        }
     }
 
     /**
@@ -47,6 +70,7 @@ class StoreIncidentRequest extends FormRequest
     {
         $categories = array_keys(config('mdm.incident.categories', []));
         $submit = $this->boolean('submit');
+        $injuredOnSubmit = fn (): bool => $this->boolean('submit') && $this->boolean('injured');
 
         return [
             'occurred_at' => [$submit ? 'required' : 'nullable', 'date'],
@@ -55,10 +79,11 @@ class StoreIncidentRequest extends FormRequest
             'summary' => [$submit ? 'required' : 'nullable', 'string', 'max:5000'],
             'immediate_action' => [$submit ? 'required' : 'nullable', 'string', 'max:5000'],
             'injured' => ['required', 'boolean'],
-            'injury_type' => ['nullable', 'string', 'max:120'],
+            'injury_type' => [Rule::requiredIf($injuredOnSubmit), 'nullable', 'string', 'max:120'],
             'injury_body_location' => ['nullable', 'string', 'max:120'],
             'injury_medical_check' => ['nullable', 'string', 'max:255'],
             'injury_notes' => ['nullable', 'string', 'max:5000'],
+            'injury_occurred_at' => [Rule::requiredIf($injuredOnSubmit), 'nullable', 'date'],
             'intervention' => ['required', 'boolean'],
             'intervention_type' => ['nullable', 'string', 'max:120'],
             'intervention_started_at' => ['nullable', 'date'],
@@ -67,6 +92,32 @@ class StoreIncidentRequest extends FormRequest
             'supervisor_notified' => ['required', 'boolean'],
             'additional_notes' => ['nullable', 'string', 'max:5000'],
             'submit' => ['sometimes', 'boolean'],
+            'parties' => ['nullable', 'array', 'max:20'],
+            'parties.*' => ['array'],
+            'parties.*.party_kind' => [
+                'required',
+                Rule::enum(IncidentPartyKind::class)->except([IncidentPartyKind::PrimaryClient]),
+            ],
+            'parties.*.client_id' => [
+                'nullable',
+                'required_if:parties.*.party_kind,'.IncidentPartyKind::Client->value,
+                'integer',
+                'exists:clients,id',
+            ],
+            'parties.*.employee_id' => [
+                'nullable',
+                'required_if:parties.*.party_kind,'.IncidentPartyKind::Employee->value,
+                'integer',
+                'exists:employees,id',
+            ],
+            'parties.*.name' => [
+                'nullable',
+                'required_if:parties.*.party_kind,'.IncidentPartyKind::Outside->value,
+                'string',
+                'max:255',
+            ],
+            'parties.*.organization' => ['nullable', 'string', 'max:255'],
+            'parties.*.involvement' => ['nullable', 'string', 'max:1000'],
             'latitude' => ['nullable', 'numeric'],
             'longitude' => ['nullable', 'numeric'],
             'accuracy' => ['nullable', 'numeric'],

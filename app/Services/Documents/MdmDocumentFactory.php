@@ -2,9 +2,12 @@
 
 namespace App\Services\Documents;
 
+use App\Enums\IncidentPartyKind;
+use App\Enums\IncidentStatus;
 use App\Enums\VisitStatus;
 use App\Enums\VisitTaskStatus;
 use App\Models\Employee;
+use App\Models\Incident;
 use App\Models\ScheduledVisit;
 use App\Models\User;
 use App\Models\Visit;
@@ -180,6 +183,181 @@ class MdmDocumentFactory
             ],
             context: $context,
         );
+    }
+
+    /**
+     * Reporter-layer Incident document. Never includes management investigation details.
+     */
+    public function incidentSubmitted(Incident $incident, User $user): DocumentDefinition
+    {
+        abort_unless($incident->status->isFormal(), 404);
+
+        $incident->loadMissing(['client', 'reporter', 'parties.client', 'parties.employee']);
+
+        $context = $this->contexts->make($user);
+        $tracking = (string) $incident->tracking_number;
+
+        return new DocumentDefinition(
+            title: 'Incident Report — Submitted',
+            view: 'documents.incident-submitted',
+            filename: DocumentFilename::make(
+                $context->agencySlug,
+                'Incident-Submitted',
+                $tracking,
+                $incident->client->client_number,
+            ),
+            subtitle: $incident->client->full_name,
+            reference: $tracking,
+            data: $this->incidentReporterData($incident),
+            context: $context,
+        );
+    }
+
+    /**
+     * Management-layer final Incident document. Only available once the Incident is Closed.
+     */
+    public function incidentFinal(Incident $incident, User $user): DocumentDefinition
+    {
+        abort_unless($incident->status === IncidentStatus::Closed, 404);
+
+        $incident->loadMissing([
+            'client',
+            'reporter',
+            'closedBy',
+            'acknowledgedBy',
+            'parties.client',
+            'parties.employee',
+            'reviews.reviewer',
+            'followUps.assignee',
+            'followUps.completedBy',
+            'reportingRecords.reportedBy',
+            'amendments.author',
+        ]);
+
+        $context = $this->contexts->make($user);
+        $tracking = (string) $incident->tracking_number;
+
+        $data = [
+            ...$this->incidentReporterData($incident),
+            'acknowledged_at' => $incident->acknowledged_at === null
+                ? null
+                : $this->settings->formatDateTime($incident->acknowledged_at),
+            'acknowledged_by_name' => $incident->acknowledgedBy?->name,
+            'official_category' => $incident->official_category,
+            'official_subcategory' => $incident->official_subcategory,
+            'finding' => $incident->finding,
+            'cause_contributing_factors' => $incident->cause_contributing_factors,
+            'prevention_plan' => $incident->prevention_plan,
+            'reviews' => $incident->reviews->map(fn ($review): array => [
+                'note' => $review->note,
+                'reviewer_name' => $review->reviewer?->name,
+                'created_at' => $review->created_at === null ? null : $this->settings->formatDateTime($review->created_at),
+            ])->values()->all(),
+            'follow_ups' => $incident->followUps->map(fn ($followUp): array => [
+                'action_type' => $followUp->action_type,
+                'assignee_name' => $followUp->assignee?->full_name,
+                'due_on' => $followUp->due_on === null ? null : $this->settings->formatCalendarDate($followUp->due_on),
+                'status_label' => $followUp->status->label(),
+                'completion_note' => $followUp->completion_note,
+                'completed_at' => $followUp->completed_at === null ? null : $this->settings->formatDateTime($followUp->completed_at),
+                'completed_by_name' => $followUp->completedBy?->name,
+            ])->values()->all(),
+            'reporting_records' => $incident->reportingRecords->map(fn ($record): array => [
+                'reported_to' => $record->reported_to,
+                'person_organization' => $record->person_organization,
+                'reported_at' => $record->reported_at === null ? null : $this->settings->formatDateTime($record->reported_at),
+                'reported_by_name' => $record->reportedBy?->full_name,
+                'category' => $record->category,
+                'method' => $record->method,
+                'reference_number' => $record->reference_number,
+                'note' => $record->note,
+            ])->values()->all(),
+            'amendments' => $incident->amendments->map(fn ($amendment): array => [
+                'field_label' => Str::headline($amendment->field_key),
+                'reason' => $amendment->reason,
+                'original_content' => $amendment->original_content,
+                'new_content' => $amendment->new_content,
+                'author_name' => $amendment->author?->name,
+                'created_at' => $amendment->created_at === null ? null : $this->settings->formatDateTime($amendment->created_at),
+            ])->values()->all(),
+            'closed_at' => $incident->closed_at === null ? null : $this->settings->formatDateTime($incident->closed_at),
+            'closed_by_name' => $incident->closedBy?->name,
+            'closure_note' => $incident->closure_note,
+        ];
+
+        return new DocumentDefinition(
+            title: 'Incident Report — Final',
+            view: 'documents.incident-final',
+            filename: DocumentFilename::make(
+                $context->agencySlug,
+                'Incident-Final',
+                $tracking,
+                $incident->client->client_number,
+            ),
+            subtitle: $incident->client->full_name,
+            reference: $tracking,
+            data: $data,
+            context: $context,
+        );
+    }
+
+    /**
+     * Fields shared by the submitted and final Incident documents (reporter layer only).
+     *
+     * @return array<string, mixed>
+     */
+    private function incidentReporterData(Incident $incident): array
+    {
+        $parties = [];
+
+        foreach ($incident->parties as $party) {
+            $parties[] = [
+                'kind_label' => $party->party_kind->label(),
+                'name' => match ($party->party_kind) {
+                    IncidentPartyKind::PrimaryClient, IncidentPartyKind::Client => $party->client?->full_name,
+                    IncidentPartyKind::Employee => $party->employee?->full_name,
+                    IncidentPartyKind::Outside => $party->name,
+                },
+                'organization' => $party->organization,
+                'involvement' => $party->involvement,
+            ];
+        }
+
+        return [
+            'tracking_number' => $incident->tracking_number,
+            'status_label' => $incident->status->label(),
+            'client_name' => $incident->client->full_name,
+            'client_number' => $incident->client->client_number,
+            'reporter_name' => $incident->reporter->full_name,
+            'occurred_at' => $this->settings->formatDateTime($incident->occurred_at),
+            'original_category' => $incident->original_category,
+            'original_subcategory' => $incident->original_subcategory,
+            'summary' => $incident->summary,
+            'immediate_action' => $incident->immediate_action,
+            'injured' => $incident->injured,
+            'injury_type' => $incident->injury_type,
+            'injury_body_location' => $incident->injury_body_location,
+            'injury_medical_check' => $incident->injury_medical_check,
+            'injury_notes' => $incident->injury_notes,
+            'injury_occurred_at' => $incident->injury_occurred_at === null
+                ? null
+                : $this->settings->formatDateTime($incident->injury_occurred_at),
+            'intervention' => $incident->intervention,
+            'intervention_type' => $incident->intervention_type,
+            'intervention_started_at' => $incident->intervention_started_at === null
+                ? null
+                : $this->settings->formatDateTime($incident->intervention_started_at),
+            'intervention_stopped_at' => $incident->intervention_stopped_at === null
+                ? null
+                : $this->settings->formatDateTime($incident->intervention_stopped_at),
+            'intervention_notes' => $incident->intervention_notes,
+            'supervisor_notified' => $incident->supervisor_notified,
+            'parties' => $parties,
+            'additional_notes' => $incident->additional_notes,
+            'submitted_at' => $incident->submitted_at === null
+                ? null
+                : $this->settings->formatDateTime($incident->submitted_at),
+        ];
     }
 
     /**

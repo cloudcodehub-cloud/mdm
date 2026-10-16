@@ -2,14 +2,20 @@
 
 namespace App\Services;
 
+use App\Enums\ClientStatus;
 use App\Enums\ClockInLocationMethod;
 use App\Enums\ClockInLocationStatus;
+use App\Enums\EmploymentStatus;
 use App\Enums\InAppNotificationType;
 use App\Enums\IncidentHistoryAction;
+use App\Enums\IncidentPartyKind;
 use App\Enums\IncidentStatus;
 use App\Enums\Role;
+use App\Models\Client;
+use App\Models\Employee;
 use App\Models\Incident;
 use App\Models\IncidentHistoryEvent;
+use App\Models\IncidentParty;
 use App\Models\User;
 use App\Models\Visit;
 use Carbon\CarbonInterface;
@@ -120,6 +126,8 @@ class IncidentService
                 );
             }
 
+            $this->syncParties($incident, $payload['parties'] ?? null);
+
             return $incident->refresh();
         });
     }
@@ -170,6 +178,8 @@ class IncidentService
                 $incident->save();
             }
 
+            $this->syncParties($incident, $payload['parties'] ?? null);
+
             $this->recordHistory(
                 $incident,
                 IncidentHistoryAction::Submitted,
@@ -183,6 +193,51 @@ class IncidentService
 
             return $incident;
         });
+    }
+
+    /**
+     * Submit the active draft using its stored fields (Submit & Clock Out).
+     */
+    public function submitActiveDraft(User $user, Visit $visit): Incident
+    {
+        $draft = $this->activeDraftForVisit($visit);
+
+        if ($draft === null) {
+            throw ValidationException::withMessages([
+                'incident_draft' => 'No unfinished Incident draft exists for this visit.',
+            ]);
+        }
+
+        $payload = [
+            'occurred_at' => $this->settings->datetimeLocalValue($draft->occurred_at),
+            'original_category' => $draft->original_category,
+            'original_subcategory' => $draft->original_subcategory,
+            'summary' => $draft->summary,
+            'immediate_action' => $draft->immediate_action,
+            'injured' => $draft->injured,
+            'injury_type' => $draft->injury_type,
+            'injury_body_location' => $draft->injury_body_location,
+            'injury_medical_check' => $draft->injury_medical_check,
+            'injury_notes' => $draft->injury_notes,
+            'injury_occurred_at' => $this->settings->datetimeLocalValue($draft->injury_occurred_at),
+            'intervention' => $draft->intervention,
+            'intervention_type' => $draft->intervention_type,
+            'intervention_started_at' => $this->settings->datetimeLocalValue($draft->intervention_started_at),
+            'intervention_stopped_at' => $this->settings->datetimeLocalValue($draft->intervention_stopped_at),
+            'intervention_notes' => $draft->intervention_notes,
+            'supervisor_notified' => $draft->supervisor_notified,
+            'additional_notes' => $draft->additional_notes,
+        ];
+
+        foreach (['original_category', 'summary', 'immediate_action', 'occurred_at'] as $required) {
+            if (! filled($payload[$required] ?? null)) {
+                throw ValidationException::withMessages([
+                    'incident_draft' => 'Complete required Incident fields before Submit & Clock Out.',
+                ]);
+            }
+        }
+
+        return $this->submit($user, $visit, $payload, $draft);
     }
 
     public function discardDraft(User $user, Incident $incident, ?string $reason = null): Incident
@@ -385,13 +440,59 @@ class IncidentService
             $submitted[] = $this->serializeListItem($incident, $viewer);
         }
 
+        $isReportingDsp = $viewer?->isDsp() && $viewer->employee?->id === $visit->employee_id;
+
         return [
             'draft' => $draft,
             'submitted' => $submitted,
             'categories' => $this->categoryOptions(),
             'acknowledgment_threshold_minutes' => $this->acknowledgmentThresholdMinutes(),
             'has_unresolved_draft' => $draft !== null,
+            'party_clients' => $isReportingDsp ? $this->partyClientOptions($visit) : [],
+            'party_employees' => $isReportingDsp ? $this->partyEmployeeOptions($visit) : [],
         ];
+    }
+
+    /**
+     * Other Clients selectable as additional Incident parties (primary visit client is auto-added).
+     *
+     * @return list<array{id: int, name: string}>
+     */
+    private function partyClientOptions(Visit $visit): array
+    {
+        return $this->values(
+            Client::query()
+                ->where('status', ClientStatus::Active)
+                ->where('id', '!=', $visit->client_id)
+                ->orderBy('last_name')
+                ->orderBy('first_name')
+                ->get()
+                ->map(fn (Client $client): array => [
+                    'id' => $client->id,
+                    'name' => $client->full_name,
+                ]),
+        );
+    }
+
+    /**
+     * Active operational employees selectable as additional Incident parties.
+     *
+     * @return list<array{id: int, name: string}>
+     */
+    private function partyEmployeeOptions(Visit $visit): array
+    {
+        return $this->values(
+            Employee::query()
+                ->operational()
+                ->where('employment_status', EmploymentStatus::Active)
+                ->orderBy('last_name')
+                ->orderBy('first_name')
+                ->get()
+                ->map(fn (Employee $employee): array => [
+                    'id' => $employee->id,
+                    'name' => $employee->full_name,
+                ]),
+        );
     }
 
     /**
@@ -455,14 +556,24 @@ class IncidentService
             'reporter',
             'responsibleSupervisor',
             'acknowledgedBy',
+            'closedBy',
+            'reopenedBy',
             'visit',
             'historyEvents.actor',
+            'parties.client',
+            'parties.employee',
+            'reviews.reviewer',
+            'followUps.assignee',
+            'reportingRecords.reportedBy',
+            'amendments.author',
         ]);
 
         $base = $this->serializeListItem($incident, $viewer);
-        $management = $viewer->isAdmin() || $viewer->isSupervisor();
+        $management = $viewer->can('manage', $incident);
+        $isReporter = $viewer->isDsp() && $viewer->employee?->id === $incident->reporter_employee_id;
+        $workflow = app(IncidentWorkflowService::class);
 
-        return [
+        $detail = [
             ...$base,
             'immediate_action' => $incident->immediate_action,
             'injured' => $incident->injured,
@@ -470,6 +581,10 @@ class IncidentService
             'injury_body_location' => $incident->injury_body_location,
             'injury_medical_check' => $incident->injury_medical_check,
             'injury_notes' => $incident->injury_notes,
+            'injury_occurred_at' => $incident->injury_occurred_at?->toIso8601String(),
+            'injury_occurred_at_label' => $incident->injury_occurred_at
+                ? $this->settings->formatDateTime($incident->injury_occurred_at)
+                : null,
             'intervention' => $incident->intervention,
             'intervention_type' => $incident->intervention_type,
             'intervention_started_at' => $incident->intervention_started_at?->toIso8601String(),
@@ -483,12 +598,166 @@ class IncidentService
             'location_method' => $incident->location_method?->value,
             'location_status' => $incident->location_status?->value,
             'acknowledged_by_name' => $incident->acknowledgedBy?->name,
-            'history' => $management || ($viewer->isDsp() && $viewer->employee?->id === $incident->reporter_employee_id)
+            'parties' => $this->serializeParties($incident),
+            'amendments' => ($management || $isReporter)
+                ? $this->values($incident->amendments->map(fn ($row): array => [
+                    'id' => $row->id,
+                    'field_key' => $row->field_key,
+                    'reason' => $row->reason,
+                    'original_content' => $row->original_content,
+                    'new_content' => $row->new_content,
+                    'author_name' => $row->author?->name,
+                    'created_at_label' => $row->created_at
+                        ? $this->settings->formatDateTime($row->created_at)
+                        : null,
+                ]))
+                : [],
+            'history' => $management || $isReporter
                 ? $this->serializeHistory($incident, $viewer)
                 : [],
             'is_read_only' => ! $incident->isDraft(),
-            'management_layer_hidden' => $viewer->isDsp(),
+            'management_layer_hidden' => ! $management,
+            'closure_blockers' => $management ? $workflow->closureBlockers($incident) : [],
+            'closed_at_label' => $incident->closed_at
+                ? $this->settings->formatDateTime($incident->closed_at)
+                : null,
+            'closure_note' => $management ? $incident->closure_note : null,
+            'closed_by_name' => $management ? $incident->closedBy?->name : null,
+            'reopen_reason' => $management ? $incident->reopen_reason : null,
+            'reopened_at_label' => $management && $incident->reopened_at
+                ? $this->settings->formatDateTime($incident->reopened_at)
+                : null,
+            'documents' => [
+                'submitted' => $incident->status->isFormal()
+                    ? route('documents.incident-submitted.preview', $incident)
+                    : null,
+                'final' => $incident->status === IncidentStatus::Closed && $management
+                    ? route('documents.incident-final.preview', $incident)
+                    : null,
+            ],
         ];
+
+        if ($management) {
+            $detail['finding'] = $incident->finding;
+            $detail['cause_contributing_factors'] = $incident->cause_contributing_factors;
+            $detail['prevention_plan'] = $incident->prevention_plan;
+            $detail['reviews'] = $this->values($incident->reviews->map(fn ($row): array => [
+                'id' => $row->id,
+                'note' => $row->note,
+                'reviewer_name' => $row->reviewer?->name,
+                'created_at_label' => $row->created_at
+                    ? $this->settings->formatDateTime($row->created_at)
+                    : null,
+            ]));
+            $detail['follow_ups'] = $this->values($incident->followUps->map(fn ($row): array => [
+                'id' => $row->id,
+                'action_type' => $row->action_type,
+                'assigned_employee_id' => $row->assigned_employee_id,
+                'assignee_name' => $row->assignee?->full_name,
+                'due_on' => $row->due_on?->toDateString(),
+                'status' => $row->status->value,
+                'status_label' => $row->status->label(),
+                'completion_note' => $row->completion_note,
+                'completed_at_label' => $row->completed_at
+                    ? $this->settings->formatDateTime($row->completed_at)
+                    : null,
+            ]));
+            $detail['reporting_records'] = $this->values($incident->reportingRecords->map(fn ($row): array => [
+                'id' => $row->id,
+                'reported_to' => $row->reported_to,
+                'person_organization' => $row->person_organization,
+                'reported_at_label' => $row->reported_at
+                    ? $this->settings->formatDateTime($row->reported_at)
+                    : null,
+                'reported_by_name' => $row->reportedBy?->full_name,
+                'category' => $row->category,
+                'method' => $row->method,
+                'reference_number' => $row->reference_number,
+                'note' => $row->note,
+            ]));
+        }
+
+        return $detail;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>|null  $parties  null = leave additional parties unchanged
+     */
+    public function syncParties(Incident $incident, ?array $parties): void
+    {
+        if ($parties === null) {
+            $hasPrimary = $incident->parties()
+                ->where('party_kind', IncidentPartyKind::PrimaryClient)
+                ->exists();
+
+            if (! $hasPrimary) {
+                IncidentParty::query()->create([
+                    'incident_id' => $incident->id,
+                    'party_kind' => IncidentPartyKind::PrimaryClient,
+                    'client_id' => $incident->client_id,
+                    'involvement' => 'Primary client context from the Active Visit',
+                    'sort_order' => 0,
+                ]);
+            }
+
+            return;
+        }
+
+        $incident->parties()->delete();
+
+        IncidentParty::query()->create([
+            'incident_id' => $incident->id,
+            'party_kind' => IncidentPartyKind::PrimaryClient,
+            'client_id' => $incident->client_id,
+            'involvement' => 'Primary client context from the Active Visit',
+            'sort_order' => 0,
+        ]);
+
+        $order = 1;
+        foreach ($parties as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $kind = IncidentPartyKind::tryFrom((string) ($row['party_kind'] ?? ''));
+            if ($kind === null || $kind === IncidentPartyKind::PrimaryClient) {
+                continue;
+            }
+
+            IncidentParty::query()->create([
+                'incident_id' => $incident->id,
+                'party_kind' => $kind,
+                'client_id' => $kind === IncidentPartyKind::Client ? ($row['client_id'] ?? null) : null,
+                'employee_id' => $kind === IncidentPartyKind::Employee ? ($row['employee_id'] ?? null) : null,
+                'name' => $kind === IncidentPartyKind::Outside ? $this->nullableString($row['name'] ?? null) : null,
+                'organization' => $kind === IncidentPartyKind::Outside
+                    ? $this->nullableString($row['organization'] ?? null)
+                    : null,
+                'involvement' => $this->nullableString($row['involvement'] ?? null),
+                'sort_order' => $order++,
+            ]);
+        }
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function serializeParties(Incident $incident): array
+    {
+        return $this->values($incident->parties->map(function (IncidentParty $party): array {
+            return [
+                'id' => $party->id,
+                'party_kind' => $party->party_kind->value,
+                'party_kind_label' => $party->party_kind->label(),
+                'client_id' => $party->client_id,
+                'client_name' => $party->client?->full_name,
+                'employee_id' => $party->employee_id,
+                'employee_name' => $party->employee?->full_name,
+                'name' => $party->name,
+                'organization' => $party->organization,
+                'involvement' => $party->involvement,
+            ];
+        }));
     }
 
     public function recordThresholdChange(User $user, int $oldMinutes, int $newMinutes): void
@@ -540,6 +809,9 @@ class IncidentService
             'injury_body_location' => $injured ? $this->nullableString($payload['injury_body_location'] ?? null) : null,
             'injury_medical_check' => $injured ? $this->nullableString($payload['injury_medical_check'] ?? null) : null,
             'injury_notes' => $injured ? $this->nullableString($payload['injury_notes'] ?? null) : null,
+            'injury_occurred_at' => $injured
+                ? $this->settings->parseLocalDateTime($payload['injury_occurred_at'] ?? null)
+                : null,
             'intervention' => $intervention,
             'intervention_type' => $intervention ? $this->nullableString($payload['intervention_type'] ?? null) : null,
             'intervention_started_at' => $intervention
