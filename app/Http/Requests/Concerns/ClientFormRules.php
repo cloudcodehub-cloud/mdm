@@ -42,6 +42,8 @@ trait ClientFormRules
                 Rule::exists('employees', 'id')->where(fn ($query) => $query->where('job_type', JobType::Supervisor->value)),
             ],
             'notes' => ['nullable', 'string'],
+            // MDM 06 Decision 06-18: required by ClientNoteCorrectionService when amending existing notes.
+            'notes_correction_reason' => ['nullable', 'string', 'max:1000'],
             'profile_photo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'remove_photo' => ['sometimes', 'boolean'],
         ];

@@ -13,6 +13,7 @@ enum ClientAdminHistoryCategory: string
     case EffectiveDateCorrection = 'effective_date_correction';
     case Contact = 'contact';
     case ServiceLocation = 'service_location';
+    case Note = 'note';
 
     public function label(): string
     {
@@ -26,6 +27,7 @@ enum ClientAdminHistoryCategory: string
             self::EffectiveDateCorrection => 'Effective-date correction',
             self::Contact => 'Contact',
             self::ServiceLocation => 'Service location',
+            self::Note => 'Historical note correction',
         };
     }
 }

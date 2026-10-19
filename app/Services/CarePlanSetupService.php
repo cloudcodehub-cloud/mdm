@@ -87,6 +87,13 @@ class CarePlanSetupService
                 'new_value' => $after !== '' ? $after : null,
                 'subject' => $client,
             ]);
+
+            // MDM 06 Decision 06-29: service changes must not invalidate an Active Visit;
+            // warn authorized staff when one is in progress.
+            $warning = app(ClientActiveVisitGuard::class)->warningMessage($client);
+            if ($warning !== null) {
+                session()->flash('active_visit_service_warning', $warning);
+            }
         }
     }
 

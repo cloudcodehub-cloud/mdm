@@ -40,7 +40,16 @@ class ClientCareSetupController extends Controller
         $setup->completeSetup($client, $request->validated());
         app(ProfileAttentionService::class)->syncClient($client->fresh() ?? $client);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Care plan saved.')]);
+        $warning = session()->pull('active_visit_service_warning');
+        $message = __('Care plan saved.');
+        if (is_string($warning) && $warning !== '') {
+            $message .= ' '.$warning;
+        }
+
+        Inertia::flash('toast', [
+            'type' => is_string($warning) && $warning !== '' ? 'warning' : 'success',
+            'message' => $message,
+        ]);
 
         return redirect()->route('clients.show', $client);
     }

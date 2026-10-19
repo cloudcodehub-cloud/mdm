@@ -10,6 +10,7 @@ import { CareMessageDrawer } from '@/components/mdm/care-message-drawer';
 import { CareOverviewPanels } from '@/components/mdm/care-overview';
 import { ClientAdminHistoryPanel } from '@/components/mdm/client-admin-history-panel';
 import type { ClientAdminHistoryRecord } from '@/components/mdm/client-admin-history-panel';
+import { ClientAuthorizationsPanel } from '@/components/mdm/client-authorizations-panel';
 import { ClientContactsPanel } from '@/components/mdm/client-contacts-panel';
 import type { ClientContactRecord } from '@/components/mdm/client-contacts-panel';
 import { ClientCriticalAlertsPanel } from '@/components/mdm/client-critical-alerts-panel';
@@ -87,6 +88,9 @@ export default function ClientsShow({
     admin_history = [],
     care_plan_review_warnings = [],
     lifecycle_previews = null,
+    active_visit_change_warning = null,
+    authorization_units = [],
+    authorization_statuses = [],
 }: {
     client: ClientDetail;
     authorizations: AuthorizationRecord[];
@@ -109,6 +113,7 @@ export default function ClientsShow({
         manageCriticalAlerts?: boolean;
         manageContacts?: boolean;
         manageServiceLocations?: boolean;
+        manageAuthorizations?: boolean;
         viewAdminHistory?: boolean;
         correctCarePlanEffectiveDate?: boolean;
         manageLifecycle?: boolean;
@@ -131,6 +136,13 @@ export default function ClientsShow({
         review_on: string | null;
     }>;
     lifecycle_previews?: Record<string, LifecyclePreview | null> | null;
+    active_visit_change_warning?: {
+        id: number;
+        dsp_name?: string | null;
+        warning: string;
+    } | null;
+    authorization_units?: Array<{ value: string; label: string }>;
+    authorization_statuses?: Array<{ value: string; label: string }>;
 }) {
     const role = usePage().props.auth.user.role;
     const isDsp = role === 'DSP';
@@ -480,84 +492,16 @@ export default function ClientsShow({
                 )}
 
                 {tab === 'authorizations' && (
-                    <Panel title="Authorizations">
-                        {authorizations.length === 0 ? (
-                            <EmptyState message="No authorizations on file." />
-                        ) : (
-                            <ul className="space-y-3">
-                                {authorizations.map((authorization) => (
-                                    <li
-                                        key={authorization.id}
-                                        className="space-y-2 rounded-md border px-3 py-3"
-                                    >
-                                        <div className="flex justify-between gap-3">
-                                            <div>
-                                                <p className="text-sm font-medium">
-                                                    {
-                                                        authorization.authorization_number
-                                                    }
-                                                </p>
-                                                <p className="text-muted-foreground text-xs">
-                                                    {authorization.payer} ·{' '}
-                                                    {authorization.service_type}
-                                                </p>
-                                                <p className="text-muted-foreground mt-1 text-xs">
-                                                    {authorization.starts_on} –{' '}
-                                                    {authorization.ends_on ??
-                                                        'open'}{' '}
-                                                    · {authorization.authorized_units}{' '}
-                                                    {authorization.unit}
-                                                </p>
-                                            </div>
-                                            <StatusBadge
-                                                status={authorization.status}
-                                                label={
-                                                    authorization.status_label
-                                                }
-                                            />
-                                        </div>
-                                        {authorization.usage ? (
-                                            <div className="text-muted-foreground grid gap-1 text-xs sm:grid-cols-4">
-                                                <span>
-                                                    Actual:{' '}
-                                                    {authorization.usage.actual_used}
-                                                </span>
-                                                <span>
-                                                    Projected:{' '}
-                                                    {
-                                                        authorization.usage
-                                                            .projected_future
-                                                    }
-                                                </span>
-                                                <span>
-                                                    Total:{' '}
-                                                    {
-                                                        authorization.usage
-                                                            .projected_total
-                                                    }
-                                                </span>
-                                                <span>
-                                                    Remaining:{' '}
-                                                    {authorization.usage.remaining}
-                                                </span>
-                                            </div>
-                                        ) : null}
-                                        {authorization.usage?.warnings?.length ? (
-                                            <ul className="text-amber-800 dark:text-amber-200 space-y-1 text-xs">
-                                                {authorization.usage.warnings.map(
-                                                    (warning) => (
-                                                        <li key={warning}>
-                                                            {warning}
-                                                        </li>
-                                                    ),
-                                                )}
-                                            </ul>
-                                        ) : null}
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </Panel>
+                    <ClientAuthorizationsPanel
+                        clientId={client.id}
+                        authorizations={authorizations}
+                        units={authorization_units}
+                        statuses={authorization_statuses}
+                        canManage={Boolean(can.manageAuthorizations)}
+                        activeVisitWarning={
+                            active_visit_change_warning?.warning ?? null
+                        }
+                    />
                 )}
 
                 {tab === 'care-plan' && (

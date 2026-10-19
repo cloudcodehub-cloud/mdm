@@ -300,8 +300,10 @@ export type AuthorizationRecord = {
     ends_on: string | null;
     authorized_units: string | number;
     unit: string;
+    unit_value?: string;
     status: string;
     status_label: string;
+    notes?: string | null;
     usage?: AuthorizationUsage;
 };
 

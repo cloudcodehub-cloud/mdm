@@ -184,6 +184,23 @@ export function ClientForm({
                                 className={`${controlClassName} h-auto py-2`}
                             />
                         </Field>
+                        {client?.notes ? (
+                            <Field
+                                label="Note correction reason"
+                                htmlFor="notes_correction_reason"
+                                error={errors.notes_correction_reason}
+                            >
+                                <Input
+                                    id="notes_correction_reason"
+                                    name="notes_correction_reason"
+                                    placeholder="Required when changing an existing continuity note"
+                                />
+                                <p className="text-muted-foreground mt-1 text-xs">
+                                    Original and amended note text are retained in
+                                    administrative history with actor and timestamp.
+                                </p>
+                            </Field>
+                        ) : null}
                     </section>
 
                     <div className="sticky-form-actions">

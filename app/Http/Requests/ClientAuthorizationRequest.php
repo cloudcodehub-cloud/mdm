@@ -13,7 +13,9 @@ class ClientAuthorizationRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        $authorization = $this->route('client_authorization') ?? $this->route('clientAuthorization');
+        $authorization = $this->route('authorization')
+            ?? $this->route('client_authorization')
+            ?? $this->route('clientAuthorization');
 
         if ($authorization instanceof ClientAuthorization) {
             return $this->user()?->can('update', $authorization) ?? false;
@@ -22,12 +24,23 @@ class ClientAuthorizationRequest extends FormRequest
         return $this->user()?->can('create', ClientAuthorization::class) ?? false;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $client = $this->route('client');
+
+        if ($client instanceof \App\Models\Client) {
+            $this->merge(['client_id' => $client->id]);
+        }
+    }
+
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
-        $authorization = $this->route('client_authorization') ?? $this->route('clientAuthorization');
+        $authorization = $this->route('authorization')
+            ?? $this->route('client_authorization')
+            ?? $this->route('clientAuthorization');
         $authorizationId = $authorization instanceof ClientAuthorization ? $authorization->id : null;
 
         return [

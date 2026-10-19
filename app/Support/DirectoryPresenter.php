@@ -431,8 +431,10 @@ final class DirectoryPresenter
                 'ends_on' => self::date($authorization->ends_on),
                 'authorized_units' => $authorization->authorized_units,
                 'unit' => Str::headline($authorization->unit->value),
+                'unit_value' => $authorization->unit->value,
                 'status' => $authorization->status->value,
                 'status_label' => Str::headline($authorization->status->value),
+                'notes' => $authorization->notes,
                 'usage' => $summary,
             ];
         }));

@@ -2,25 +2,31 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuthorizationStatus;
+use App\Enums\AuthorizationUnit;
 use App\Enums\ClientContactRole;
 use App\Enums\ClientStatus;
 use App\Enums\CriticalAlertCategory;
 use App\Enums\DspClientAccessLevel;
 use App\Enums\ScheduledVisitStatus;
+use Illuminate\Support\Str;
 use App\Http\Requests\StoreClientRequest;
 use App\Http\Requests\UpdateClientRequest;
 use App\Http\Requests\UpdateClientStatusRequest;
 use App\Models\CarePlan;
 use App\Models\Client;
+use App\Models\ClientAuthorization;
 use App\Models\ClientDspAssignment;
 use App\Models\ScheduledVisit;
 use App\Services\CareOverviewService;
 use App\Services\CarePlanRevisionService;
 use App\Services\AuthorizationUsageService;
 use App\Services\CarePlanReviewService;
+use App\Services\ClientActiveVisitGuard;
 use App\Services\ClientAdminHistoryService;
 use App\Services\ClientContactService;
 use App\Services\ClientLifecycleService;
+use App\Services\ClientNoteCorrectionService;
 use App\Services\ClientServiceLocationService;
 use App\Services\CriticalAlertService;
 use App\Services\DspClientAccessService;
@@ -269,6 +275,23 @@ class ClientController extends Controller
             'dsp_access' => $isDsp ? $dspAccess->serialize($accessLevel) : null,
             'profile_completion' => $completion->forClient($client),
             'authorizations' => DirectoryPresenter::authorizations($authorizations),
+            'active_visit_change_warning' => $isDsp
+                ? null
+                : app(ClientActiveVisitGuard::class)->warningPayload($client),
+            'authorization_units' => collect(AuthorizationUnit::cases())
+                ->map(fn (AuthorizationUnit $unit): array => [
+                    'value' => $unit->value,
+                    'label' => Str::headline($unit->value),
+                ])
+                ->values()
+                ->all(),
+            'authorization_statuses' => collect(AuthorizationStatus::cases())
+                ->map(fn (AuthorizationStatus $status): array => [
+                    'value' => $status->value,
+                    'label' => Str::headline($status->value),
+                ])
+                ->values()
+                ->all(),
             'carePlans' => DirectoryPresenter::carePlans($carePlans),
             'assignments' => DirectoryPresenter::assignments($assignments),
             'scheduledVisits' => DirectoryPresenter::scheduledVisits($visits),
@@ -329,6 +352,7 @@ class ClientController extends Controller
                 'manageCriticalAlerts' => $user?->can('manageCriticalAlerts', $client) ?? false,
                 'manageContacts' => $user?->can('manageContacts', $client) ?? false,
                 'manageServiceLocations' => $user?->can('manageServiceLocations', $client) ?? false,
+                'manageAuthorizations' => $user?->can('create', ClientAuthorization::class) ?? false,
                 'viewAdminHistory' => $user?->can('viewAdminHistory', $client) ?? false,
                 'correctCarePlanEffectiveDate' => $user?->isAdmin() ?? false,
                 'manageLifecycle' => $user?->can('manageLifecycle', $client) ?? false,
@@ -356,6 +380,7 @@ class ClientController extends Controller
         Client $client,
         ProfilePhotoService $photos,
         ProfileAttentionService $attention,
+        ClientNoteCorrectionService $noteCorrections,
     ): RedirectResponse {
         $data = $request->validated();
         unset($data['profile_photo'], $data['remove_photo']);
@@ -368,7 +393,17 @@ class ClientController extends Controller
             unset($data['status']);
         }
 
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+
+        $prepared = $noteCorrections->prepareUpdate($client, $data);
+        $data = $prepared['data'];
+
         $client->update($data);
+
+        if ($prepared['history'] !== null) {
+            $noteCorrections->recordAfterSave($client->fresh() ?? $client, $user, $prepared['history']);
+        }
 
         // MDM 03: moving a client to another Supervisor may clear a pending Supervisor archive.
         app(\App\Services\ArchivePendingService::class)->sweepSupervisors();
@@ -381,7 +416,7 @@ class ClientController extends Controller
             $photos->storeClient($client, $request->file('profile_photo'));
         }
 
-        $this->syncLegacyContactAndLocation($client->fresh() ?? $client, $request->user());
+        $this->syncLegacyContactAndLocation($client->fresh() ?? $client, $user);
 
         $attention->syncClient($client->fresh() ?? $client);
 

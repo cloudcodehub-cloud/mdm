@@ -6,6 +6,7 @@ use App\Http\Controllers\AttendanceCorrectionController;
 use App\Http\Controllers\AvailabilityRequestController;
 use App\Http\Controllers\CarePlanController;
 use App\Http\Controllers\CareServiceController;
+use App\Http\Controllers\ClientAuthorizationController;
 use App\Http\Controllers\ClientCareSetupController;
 use App\Http\Controllers\ClientContactController;
 use App\Http\Controllers\ClientController;
@@ -95,6 +96,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('clients.service-locations.update');
     Route::post('clients/{client}/service-locations/{service_location}/deactivate', [ClientServiceLocationController::class, 'deactivate'])
         ->name('clients.service-locations.deactivate');
+    Route::post('clients/{client}/authorizations', [ClientAuthorizationController::class, 'store'])
+        ->name('clients.authorizations.store');
+    Route::patch('clients/{client}/authorizations/{authorization}', [ClientAuthorizationController::class, 'update'])
+        ->name('clients.authorizations.update');
 
     Route::get('care-services', [CareServiceController::class, 'index'])->name('care-services.index');
     Route::post('care-services', [CareServiceController::class, 'store'])->name('care-services.store');
