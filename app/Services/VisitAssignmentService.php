@@ -62,6 +62,8 @@ class VisitAssignmentService
             'employee_id' => $replacement->id,
             'released_employee_id' => null,
             'staffing_needed' => false,
+            // MDM 04-29: staffed → urgency resolved; a future re-release starts a fresh episode.
+            'staffing_urgency_escalated_at' => null,
             'compliance_staffing_status' => null,
             'compliance_staffing_marked_at' => null,
             'compliance_staffing_reason' => null,
@@ -145,6 +147,7 @@ class VisitAssignmentService
             'released_employee_id' => $releasedEmployeeId,
             'employee_id' => null,
             'staffing_needed' => true,
+            'staffing_urgency_escalated_at' => null,
             'compliance_staffing_status' => null,
             'compliance_staffing_marked_at' => null,
             'compliance_staffing_reason' => null,

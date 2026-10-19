@@ -51,6 +51,7 @@ use RuntimeException;
  * @property \Illuminate\Support\Carbon|null $compliance_staffing_marked_at
  * @property string|null $compliance_staffing_reason
  * @property string|null $attention_reason
+ * @property Carbon|null $staffing_urgency_escalated_at
  * @property Carbon|null $cancelled_at
  * @property int|null $cancelled_by_user_id
  * @property string|null $cancellation_reason
@@ -106,6 +107,7 @@ use RuntimeException;
     'compliance_staffing_marked_at',
     'compliance_staffing_reason',
     'attention_reason',
+    'staffing_urgency_escalated_at',
     'cancelled_at',
     'cancelled_by_user_id',
     'cancellation_reason',
@@ -127,6 +129,7 @@ class ScheduledVisit extends Model
             'needs_attention' => 'boolean',
             'staffing_needed' => 'boolean',
             'compliance_staffing_marked_at' => 'datetime',
+            'staffing_urgency_escalated_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'service_latitude' => 'decimal:7',
             'service_longitude' => 'decimal:7',

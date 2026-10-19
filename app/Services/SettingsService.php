@@ -35,6 +35,7 @@ class SettingsService
                 'first_day_of_week' => 0,
                 'credential_expiring_soon_days' => 30,
                 'incident_acknowledgment_minutes' => (int) config('mdm.incident.acknowledgment_minutes_default', 60),
+                'staffing_needed_urgency_hours' => (int) config('mdm.staffing.urgency_hours_default', 24),
             ]);
         }
 
@@ -263,6 +264,18 @@ class SettingsService
         return $minutes > 0
             ? $minutes
             : (int) config('mdm.incident.acknowledgment_minutes_default', 60);
+    }
+
+    /**
+     * MDM 04-29: Agency-configured urgency threshold, in hours before scheduled start.
+     */
+    public function staffingNeededUrgencyHours(): int
+    {
+        $hours = (int) ($this->current()->staffing_needed_urgency_hours ?? 0);
+
+        return $hours > 0
+            ? $hours
+            : max(1, (int) config('mdm.staffing.urgency_hours_default', 24));
     }
 
     public function formatDate(CarbonInterface $value): string

@@ -36,6 +36,9 @@ export type OperationsVisitRow = {
     /** Null for Staffing Needed visits that currently have no assigned DSP. */
     employee: { id: number; name: string; employee_number: string } | null;
     staffing_needed?: boolean;
+    /** MDM 04-29: none | upcoming | urgent | overdue (only meaningful when staffing_needed). */
+    staffing_urgency?: 'none' | 'upcoming' | 'urgent' | 'overdue';
+    staffing_urgency_label?: string | null;
     compliance_staffing_status?: string | null;
     compliance_staffing_reason?: string | null;
     attention_reason?: string | null;
@@ -105,6 +108,8 @@ export type OperationsBoard = {
     assigned_dsps: OperationsPerson[];
     assigned_clients: OperationsPerson[];
     staffing_needed_visits?: OperationsVisitRow[];
+    urgent_staffing_needed_visits?: OperationsVisitRow[];
+    staffing_urgency_threshold_hours?: number;
     grace_visits?: OperationsVisitRow[];
     at_risk_visits?: OperationsVisitRow[];
     availability_overrides?: {

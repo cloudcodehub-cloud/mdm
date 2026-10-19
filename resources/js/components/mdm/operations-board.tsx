@@ -55,6 +55,22 @@ export function OperationsBoardView({
             </div>
 
             <div className="grid gap-4 lg:grid-cols-12">
+                {(operations.urgent_staffing_needed_visits ?? []).length >
+                    0 && (
+                    <Panel
+                        title="Urgent Staffing Needed"
+                        description={`Unstaffed visits within ${
+                            operations.staffing_urgency_threshold_hours ?? '—'
+                        } hours of start (Agency timezone), or already past start.`}
+                        className="border-destructive/40 lg:col-span-12"
+                    >
+                        <StaffingQueueList
+                            visits={operations.urgent_staffing_needed_visits ?? []}
+                            empty="No urgent Staffing Needed visits."
+                            detail="staffing"
+                        />
+                    </Panel>
+                )}
                 <Panel
                     title="Staffing Needed"
                     description="Upcoming visits with no assigned DSP, soonest first."
@@ -386,8 +402,19 @@ export function StaffingQueueList({
                             href={showScheduled.url(visit.scheduled_visit_id)}
                             className="hover:text-foreground block text-sm"
                         >
-                            <span className="font-medium">
+                            <span className="flex items-center gap-2 font-medium">
                                 {visit.client.name}
+                                {visit.staffing_urgency_label && (
+                                    <span
+                                        className={
+                                            visit.staffing_urgency === 'overdue'
+                                                ? 'bg-destructive text-destructive-foreground rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase'
+                                                : 'rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 uppercase dark:text-amber-400'
+                                        }
+                                    >
+                                        {visit.staffing_urgency_label}
+                                    </span>
+                                )}
                             </span>
                             <span className="text-muted-foreground block text-xs">
                                 {visit.service_date} · {visit.time_label} ·{' '}
@@ -453,7 +480,9 @@ export function OperationsVisitTable({
                                     {visit.client.name}
                                 </p>
                                 <p className="text-muted-foreground text-xs">
-                                    {visit.employee?.name ?? 'Staffing Needed'}
+                                    {visit.employee?.name ??
+                                        visit.staffing_urgency_label ??
+                                        'Staffing Needed'}
                                 </p>
                             </td>
                             <td className="py-3">{visit.service_type}</td>

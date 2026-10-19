@@ -77,4 +77,24 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Staffing Needed urgency (MDM 04-29 / MDM 09)
+    |--------------------------------------------------------------------------
+    |
+    | MDM 04 does not hard-code a universal escalation window. The Agency sets
+    | staffing_needed_urgency_hours in Settings; this is only the seed default.
+    |
+    | Unit: HOURS BEFORE THE SCHEDULED START (evaluated in the Agency Operational
+    | Timezone, DST-aware). Future Staffing Needed stays Supervisor-owned; once
+    | now >= scheduled_start - threshold the visit is "urgent" and Admins get a
+    | single escalation. At/past scheduled start the visit is Overdue Staffing
+    | Needed (MDM 04-05) on the Operations board.
+    |
+    */
+
+    'staffing' => [
+        'urgency_hours_default' => (int) env('MDM_STAFFING_URGENCY_HOURS', 24),
+    ],
+
 ];

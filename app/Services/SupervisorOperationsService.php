@@ -30,6 +30,7 @@ class SupervisorOperationsService
         private VisitOperationsStatus $operationsStatus,
         private IncidentService $incidents,
         private AvailabilityOverrideService $availabilityOverrides,
+        private StaffingUrgencyService $staffingUrgency,
     ) {}
 
     private const STAFFING_QUEUE_LIMIT = 10;
@@ -197,6 +198,8 @@ class SupervisorOperationsService
             ->where('compliance_staffing_status', ComplianceStaffingStatus::AtRisk->value);
 
         $staffingNeededCount = (clone $staffingNeededQuery)->count();
+        // MDM 04-29: Staffing Needed within the Agency urgency threshold (or past start).
+        $urgentStaffing = $this->staffingUrgency->urgentVisits($scheduledQuery, $now);
         $graceCount = (clone $graceQuery)->count();
         $atRiskCount = (clone $atRiskQuery)->count();
 
@@ -227,6 +230,13 @@ class SupervisorOperationsService
                     route('scheduled-visits.index'),
                 ),
                 $this->metric(
+                    'urgent_staffing_needed',
+                    'Urgent Staffing Needed',
+                    $urgentStaffing->count(),
+                    'Staffing Needed within '.$this->staffingUrgency->thresholdHours().' hours of start, or already overdue',
+                    route('scheduled-visits.index'),
+                ),
+                $this->metric(
                     'compliance_grace',
                     'Compliance Grace visits',
                     $graceCount,
@@ -251,6 +261,11 @@ class SupervisorOperationsService
                 $this->staffingQueue($staffingNeededQuery),
                 $now,
             ),
+            'urgent_staffing_needed_visits' => $this->boardScheduledVisits(
+                $urgentStaffing->take(self::STAFFING_QUEUE_LIMIT)->values(),
+                $now,
+            ),
+            'staffing_urgency_threshold_hours' => $this->staffingUrgency->thresholdHours(),
             'grace_visits' => $this->boardScheduledVisits($this->staffingQueue($graceQuery), $now),
             'at_risk_visits' => $this->boardScheduledVisits($this->staffingQueue($atRiskQuery), $now),
             'availability_overrides' => [
@@ -327,6 +342,7 @@ class SupervisorOperationsService
         $visit = $scheduled->visit;
         $visit?->loadMissing('exceptions');
         $status = $this->operationsStatus->forScheduledVisit($scheduled, $now);
+        $urgency = $this->staffingUrgency->presentation($scheduled, $now);
         $tasks = $visit === null ? collect() : $visit->tasks;
         $completed = $tasks->where('status', VisitTaskStatus::Completed)->count();
         $skipped = $tasks->where('status', VisitTaskStatus::Skipped)->count();
@@ -374,6 +390,8 @@ class SupervisorOperationsService
                 'employee_number' => $scheduled->employee->employee_number,
             ],
             'staffing_needed' => $scheduled->isStaffingNeeded(),
+            'staffing_urgency' => $urgency['state'],
+            'staffing_urgency_label' => $urgency['label'],
             'compliance_staffing_status' => $scheduled->compliance_staffing_status,
             'compliance_staffing_reason' => $scheduled->compliance_staffing_reason,
             'attention_reason' => $scheduled->attention_reason,

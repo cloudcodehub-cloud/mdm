@@ -25,6 +25,7 @@ type Props = {
         first_day_of_week: number;
         credential_expiring_soon_days: number;
         incident_acknowledgment_minutes: number;
+        staffing_needed_urgency_hours: number;
         logo_url?: string | null;
         has_logo?: boolean;
     };
@@ -286,6 +287,35 @@ export default function General({
                                     message={
                                         errors.incident_acknowledgment_minutes
                                     }
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="staffing_needed_urgency_hours">
+                                    Staffing Needed urgency threshold (hours
+                                    before start)
+                                </Label>
+                                <Input
+                                    id="staffing_needed_urgency_hours"
+                                    name="staffing_needed_urgency_hours"
+                                    type="number"
+                                    min={1}
+                                    max={720}
+                                    required
+                                    defaultValue={
+                                        settings.staffing_needed_urgency_hours
+                                    }
+                                />
+                                <p className="text-muted-foreground text-xs">
+                                    Distant future Staffing Needed visits stay
+                                    with the owning Supervisor. Once a visit is
+                                    within this many hours of its scheduled
+                                    start (Agency timezone), it is marked
+                                    Urgent and Admins are alerted once. At or
+                                    past the start it shows as Overdue.
+                                </p>
+                                <InputError
+                                    message={errors.staffing_needed_urgency_hours}
                                 />
                             </div>
 

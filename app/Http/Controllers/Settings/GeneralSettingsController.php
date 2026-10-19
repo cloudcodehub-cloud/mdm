@@ -29,6 +29,7 @@ class GeneralSettingsController extends Controller
                 'first_day_of_week' => $this->settings->current()->first_day_of_week,
                 'credential_expiring_soon_days' => $this->settings->credentialExpiringSoonDays(),
                 'incident_acknowledgment_minutes' => $this->settings->incidentAcknowledgmentMinutes(),
+                'staffing_needed_urgency_hours' => $this->settings->staffingNeededUrgencyHours(),
                 'logo_url' => $this->settings->logoUrl(),
                 'has_logo' => filled($this->settings->current()->logo_path),
             ],

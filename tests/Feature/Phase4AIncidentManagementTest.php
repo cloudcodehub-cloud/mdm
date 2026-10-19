@@ -275,6 +275,7 @@ class Phase4AIncidentManagementTest extends TestCase
                 'first_day_of_week' => 0,
                 'credential_expiring_soon_days' => 30,
                 'incident_acknowledgment_minutes' => 90,
+                'staffing_needed_urgency_hours' => 24,
             ])
             ->assertRedirect();
 

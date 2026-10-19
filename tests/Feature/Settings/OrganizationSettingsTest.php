@@ -37,6 +37,7 @@ class OrganizationSettingsTest extends TestCase
             'first_day_of_week' => 1,
             'credential_expiring_soon_days' => 14,
             'incident_acknowledgment_minutes' => 60,
+            'staffing_needed_urgency_hours' => 36,
         ], $overrides);
     }
 
@@ -61,7 +62,29 @@ class OrganizationSettingsTest extends TestCase
         $this->assertSame(TimeFormat::TwentyFourHour, $settings->time_format);
         $this->assertSame(1, $settings->first_day_of_week);
         $this->assertSame(14, $settings->credential_expiring_soon_days);
+        $this->assertSame(36, $settings->staffing_needed_urgency_hours);
+        $this->assertSame(36, app(SettingsService::class)->staffingNeededUrgencyHours());
         $this->assertSame('Pacific/Auckland', app(SettingsService::class)->timezone());
+    }
+
+    public function test_staffing_needed_urgency_hours_is_validated_and_defaults_from_config(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->assertSame(24, app(SettingsService::class)->staffingNeededUrgencyHours());
+
+        foreach ([0, 721, 'abc', null] as $invalid) {
+            $this->actingAs($admin)
+                ->from(route('settings.general.edit'))
+                ->patch(route('settings.general.update'), $this->payload(['staffing_needed_urgency_hours' => $invalid]))
+                ->assertSessionHasErrors('staffing_needed_urgency_hours');
+        }
+
+        $this->actingAs($admin)
+            ->patch(route('settings.general.update'), $this->payload(['staffing_needed_urgency_hours' => 720]))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(720, app(SettingsService::class)->staffingNeededUrgencyHours());
     }
 
     public function test_non_admin_cannot_view_or_update_organization_settings(): void

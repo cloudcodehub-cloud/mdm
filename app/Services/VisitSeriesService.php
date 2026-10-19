@@ -55,6 +55,13 @@ class VisitSeriesService
                     'notify' => $index === 0,
                 ];
 
+                // MDM 04-19: an unavailable-period override is Visit-specific. It authorizes only
+                // the first occurrence; later occurrences in the series that hit approved leave /
+                // unavailability still need their own explicit override.
+                if ($index !== 0) {
+                    unset($payload['override_reason']);
+                }
+
                 $actorId = $visitData['created_by_user_id'] ?? null;
 
                 if (is_numeric($actorId)) {
@@ -92,6 +99,13 @@ class VisitSeriesService
 
             $payload = $data;
             $payload['service_date'] = $target->service_date->toDateString();
+
+            // MDM 04-19: an unavailable-period override is Visit-specific. The reason authorized
+            // for the edited visit must never be auto-applied to other visits in the series.
+            if ($target->id !== $visit->id) {
+                unset($payload['override_reason']);
+            }
+
             $visits->update($target, $payload);
         }
 

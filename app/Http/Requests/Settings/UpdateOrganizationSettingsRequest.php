@@ -32,6 +32,8 @@ class UpdateOrganizationSettingsRequest extends FormRequest
             'first_day_of_week' => ['required', 'integer', 'min:0', 'max:6'],
             'credential_expiring_soon_days' => ['required', 'integer', 'min:1', 'max:365'],
             'incident_acknowledgment_minutes' => ['required', 'integer', 'min:1', 'max:1440'],
+            // Hours before scheduled start (MDM 04-29); max 720 = 30 days.
+            'staffing_needed_urgency_hours' => ['required', 'integer', 'min:1', 'max:720'],
             'logo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'remove_logo' => ['sometimes', 'boolean'],
         ];

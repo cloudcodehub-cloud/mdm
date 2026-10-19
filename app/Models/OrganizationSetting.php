@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property int $first_day_of_week
  * @property int $credential_expiring_soon_days
  * @property int $incident_acknowledgment_minutes
+ * @property int $staffing_needed_urgency_hours Hours before scheduled start (MDM 04-29)
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -36,6 +37,7 @@ use Illuminate\Support\Carbon;
     'first_day_of_week',
     'credential_expiring_soon_days',
     'incident_acknowledgment_minutes',
+    'staffing_needed_urgency_hours',
 ])]
 class OrganizationSetting extends Model
 {
@@ -50,6 +52,7 @@ class OrganizationSetting extends Model
             'first_day_of_week' => 'integer',
             'credential_expiring_soon_days' => 'integer',
             'incident_acknowledgment_minutes' => 'integer',
+            'staffing_needed_urgency_hours' => 'integer',
         ];
     }
 }

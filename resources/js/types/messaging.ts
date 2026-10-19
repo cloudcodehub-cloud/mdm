@@ -54,6 +54,7 @@ export type InboxNotification = {
         | 'schedule'
         | 'availability'
         | 'availability_override'
+        | 'staffing_urgency'
         | 'profile';
     title: string;
     body: string;

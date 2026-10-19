@@ -265,6 +265,37 @@ class SchedulingNotificationService
         );
     }
 
+    /**
+     * MDM 04-29 / MDM 09: Agency urgency threshold reached for an unresolved Staffing Needed visit.
+     *
+     * Admin-only. The owning Supervisor already sees the visit on the Operations board (marked
+     * Urgent / Overdue), so they are intentionally not sent a duplicate in-app notification.
+     * Callers are responsible for one-time dispatch (staffing_urgency_escalated_at).
+     */
+    public function staffingNeededUrgencyReached(
+        ScheduledVisit $visit,
+        bool $overdue = false,
+        ?int $thresholdHours = null,
+    ): void {
+        $visit->loadMissing(['client']);
+
+        $when = $visit->service_date->toDateString();
+        $reason = $overdue
+            ? 'The scheduled start has passed and no DSP is assigned.'
+            : 'It is within the '.($thresholdHours ?? app(SettingsService::class)->staffingNeededUrgencyHours())
+                .'-hour urgency threshold before the scheduled start and no DSP is assigned.';
+
+        $episode = $visit->staffing_urgency_escalated_at?->timestamp ?? now()->timestamp;
+
+        $this->notifyAdmins(
+            $overdue ? 'Overdue Staffing Needed' : 'Urgent Staffing Needed',
+            $visit->client->full_name.' on '.$when.' still needs staffing. '.$reason,
+            'schedule.visit.'.$visit->id.'.staffing-urgency.'.$episode,
+            route('scheduled-visits.show', $visit),
+            InAppNotificationType::StaffingUrgency,
+        );
+    }
+
     private function notifySupervisor(ScheduledVisit $visit, string $title, string $body, string $key): void
     {
         $visit->loadMissing(['supervisor.user', 'client.supervisor.user', 'releasedEmployee.supervisor.user']);
