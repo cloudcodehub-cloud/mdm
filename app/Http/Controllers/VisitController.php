@@ -99,6 +99,9 @@ class VisitController extends Controller
             'care_history' => $user !== null ? $overview->forClient($visit->client, $user)['history'] : [],
             'supervisor_contact' => $this->supervisorContact($visit->client, $user),
             'gps_fallback_reasons' => GpsFallbackReason::options(),
+            'handoff_dsps' => ($user?->can('handOff', $visit) ?? false)
+                ? DirectoryPresenter::schedulingDspOptions($user, $visit->employee)
+                : [],
             'can' => [
                 'clock_in' => $user?->can('clockIn', $visit->scheduledVisit) ?? false,
                 'record_tasks' => $canRecord && ! $tasksGated,
@@ -107,6 +110,7 @@ class VisitController extends Controller
                 'clock_out' => $user?->can('clockOut', $visit) ?? false,
                 'issue_safety_instruction' => $user?->can('issueSafetyInstruction', $visit) ?? false,
                 'administratively_close' => $user?->can('administrativelyClose', $visit) ?? false,
+                'hand_off' => $user?->can('handOff', $visit) ?? false,
                 'report_incident' => $user?->can('create', [\App\Models\Incident::class, $visit]) ?? false,
                 'request_correction' => $visit->status === VisitStatus::Completed
                     && ($user?->can('create', [AttendanceCorrection::class, $visit->scheduledVisit]) ?? false),

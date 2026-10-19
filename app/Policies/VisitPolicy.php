@@ -73,6 +73,19 @@ class VisitPolicy
      */
     public function administrativelyClose(User $user, Visit $visit): bool
     {
+        return $this->supervisorOrAdminOnActiveVisit($user, $visit);
+    }
+
+    /**
+     * MDM 05 §10.6 / MDM 04-08 — mid-service linked handoff (never transfers Active Visit).
+     */
+    public function handOff(User $user, Visit $visit): bool
+    {
+        return $this->supervisorOrAdminOnActiveVisit($user, $visit);
+    }
+
+    private function supervisorOrAdminOnActiveVisit(User $user, Visit $visit): bool
+    {
         if ($visit->status !== VisitStatus::InProgress || $visit->clocked_out_at !== null) {
             return false;
         }

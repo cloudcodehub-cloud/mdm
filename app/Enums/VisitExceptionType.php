@@ -12,6 +12,7 @@ enum VisitExceptionType: string
     case MissedSafetyCheck = 'missed_safety_check';
     case ExtendedVisit = 'extended_visit';
     case OpenVisitEscalation = 'open_visit_escalation';
+    case HandoffCoverageGap = 'handoff_coverage_gap';
 
     public function label(): string
     {
@@ -24,6 +25,7 @@ enum VisitExceptionType: string
             self::MissedSafetyCheck => 'Missed safety check',
             self::ExtendedVisit => 'Extended visit',
             self::OpenVisitEscalation => 'Open visit escalation',
+            self::HandoffCoverageGap => 'Handoff coverage gap',
         };
     }
 
@@ -40,7 +42,7 @@ enum VisitExceptionType: string
             self::OtherVisitException,
             self::MissedSafetyCheck,
             self::OpenVisitEscalation => true,
-            self::GpsUnavailable, self::LateStart, self::ExtendedVisit => false,
+            self::GpsUnavailable, self::LateStart, self::ExtendedVisit, self::HandoffCoverageGap => false,
         };
     }
 

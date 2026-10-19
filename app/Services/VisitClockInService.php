@@ -52,23 +52,49 @@ class VisitClockInService
                 abort(403);
             }
 
-            $existing = Visit::query()
+            $activeForSchedule = Visit::query()
                 ->where('scheduled_visit_id', $scheduledVisit->id)
+                ->inProgress()
+                ->lockForUpdate()
                 ->first();
 
-            if ($existing !== null) {
-                $this->tasks->generate($existing);
+            if ($activeForSchedule !== null) {
+                if ($activeForSchedule->employee_id === $employee->id) {
+                    $this->tasks->generate($activeForSchedule);
 
-                return $existing;
+                    return $activeForSchedule;
+                }
+
+                throw ValidationException::withMessages([
+                    'scheduled_visit' => 'Another DSP still has an active visit segment for this scheduled visit.',
+                ]);
             }
 
             if (in_array($scheduledVisit->status, [
                 ScheduledVisitStatus::Cancelled,
                 ScheduledVisitStatus::Completed,
-            ], true)) {
+            ], true) && ! $scheduledVisit->handoff_pending) {
                 throw ValidationException::withMessages([
                     'scheduled_visit' => 'This scheduled visit cannot be started.',
                 ]);
+            }
+
+            $priorCompleted = Visit::query()
+                ->where('scheduled_visit_id', $scheduledVisit->id)
+                ->where('status', VisitStatus::Completed)
+                ->orderByDesc('id')
+                ->first();
+
+            // Mid-service handoff: replacement DSP clocks in after prior segment ended.
+            if ($priorCompleted !== null && ! $scheduledVisit->handoff_pending) {
+                throw ValidationException::withMessages([
+                    'scheduled_visit' => 'This scheduled visit already has a completed visit. Use the authorized handoff workflow before starting another segment.',
+                ]);
+            }
+
+            if ($priorCompleted !== null && $scheduledVisit->handoff_pending
+                && $scheduledVisit->employee_id !== $employee->id) {
+                abort(403);
             }
 
             $now = $this->settings->now();
@@ -104,14 +130,20 @@ class VisitClockInService
                 ]);
             }
 
+            $attributes = $this->visitAttributes($scheduledVisit, $employee, $payload, $now);
+            if ($priorCompleted !== null) {
+                $attributes['replaced_visit_id'] = $priorCompleted->id;
+            }
+
             try {
-                $visit = Visit::query()->create($this->visitAttributes($scheduledVisit, $employee, $payload, $now));
+                $visit = Visit::query()->create($attributes);
             } catch (UniqueConstraintViolationException $exception) {
                 $existing = Visit::query()
                     ->where('scheduled_visit_id', $scheduledVisit->id)
+                    ->inProgress()
                     ->first();
 
-                if ($existing !== null) {
+                if ($existing !== null && $existing->employee_id === $employee->id) {
                     $this->tasks->generate($existing);
 
                     return $existing;
@@ -124,17 +156,54 @@ class VisitClockInService
 
             $scheduledVisit->update([
                 'status' => ScheduledVisitStatus::InProgress,
+                'handoff_pending' => false,
             ]);
 
             if ($scheduledVisit->isComplianceGrace()) {
                 $this->complianceStaffing->markGraceConsumed($scheduledVisit->fresh() ?? $scheduledVisit, $user);
             }
 
-            $this->tasks->generate($visit);
+            if ($priorCompleted !== null) {
+                $this->tasks->seedUnresolvedFromPrior($priorCompleted, $visit);
+                $this->recordHandoffGapIfNeeded($visit, $priorCompleted, $now);
+            } else {
+                $this->tasks->generate($visit);
+            }
+
             $this->recordStartExceptions($visit, $scheduledVisit, $payload, $now);
 
             return $visit;
         });
+    }
+
+    private function recordHandoffGapIfNeeded(
+        Visit $incoming,
+        Visit $prior,
+        CarbonInterface $now,
+    ): void {
+        $priorEnd = $prior->effectiveEndedAt();
+        if ($priorEnd === null || $incoming->clocked_in_at === null) {
+            return;
+        }
+
+        $gapMinutes = (int) $priorEnd->diffInMinutes($incoming->clocked_in_at, false);
+        if ($gapMinutes <= 0) {
+            return;
+        }
+
+        $this->exceptions->record(
+            $incoming,
+            VisitExceptionType::HandoffCoverageGap,
+            'Unserved coverage gap between linked handoff Visit segments.',
+            null,
+            [
+                'prior_visit_id' => $prior->id,
+                'gap_minutes' => $gapMinutes,
+                'prior_effective_end' => $priorEnd->toIso8601String(),
+                'replacement_clock_in' => $incoming->clocked_in_at->toIso8601String(),
+                'recorded_at' => $now->toIso8601String(),
+            ],
+        );
     }
 
     public function activeVisitFor(Employee $employee): ?Visit
@@ -151,7 +220,7 @@ class VisitClockInService
     public function eligibleScheduledVisitFor(Employee $employee): ?ScheduledVisit
     {
         return $this->todayScheduledVisits($employee)
-            ->first(fn (ScheduledVisit $visit): bool => $visit->isEligibleToStart());
+            ->first(fn (ScheduledVisit $visit): bool => $this->isClockInEligible($visit));
     }
 
     public function primaryScheduledVisitFor(Employee $employee): ?ScheduledVisit
@@ -162,8 +231,13 @@ class VisitClockInService
             return null;
         }
 
-        return $todayVisits->first(fn (ScheduledVisit $visit): bool => $visit->isEligibleToStart())
+        return $todayVisits->first(fn (ScheduledVisit $visit): bool => $this->isClockInEligible($visit))
             ?? $todayVisits->first();
+    }
+
+    private function isClockInEligible(ScheduledVisit $visit): bool
+    {
+        return $visit->handoff_pending || $visit->isEligibleToStart();
     }
 
     /**
@@ -204,8 +278,14 @@ class VisitClockInService
         return ScheduledVisit::query()
             ->with(['client', 'employee', 'supervisor', 'shiftTemplate'])
             ->where('employee_id', $employee->id)
-            ->scheduled()
             ->whereDate('service_date', $today)
+            ->where(function ($query): void {
+                $query->where('status', ScheduledVisitStatus::Scheduled)
+                    ->orWhere(function ($handoff): void {
+                        $handoff->where('handoff_pending', true)
+                            ->where('status', ScheduledVisitStatus::InProgress);
+                    });
+            })
             ->orderBy('id')
             ->get()
             ->sortBy(fn (ScheduledVisit $visit): int => $visit->startsAtOn()->getTimestamp())

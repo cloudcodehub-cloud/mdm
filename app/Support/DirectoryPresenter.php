@@ -687,6 +687,13 @@ final class DirectoryPresenter
             'clocked_out_at_label' => $visit->clocked_out_at === null
                 ? null
                 : $settings->formatTime($visit->clocked_out_at),
+            'replaced_visit_id' => $visit->replaced_visit_id,
+            'is_linked_handoff' => $visit->isLinkedHandoffSegment(),
+            'handed_off_at' => $visit->handed_off_at?->toIso8601String(),
+            'handed_off_at_label' => $visit->handed_off_at === null
+                ? null
+                : $settings->formatDateTime($visit->handed_off_at),
+            'handoff_reason' => $visit->handoff_reason,
             'administratively_closed' => $visit->isAdministrativelyClosed(),
             'administrative_effective_ended_at' => $visit->administrative_effective_ended_at?->toIso8601String(),
             'administrative_effective_ended_at_label' => $visit->administrative_effective_ended_at === null
@@ -858,8 +865,8 @@ final class DirectoryPresenter
         $visit->loadMissing(['client.supervisor', 'supervisor', 'shiftTemplate']);
         $settings = app(SettingsService::class);
         $now = $settings->now();
-        $canStart = $visit->isEligibleToStart($now);
-        $isEarly = $visit->isEarlyStart($now);
+        $canStart = $visit->handoff_pending || $visit->isEligibleToStart($now);
+        $isEarly = ! $visit->handoff_pending && $visit->isEarlyStart($now);
 
         return [
             'id' => $visit->id,
@@ -869,8 +876,9 @@ final class DirectoryPresenter
             'starts_at_iso' => self::visitStartsAtIso($visit),
             'can_start' => $canStart,
             'is_early_start' => $isEarly,
-            'is_late_start' => $canStart && $visit->isLateRelativeToStart($now),
+            'is_late_start' => $canStart && ! $visit->handoff_pending && $visit->isLateRelativeToStart($now),
             'early_start_minutes' => $visit->earlyStartMinutes(),
+            'handoff_pending' => (bool) $visit->handoff_pending,
             'location_label' => self::scheduledVisitLocationLabel($visit),
             'supervisor_name' => $visit->supervisor?->full_name
                 ?? $visit->client->supervisor?->full_name,

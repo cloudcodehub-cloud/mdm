@@ -36,6 +36,7 @@ use App\Http\Controllers\VisitClockInController;
 use App\Http\Controllers\VisitAdministrativeCloseController;
 use App\Http\Controllers\VisitClockOutController;
 use App\Http\Controllers\VisitController;
+use App\Http\Controllers\VisitHandoffController;
 use App\Http\Controllers\VisitExceptionController;
 use App\Http\Controllers\VisitSafetyCheckController;
 use App\Http\Controllers\VisitSafetyInstructionController;
@@ -160,6 +161,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('visits/{visit}/clock-out', [VisitClockOutController::class, 'store'])->name('visits.clock-out');
     Route::post('visits/{visit}/administrative-close', [VisitAdministrativeCloseController::class, 'store'])
         ->name('visits.administrative-close');
+    Route::post('visits/{visit}/handoff', [VisitHandoffController::class, 'store'])
+        ->name('visits.handoff');
     Route::post('visits/{visit}/safety-confirmation', [VisitSafetyCheckController::class, 'confirmGeneral'])
         ->name('visits.safety-confirmation');
     Route::post('visits/{visit}/safety-checks/{safety_check}/acknowledge', [VisitSafetyCheckController::class, 'acknowledge'])

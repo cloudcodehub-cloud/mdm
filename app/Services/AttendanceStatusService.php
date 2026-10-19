@@ -20,29 +20,31 @@ class AttendanceStatusService
     public function statusFor(ScheduledVisit $scheduledVisit, ?CarbonInterface $now = null): AttendanceStatus
     {
         $now = $this->settings->now($now);
-        $scheduledVisit->loadMissing(['visit.exceptions', 'attendanceCorrections']);
+        $scheduledVisit->loadMissing(['visits.exceptions', 'attendanceCorrections']);
 
         if ($this->approvedAdjustment($scheduledVisit) !== null) {
             return AttendanceStatus::ManuallyAdjusted;
         }
 
-        $execution = $scheduledVisit->visit;
+        $segments = $scheduledVisit->visits;
+        $active = $segments->first(fn (Visit $visit): bool => $visit->status === VisitStatus::InProgress);
 
-        if ($this->hasOpenException($execution)) {
+        if ($segments->contains(fn (Visit $visit): bool => $this->hasOpenException($visit))) {
             return AttendanceStatus::Exception;
         }
 
-        if ($execution?->status === VisitStatus::InProgress
-            || $scheduledVisit->status === ScheduledVisitStatus::InProgress) {
+        if ($active !== null
+            || $scheduledVisit->status === ScheduledVisitStatus::InProgress
+            || $scheduledVisit->handoff_pending) {
             return AttendanceStatus::InProgress;
         }
 
-        if ($execution?->status === VisitStatus::Completed
+        if ($segments->contains(fn (Visit $visit): bool => $visit->status === VisitStatus::Completed)
             || $scheduledVisit->status === ScheduledVisitStatus::Completed) {
             return AttendanceStatus::Completed;
         }
 
-        if ($execution !== null) {
+        if ($segments->isNotEmpty()) {
             return AttendanceStatus::InProgress;
         }
 
@@ -76,19 +78,24 @@ class AttendanceStatusService
     }
 
     /**
+     * Aggregate window across linked segments (earliest start → latest effective end).
+     * Gaps are not filled; see workedMinutes() for non-overlapping sum.
+     *
      * @return array{start: CarbonInterface|null, end: CarbonInterface|null, adjusted: bool}
      */
     public function effectiveTimes(ScheduledVisit $scheduledVisit): array
     {
-        $scheduledVisit->loadMissing('visit');
-        $visit = $scheduledVisit->visit;
+        $scheduledVisit->loadMissing('visits');
         $adjustment = $this->approvedAdjustment($scheduledVisit);
 
-        $originalStart = $visit?->clocked_in_at;
-        // DSP clock-out remains original EVV; Administrative Close supplies effective end only.
-        $originalEnd = $visit?->clocked_out_at;
-        $administrativeEnd = $visit?->administrative_effective_ended_at;
-        $baseEnd = $originalEnd ?? $administrativeEnd;
+        $segments = $scheduledVisit->visits->sortBy('id')->values();
+        $first = $segments->first();
+        $lastWithEnd = $segments
+            ->filter(fn (Visit $visit): bool => $visit->effectiveEndedAt() !== null)
+            ->last();
+
+        $originalStart = $first?->clocked_in_at;
+        $baseEnd = $lastWithEnd?->effectiveEndedAt();
 
         if ($adjustment === null) {
             return [
@@ -105,15 +112,45 @@ class AttendanceStatusService
         ];
     }
 
+    /**
+     * Sum worked minutes across linked Visit segments. Gaps between segments are
+     * unserved and are never fabricated into hours (MDM 05 §10.7).
+     */
     public function workedMinutes(ScheduledVisit $scheduledVisit): ?int
     {
-        $times = $this->effectiveTimes($scheduledVisit);
+        $adjustment = $this->approvedAdjustment($scheduledVisit);
+        if ($adjustment !== null) {
+            $times = $this->effectiveTimes($scheduledVisit);
+            if ($times['start'] === null || $times['end'] === null) {
+                return null;
+            }
 
-        if ($times['start'] === null || $times['end'] === null) {
+            return max(0, (int) $times['start']->diffInMinutes($times['end']));
+        }
+
+        $scheduledVisit->loadMissing('visits');
+        if ($scheduledVisit->visits->isEmpty()) {
             return null;
         }
 
-        return max(0, (int) $times['start']->diffInMinutes($times['end']));
+        $total = 0;
+        $anyComplete = false;
+
+        foreach ($scheduledVisit->visits as $visit) {
+            if ($visit->status === VisitStatus::InProgress) {
+                return null;
+            }
+
+            $end = $visit->effectiveEndedAt();
+            if ($visit->clocked_in_at === null || $end === null) {
+                continue;
+            }
+
+            $total += max(0, (int) $visit->clocked_in_at->diffInMinutes($end));
+            $anyComplete = true;
+        }
+
+        return $anyComplete ? $total : null;
     }
 
     public function hasGpsIssue(?Visit $visit): bool

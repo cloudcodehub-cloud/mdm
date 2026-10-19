@@ -96,6 +96,11 @@ export type ActiveVisitRecord = {
     administratively_closed_by_name?: string | null;
     administrative_close_reason?: string | null;
     administrative_close_default_end?: string | null;
+    replaced_visit_id?: number | null;
+    is_linked_handoff?: boolean;
+    handed_off_at?: string | null;
+    handed_off_at_label?: string | null;
+    handoff_reason?: string | null;
     duration_label?: string | null;
     location_method: string;
     location_status: string;

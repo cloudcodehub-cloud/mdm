@@ -461,7 +461,9 @@ export type VisitRecord = {
         source?: string;
         source_label?: string | null;
     }>;
+    handoff_pending?: boolean;
     recorded_visit?: import('./visit').ActiveVisitRecord | null;
+    visit_segments?: import('./visit').ActiveVisitRecord[];
 };
 
 export type DspScheduleOption = OptionItem & {

@@ -19,6 +19,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $scheduled_visit_id
+ * @property int|null $replaced_visit_id
  * @property int $employee_id
  * @property int $client_id
  * @property int|null $care_plan_id
@@ -30,6 +31,9 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $administratively_closed_at
  * @property int|null $administratively_closed_by_user_id
  * @property string|null $administrative_close_reason
+ * @property Carbon|null $handed_off_at
+ * @property int|null $handed_off_by_user_id
+ * @property string|null $handoff_reason
  * @property string|null $clock_in_latitude
  * @property string|null $clock_in_longitude
  * @property string|null $clock_in_accuracy
@@ -64,12 +68,15 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, VisitNoteHistoryEvent> $noteHistoryEvents
  * @property-read Collection<int, Incident> $incidents
  * @property-read User|null $administrativelyClosedBy
+ * @property-read Visit|null $replacedVisit
+ * @property-read User|null $handedOffBy
  *
  * @method static Builder<static> inProgress()
  * @method static Builder<static> visibleTo(User $user)
  */
 #[Fillable([
     'scheduled_visit_id',
+    'replaced_visit_id',
     'employee_id',
     'client_id',
     'care_plan_id',
@@ -81,6 +88,9 @@ use Illuminate\Support\Carbon;
     'administratively_closed_at',
     'administratively_closed_by_user_id',
     'administrative_close_reason',
+    'handed_off_at',
+    'handed_off_by_user_id',
+    'handoff_reason',
     'clock_in_latitude',
     'clock_in_longitude',
     'clock_in_accuracy',
@@ -117,6 +127,7 @@ class Visit extends Model
             'clocked_out_at' => 'datetime',
             'administrative_effective_ended_at' => 'datetime',
             'administratively_closed_at' => 'datetime',
+            'handed_off_at' => 'datetime',
             'clock_in_location_method' => ClockInLocationMethod::class,
             'clock_in_location_status' => ClockInLocationStatus::class,
             'clock_out_location_method' => ClockInLocationMethod::class,
@@ -164,6 +175,29 @@ class Visit extends Model
     public function administrativelyClosedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'administratively_closed_by_user_id');
+    }
+
+    /**
+     * Prior Visit segment this linked handoff replaces (MDM 05 §10.6).
+     *
+     * @return BelongsTo<Visit, $this>
+     */
+    public function replacedVisit(): BelongsTo
+    {
+        return $this->belongsTo(Visit::class, 'replaced_visit_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function handedOffBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'handed_off_by_user_id');
+    }
+
+    public function isLinkedHandoffSegment(): bool
+    {
+        return $this->replaced_visit_id !== null;
     }
 
     /**

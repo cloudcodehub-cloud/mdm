@@ -69,6 +69,41 @@ class VisitTaskGenerator
         $this->generateOneOffs($visit);
     }
 
+    /**
+     * MDM 05 §10.6 — replacement DSP receives only unresolved/applicable work.
+     * Completed/skipped tasks remain attributed to the prior Visit.
+     */
+    public function seedUnresolvedFromPrior(Visit $prior, Visit $next): void
+    {
+        $prior->loadMissing('tasks');
+        $sort = 0;
+
+        foreach ($prior->tasks as $task) {
+            if ($task->status !== VisitTaskStatus::Pending) {
+                continue;
+            }
+
+            $sort++;
+
+            VisitTask::query()->create([
+                'visit_id' => $next->id,
+                'care_plan_task_template_id' => $task->care_plan_task_template_id,
+                'scheduled_visit_one_off_task_id' => $task->scheduled_visit_one_off_task_id,
+                'title' => $task->title,
+                'instructions' => $task->instructions,
+                'recurrence' => $task->recurrence,
+                'recurrence_detail' => $task->recurrence_detail,
+                'preferred_timing' => $task->preferred_timing,
+                'is_required' => $task->is_required,
+                'note_required' => $task->note_required,
+                'can_skip' => $task->can_skip,
+                'is_critical' => $task->is_critical,
+                'sort_order' => $sort,
+                'status' => VisitTaskStatus::Pending,
+            ]);
+        }
+    }
+
     private function boundOrEffectivePlan(Visit $visit, string $serviceDate): ?CarePlan
     {
         if ($visit->care_plan_id !== null) {

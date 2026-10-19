@@ -163,7 +163,8 @@ class DashboardService
             }
 
             $recordedVisit = $visit->visit;
-            $eligible = $visit->isEligibleToStart() && ($user->can('clockIn', $visit));
+            $eligible = ($visit->handoff_pending || $visit->isEligibleToStart())
+                && ($user->can('clockIn', $visit));
             $progress = $recordedVisit !== null
                 ? DirectoryPresenter::activeVisitSummary($recordedVisit)['task_progress']
                 : null;

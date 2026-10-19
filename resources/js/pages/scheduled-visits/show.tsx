@@ -134,6 +134,14 @@ export default function ScheduledVisitsShow({
                     </AttentionBanner>
                 )}
 
+                {visit.handoff_pending && (
+                    <AttentionBanner>
+                        Mid-service handoff pending — the replacement DSP must
+                        clock in to start the linked Visit segment. Prior EVV
+                        remains on the original Visit.
+                    </AttentionBanner>
+                )}
+
                 {can.acknowledge_availability_override && (
                     <div className="space-y-2">
                     <AttentionBanner>
@@ -243,6 +251,36 @@ export default function ScheduledVisitsShow({
                             tasks={visit.assigned_visit_tasks ?? []}
                             empty="No visit tasks are assigned yet."
                         />
+                    </RecordSection>
+                )}
+
+                {(visit.visit_segments?.length ?? 0) > 1 && (
+                    <RecordSection title="Linked visit segments" compact>
+                        <ul className="grid gap-2 text-sm">
+                            {visit.visit_segments?.map((segment) => (
+                                <li key={segment.id}>
+                                    <Link
+                                        href={showVisit(segment.id)}
+                                        className="hover:text-foreground font-medium"
+                                    >
+                                        {segment.employee.name}
+                                    </Link>
+                                    <span className="text-muted-foreground">
+                                        {' '}
+                                        · {segment.status_label} · In{' '}
+                                        {segment.clocked_in_at_label}
+                                        {segment.clocked_out_at_label
+                                            ? ` · Out ${segment.clocked_out_at_label}`
+                                            : segment.administrative_effective_ended_at_label
+                                              ? ` · Ended ${segment.administrative_effective_ended_at_label}`
+                                              : ''}
+                                        {segment.is_linked_handoff
+                                            ? ' · Linked handoff'
+                                            : ''}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
                     </RecordSection>
                 )}
 

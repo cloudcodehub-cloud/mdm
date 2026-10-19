@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Enums\ClockInLocationMethod;
 use App\Enums\ClockInLocationStatus;
 use App\Enums\GpsFallbackReason;
-use App\Enums\ScheduledVisitStatus;
 use App\Enums\VisitExceptionType;
 use App\Enums\VisitStatus;
 use App\Enums\VisitTaskStatus;
@@ -162,10 +161,6 @@ class VisitClockOutService
                 'unfinished_required_acknowledged' => $pendingRequired->isNotEmpty() && $acknowledged,
             ]);
 
-            $visit->scheduledVisit()->update([
-                'status' => ScheduledVisitStatus::Completed,
-            ]);
-
             if (! $captured) {
                 $this->exceptions->record(
                     $visit,
@@ -209,6 +204,9 @@ class VisitClockOutService
 
             return $visit->refresh();
         });
+
+        app(ScheduledVisitCompletionService::class)
+            ->completeIfSettled($completed->scheduledVisit()->first() ?? $completed->scheduledVisit);
 
         // MDM 03: a pending Client/DSP archive completes automatically once the active visit ends.
         app(ArchivePendingService::class)->onVisitCompleted($completed);

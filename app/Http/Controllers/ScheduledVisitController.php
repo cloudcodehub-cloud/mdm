@@ -267,6 +267,10 @@ class ScheduledVisitController extends Controller
             'createdBy',
             'updatedBy',
             'visit.tasks.skipReason',
+            'visits.exceptions.visitTask',
+            'visits.client',
+            'visits.employee',
+            'visits.scheduledVisit.shiftTemplate',
             'visit.exceptions.visitTask',
             'visit.client',
             'visit.employee',
@@ -274,7 +278,7 @@ class ScheduledVisitController extends Controller
         ]);
 
         $user = $request->user();
-        $recorded = $scheduledVisit->visit;
+        $recorded = $scheduledVisit->activeVisit() ?? $scheduledVisit->visit;
         $phase = $this->visitPhase($scheduledVisit, $user);
         $canUpdate = ($user?->can('update', $scheduledVisit) ?? false)
             && $scheduledVisit->status !== ScheduledVisitStatus::InProgress
@@ -296,9 +300,14 @@ class ScheduledVisitController extends Controller
             'visit' => [
                 ...DirectoryPresenter::scheduledVisitDetail($scheduledVisit),
                 'visit_phase' => $phase,
+                'handoff_pending' => (bool) $scheduledVisit->handoff_pending,
                 'start_unavailable_reason' => $this->startUnavailableReason($scheduledVisit, $phase),
                 'assigned_visit_tasks' => $carePreview->assignedTasksFor($scheduledVisit),
                 'recorded_visit' => $recorded === null ? null : DirectoryPresenter::visitDetail($recorded),
+                'visit_segments' => $scheduledVisit->visits
+                    ->map(fn ($segment) => DirectoryPresenter::visitDetail($segment))
+                    ->values()
+                    ->all(),
                 'availability_overrides' => $overrides->serializeForVisit($scheduledVisit),
             ],
             'can' => [
@@ -473,17 +482,22 @@ class ScheduledVisitController extends Controller
 
     private function visitPhase(ScheduledVisit $visit, ?User $user): string
     {
-        $recorded = $visit->visit;
-
         if ($visit->status === ScheduledVisitStatus::Cancelled) {
             return 'cancelled';
         }
 
-        if ($recorded?->status === VisitStatus::Completed || $visit->status === ScheduledVisitStatus::Completed) {
+        if ($visit->status === ScheduledVisitStatus::Completed) {
             return 'completed';
         }
 
-        if ($recorded?->status === VisitStatus::InProgress || $visit->status === ScheduledVisitStatus::InProgress) {
+        // Linked handoff: replacement DSP may clock in while prior segment is Completed.
+        if ($visit->handoff_pending) {
+            return ($user?->can('clockIn', $visit) ?? false) ? 'eligible' : 'active';
+        }
+
+        $active = $visit->activeVisit();
+
+        if ($active !== null || $visit->status === ScheduledVisitStatus::InProgress) {
             return 'active';
         }
 

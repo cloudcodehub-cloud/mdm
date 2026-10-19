@@ -46,6 +46,7 @@ use RuntimeException;
  * @property int|null $created_by_user_id
  * @property int|null $updated_by_user_id
  * @property bool $needs_attention
+ * @property bool $handoff_pending
  * @property bool $staffing_needed
  * @property string|null $compliance_staffing_status
  * @property \Illuminate\Support\Carbon|null $compliance_staffing_marked_at
@@ -70,6 +71,8 @@ use RuntimeException;
  * @property-read Collection<int, ScheduledVisitTaskOverride> $taskOverrides
  * @property-read Collection<int, CareService> $careServices
  * @property-read Collection<int, AttendanceCorrection> $attendanceCorrections
+ * @property-read Collection<int, Visit> $visits
+ * @property-read Visit|null $visit
  * @property-read Collection<int, ScheduledVisitAssignment> $assignments
  * @property-read Collection<int, ScheduledVisitAvailabilityOverride> $availabilityOverrides
  *
@@ -102,6 +105,7 @@ use RuntimeException;
     'created_by_user_id',
     'updated_by_user_id',
     'needs_attention',
+    'handoff_pending',
     'staffing_needed',
     'compliance_staffing_status',
     'compliance_staffing_marked_at',
@@ -127,6 +131,7 @@ class ScheduledVisit extends Model
             'service_date' => 'date',
             'status' => ScheduledVisitStatus::class,
             'needs_attention' => 'boolean',
+            'handoff_pending' => 'boolean',
             'staffing_needed' => 'boolean',
             'compliance_staffing_marked_at' => 'datetime',
             'staffing_urgency_escalated_at' => 'datetime',
@@ -243,11 +248,42 @@ class ScheduledVisit extends Model
     }
 
     /**
+     * All linked Visit segments for this Scheduled Visit (MDM 05 §10.6).
+     *
+     * @return HasMany<Visit, $this>
+     */
+    public function visits(): HasMany
+    {
+        return $this->hasMany(Visit::class)->orderBy('id');
+    }
+
+    /**
+     * Latest Visit segment (compatible accessor for historical singular callers).
+     *
      * @return HasOne<Visit, $this>
      */
     public function visit(): HasOne
     {
-        return $this->hasOne(Visit::class);
+        return $this->hasOne(Visit::class)->latestOfMany();
+    }
+
+    public function activeVisit(): ?Visit
+    {
+        $this->loadMissing('visits');
+
+        return $this->visits->first(
+            fn (Visit $visit): bool => $visit->status === \App\Enums\VisitStatus::InProgress,
+        );
+    }
+
+    public function priorCompletedVisit(): ?Visit
+    {
+        $this->loadMissing('visits');
+
+        return $this->visits
+            ->filter(fn (Visit $visit): bool => $visit->status === \App\Enums\VisitStatus::Completed)
+            ->sortByDesc('id')
+            ->first();
     }
 
     /**
@@ -379,9 +415,11 @@ class ScheduledVisit extends Model
 
     public function isHistorical(): bool
     {
+        $this->loadMissing('visits');
+
         return $this->status === ScheduledVisitStatus::Completed
             || $this->status === ScheduledVisitStatus::InProgress
-            || $this->visit !== null;
+            || $this->visits->isNotEmpty();
     }
 
     public function durationMinutes(): int

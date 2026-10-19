@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Enums\ScheduledVisitStatus;
 use App\Enums\VisitStatus;
 use App\Models\User;
 use App\Models\Visit;
@@ -11,19 +10,37 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * MDM 05-03 / MASTER §10.5 — Administrative Close establishes an effective end
- * without fabricating DSP clock-out or GPS evidence. Completes this Visit segment
- * only; linked handoff Visits (MDM 05 §10.6–10.7) remain a later concern.
+ * without fabricating DSP clock-out or GPS evidence.
  */
 class VisitAdministrativeCloseService
 {
-    public function __construct(private SettingsService $settings) {}
+    public function __construct(
+        private SettingsService $settings,
+        private ScheduledVisitCompletionService $scheduledCompletion,
+    ) {}
 
     /**
      * @param  array{effective_ended_at: string, reason: string}  $payload
      */
     public function close(User $actor, Visit $visit, array $payload): Visit
     {
-        $completed = DB::transaction(function () use ($actor, $visit, $payload): Visit {
+        return $this->closeSegment($actor, $visit, $payload, completeScheduled: true);
+    }
+
+    /**
+     * Close one Visit segment. When $completeScheduled is false (mid-service
+     * handoff), the parent Scheduled Visit stays open for the linked replacement.
+     *
+     * @param  array{effective_ended_at: string, reason: string}  $payload
+     */
+    public function closeSegment(
+        User $actor,
+        Visit $visit,
+        array $payload,
+        bool $completeScheduled = true,
+        bool $useTransaction = true,
+    ): Visit {
+        $apply = function () use ($actor, $visit, $payload): Visit {
             /** @var Visit $visit */
             $visit = Visit::query()
                 ->with(['scheduledVisit'])
@@ -90,12 +107,16 @@ class VisitAdministrativeCloseService
                 'administrative_close_reason' => $reason,
             ]);
 
-            $visit->scheduledVisit()->update([
-                'status' => ScheduledVisitStatus::Completed,
-            ]);
-
             return $visit->refresh();
-        });
+        };
+
+        $completed = $useTransaction ? DB::transaction($apply) : $apply();
+
+        if ($completeScheduled) {
+            $this->scheduledCompletion->completeIfSettled(
+                $completed->scheduledVisit()->first() ?? $completed->scheduledVisit,
+            );
+        }
 
         app(ArchivePendingService::class)->onVisitCompleted($completed);
 

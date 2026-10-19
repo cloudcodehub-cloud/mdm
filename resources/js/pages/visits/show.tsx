@@ -25,6 +25,7 @@ import { ProgressRing } from '@/components/mdm/visual-summaries';
 import { EmptyState } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { VisitAdministrativeCloseForm } from '@/components/mdm/visit-administrative-close-form';
+import { VisitHandoffForm } from '@/components/mdm/visit-handoff-form';
 import { VisitClockOutReview } from '@/components/mdm/visit-clock-out-review';
 import { VisitIncidentPanel } from '@/components/mdm/visit-incident-panel';
 import { VisitNotesForm } from '@/components/mdm/visit-notes-form';
@@ -37,6 +38,7 @@ import { show as showException } from '@/routes/visit-exceptions';
 import { show as showScheduled } from '@/routes/scheduled-visits';
 import { show } from '@/routes/visits';
 import type { GpsFallbackReasonOption } from '@/types/dashboard';
+import type { DspScheduleOption } from '@/types/directory';
 import type {
     ActiveVisitRecord,
     SkipReasonOption,
@@ -50,6 +52,7 @@ export default function VisitsShow({
     care_history = [],
     supervisor_contact = null,
     gps_fallback_reasons = [],
+    handoff_dsps = [],
     can,
     documents,
     attendance_url = null,
@@ -59,6 +62,7 @@ export default function VisitsShow({
     gps_fallback_reasons?: GpsFallbackReasonOption[];
     care_history?: CareHistoryItem[];
     supervisor_contact?: SupervisorContact | null;
+    handoff_dsps?: DspScheduleOption[];
     can?: {
         clock_in?: boolean;
         record_tasks?: boolean;
@@ -67,6 +71,7 @@ export default function VisitsShow({
         clock_out?: boolean;
         issue_safety_instruction?: boolean;
         administratively_close?: boolean;
+        hand_off?: boolean;
         report_incident?: boolean;
         request_correction?: boolean;
         view_exceptions?: boolean;
@@ -83,7 +88,8 @@ export default function VisitsShow({
             can?.clock_out ||
                 can?.record_tasks ||
                 can?.issue_safety_instruction ||
-                can?.administratively_close,
+                can?.administratively_close ||
+                can?.hand_off,
         );
     const monitoring = !completed && !showActiveWorkspace;
     const title = completed
@@ -203,6 +209,7 @@ export default function VisitsShow({
                         careHistory={care_history}
                         supervisor={supervisor_contact}
                         gpsFallbackReasons={gps_fallback_reasons}
+                        handoffDsps={handoff_dsps}
                         onMessagePrevious={(item) => {
                             if (item.previous_dsp_user_id) {
                                 openMessage(
@@ -232,6 +239,8 @@ export default function VisitsShow({
                         canAdministrativelyClose={Boolean(
                             can?.administratively_close,
                         )}
+                        canHandOff={Boolean(can?.hand_off)}
+                        handoffDsps={handoff_dsps}
                     />
                 )}
             </RecordPage>
@@ -262,6 +271,7 @@ function ActiveVisit({
     careHistory,
     supervisor,
     gpsFallbackReasons,
+    handoffDsps = [],
     onMessagePrevious,
     onContactSupervisor,
 }: {
@@ -274,12 +284,14 @@ function ActiveVisit({
         clock_out?: boolean;
         issue_safety_instruction?: boolean;
         administratively_close?: boolean;
+        hand_off?: boolean;
         report_incident?: boolean;
         view_note_history?: boolean;
     };
     careHistory: CareHistoryItem[];
     supervisor: SupervisorContact | null;
     gpsFallbackReasons?: GpsFallbackReasonOption[];
+    handoffDsps?: DspScheduleOption[];
     onMessagePrevious: (item: CareHistoryItem) => void;
     onContactSupervisor: () => void;
 }) {
@@ -480,6 +492,15 @@ function ActiveVisit({
                     <VisitAdministrativeCloseForm visit={visit} />
                 </RecordSection>
             ) : null}
+            {can?.hand_off ? (
+                <RecordSection
+                    title="Mid-service replacement"
+                    className="lg:col-span-12"
+                    description="Preserve the outgoing DSP Visit and EVV, then assign a replacement who clocks in for a linked Visit."
+                >
+                    <VisitHandoffForm visit={visit} dsps={handoffDsps} />
+                </RecordSection>
+            ) : null}
         </div>
     );
 }
@@ -490,12 +511,16 @@ function VisitMonitoring({
     canFollowUp,
     canViewNoteHistory,
     canAdministrativelyClose = false,
+    canHandOff = false,
+    handoffDsps = [],
 }: {
     visit: ActiveVisitRecord;
     canViewExceptions: boolean;
     canFollowUp: boolean;
     canViewNoteHistory: boolean;
     canAdministrativelyClose?: boolean;
+    canHandOff?: boolean;
+    handoffDsps?: DspScheduleOption[];
 }) {
     const exceptions = visit.exceptions ?? [];
     const exceptionByTaskId = new Map(
@@ -576,6 +601,15 @@ function VisitMonitoring({
                     description="For authorized Supervisors and Admins when a DSP cannot complete a normal clock-out. Does not fabricate DSP EVV."
                 >
                     <VisitAdministrativeCloseForm visit={visit} />
+                </RecordSection>
+            ) : null}
+            {canHandOff ? (
+                <RecordSection
+                    title="Mid-service replacement"
+                    className="lg:col-span-12"
+                    description="Preserve the outgoing DSP Visit and EVV, then assign a replacement who clocks in for a linked Visit."
+                >
+                    <VisitHandoffForm visit={visit} dsps={handoffDsps} />
                 </RecordSection>
             ) : null}
             {visit.administratively_closed ? (
