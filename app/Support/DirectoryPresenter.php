@@ -29,6 +29,8 @@ use App\Models\VisitSafetyCheck;
 use App\Models\VisitTask;
 use App\Services\AuthorizationUsageService;
 use App\Services\CarePlanReviewService;
+use App\Services\ClientLifecycleService;
+use App\Services\EmployeeLifecycleService;
 use App\Services\ProfilePhotoService;
 use App\Services\SettingsService;
 use Carbon\CarbonInterface;
@@ -96,6 +98,7 @@ final class DirectoryPresenter
             'status_reason' => $employee->status_reason,
             'status_changed_at' => $employee->status_changed_at?->toIso8601String(),
             'status_changed_by' => $employee->statusChangedBy?->name,
+            'archive_pending' => self::archivePending($employee),
             'employment_type' => $employee->employment_type?->value,
             'preferred_shift_type' => $employee->preferred_shift_type,
             'desired_hours_per_week' => $employee->desired_hours_per_week,
@@ -335,6 +338,36 @@ final class DirectoryPresenter
             'care_services' => $client->relationLoaded('careServices')
                 ? CareServicePresenter::options($client->careServices)
                 : [],
+            'archive_pending' => self::archivePending($client),
+        ];
+    }
+
+    /**
+     * MDM 03 Archive Pending summary (null unless the record is Archive Pending).
+     * Blockers are recomputed live so the message reflects what still holds the archive.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function archivePending(Employee|Client $record): ?array
+    {
+        if (! $record->isArchivePending()) {
+            return null;
+        }
+
+        $blockers = $record instanceof Employee
+            ? app(EmployeeLifecycleService::class)->archiveBlockers($record)
+            : app(ClientLifecycleService::class)->archiveBlockers($record);
+
+        $labels = array_map(fn (array $blocker): string => $blocker['label'], $blockers);
+
+        return [
+            'requested_at' => $record->archive_pending_at?->toIso8601String(),
+            'requested_by' => $record->archivePendingBy?->name,
+            'reason' => $record->archive_pending_reason,
+            'blockers' => $blockers,
+            'message' => $labels === []
+                ? 'Archiving will complete automatically shortly; no blocking work remains.'
+                : 'Archiving will complete automatically after: '.implode('; ', $labels).'. No further Admin action is needed.',
         ];
     }
 

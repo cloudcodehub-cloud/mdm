@@ -79,7 +79,7 @@ export function StatusBadge({
                     status === 'late' ||
                     status === 'exception'
                   ? 'bg-destructive/10 text-destructive'
-                  : status === 'suspended'
+                    : status === 'suspended' || status === 'archive_pending'
                     ? 'bg-status-warning/10 text-status-warning'
                     : status === 'resolved'
                       ? 'bg-status-success/10 text-status-success'

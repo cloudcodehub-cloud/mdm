@@ -167,7 +167,7 @@ class VisitTaskService
     {
         $employee = $user->employee;
 
-        if ($employee === null || ! $employee->isActiveDsp() || $visit->employee_id !== $employee->id) {
+        if ($employee === null || ! $employee->canFinishActiveVisit() || $visit->employee_id !== $employee->id) {
             abort(403);
         }
     }

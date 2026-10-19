@@ -20,7 +20,12 @@ class UpdateClientStatusRequest extends FormRequest
 
         $status = ClientStatus::tryFrom((string) $this->input('status'));
 
-        if ($status === ClientStatus::Archived) {
+        if (in_array($status, [ClientStatus::Archived, ClientStatus::ArchivePending], true)) {
+            return $this->user()?->can('archive', $client) ?? false;
+        }
+
+        // A pending archive may only be confirmed or cancelled by an Admin (Supervisors never initiate it).
+        if ($client->isArchivePending()) {
             return $this->user()?->can('archive', $client) ?? false;
         }
 
@@ -33,7 +38,8 @@ class UpdateClientStatusRequest extends FormRequest
     public function rules(): array
     {
         $status = ClientStatus::tryFrom((string) $this->input('status'));
-        $requiresReason = in_array($status, [ClientStatus::Paused, ClientStatus::Discharged], true);
+        // Archive is high-impact: reason required (matches Employee archive).
+        $requiresReason = in_array($status, [ClientStatus::Paused, ClientStatus::Discharged, ClientStatus::Archived], true);
 
         return [
             'status' => ['required', Rule::enum(ClientStatus::class)],

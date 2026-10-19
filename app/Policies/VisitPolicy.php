@@ -104,7 +104,8 @@ class VisitPolicy
 
     private function operate(User $user, Visit $visit): bool
     {
-        if (! $user->isDsp() || $user->employee === null || ! $user->employee->isActiveDsp()) {
+        // Already-live visit work may be finished while Active or Archive Pending (MDM 03).
+        if (! $user->isDsp() || $user->employee === null || ! $user->employee->canFinishActiveVisit()) {
             return false;
         }
 

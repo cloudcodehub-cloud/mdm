@@ -38,6 +38,11 @@ use Illuminate\Support\Carbon;
  * @property string|null $status_reason
  * @property Carbon|null $status_changed_at
  * @property int|null $status_changed_by_user_id
+ * @property Carbon|null $archive_pending_at
+ * @property int|null $archive_pending_by_user_id
+ * @property string|null $archive_pending_reason
+ * @property array<int, array<string, mixed>>|null $archive_pending_blockers
+ * @property string|null $archive_pending_from_status
  * @property int|null $supervisor_id
  * @property string|null $notes
  * @property string|null $profile_photo_path
@@ -98,7 +103,22 @@ class Client extends Model
             'date_of_birth' => 'date',
             'status' => ClientStatus::class,
             'status_changed_at' => 'datetime',
+            'archive_pending_at' => 'datetime',
+            'archive_pending_blockers' => 'array',
         ];
+    }
+
+    public function isArchivePending(): bool
+    {
+        return $this->status === ClientStatus::ArchivePending;
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function archivePendingBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'archive_pending_by_user_id');
     }
 
     /**

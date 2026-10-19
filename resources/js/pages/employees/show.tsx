@@ -34,6 +34,9 @@ type LifecyclePreview = {
     effective_on: string;
     future_scheduled_count: number;
     will_release_to_staffing_needed?: boolean;
+    staffing_release_deferred?: boolean;
+    will_enter_archive_pending?: boolean;
+    archive_blockers?: Array<{ type: string; label: string }>;
     active_visit?: { warning: string } | null;
     login_consequence?: string;
     consequences: string[];
@@ -146,7 +149,12 @@ export default function EmployeesShow({
                                             employeeId={employee.id}
                                             employeeName={employee.name}
                                             statusValue="active"
-                                            label="Return to Active"
+                                            label={
+                                                employee.employment_status ===
+                                                'archive_pending'
+                                                    ? 'Cancel Archive Request'
+                                                    : 'Return to Active'
+                                            }
                                             preview={lifecycle_previews?.active}
                                         />
                                     )}
@@ -182,7 +190,9 @@ export default function EmployeesShow({
                                     )}
                                     {can.archive &&
                                         employee.employment_status !==
-                                            'archived' && (
+                                            'archived' &&
+                                        employee.employment_status !==
+                                            'archive_pending' && (
                                             <StatusForm
                                                 employeeId={employee.id}
                                                 employeeName={employee.name}
@@ -200,6 +210,30 @@ export default function EmployeesShow({
                         </>
                     }
                 />
+
+                {employee.archive_pending && (
+                    <div
+                        role="status"
+                        className="mb-4 rounded-xl border border-amber-500/40 bg-amber-50/70 p-4 text-sm dark:bg-amber-950/20"
+                    >
+                        <p className="font-medium">Archive Pending</p>
+                        <p className="text-muted-foreground mt-1">
+                            {employee.archive_pending.message}
+                        </p>
+                        <p className="text-muted-foreground mt-1 text-xs">
+                            Current live work stays intact. This is not
+                            Employment Ended or Suspended; login stays
+                            available so work can finish, and no new scheduling
+                            is allowed.
+                            {employee.archive_pending.requested_by
+                                ? ` Requested by ${employee.archive_pending.requested_by}.`
+                                : ''}
+                            {employee.archive_pending.reason
+                                ? ` Reason: ${employee.archive_pending.reason}`
+                                : ''}
+                        </p>
+                    </div>
+                )}
 
                 <ModuleTabs
                     tabs={[
@@ -711,8 +745,9 @@ function LifecycleHistoryPanel({
                 </dl>
                 <p className="text-muted-foreground mt-3 text-sm">
                     Suspension is not account deactivation. Employment Ended is
-                    not Archive. Leave and compliance remain separate
-                    dimensions.
+                    not Archive. Archive Pending means an Admin archive request
+                    was accepted and will finish automatically after live work
+                    ends. Leave and compliance remain separate dimensions.
                 </p>
             </Panel>
             <Panel title="Lifecycle audit history">
@@ -774,11 +809,17 @@ function StatusForm({
     destructive?: boolean;
 }) {
     const impactLines = [
+        preview?.will_enter_archive_pending
+            ? `Archive Pending will be used: ${(preview.archive_blockers ?? []).map((blocker) => blocker.label).join('; ')}. The request is accepted now and completes automatically.`
+            : null,
         preview
             ? `Effective ${preview.effective_on}. ${preview.future_scheduled_count} future scheduled visit(s) affected.`
             : null,
         preview?.will_release_to_staffing_needed
             ? 'Affected future assignments will move to Staffing Needed; history is preserved.'
+            : null,
+        preview?.staffing_release_deferred
+            ? 'Future assignments move to Staffing Needed when the archive completes.'
             : null,
         preview?.active_visit?.warning ?? null,
         preview?.login_consequence ?? null,

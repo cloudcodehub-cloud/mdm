@@ -136,7 +136,7 @@ class User extends Authenticatable implements PasskeyUser
             return false;
         }
 
-        return $employee->employment_status->allowsLogin();
+        return $employee->allowsLogin();
     }
 
     public function canMessage(): bool
@@ -157,6 +157,7 @@ class User extends Authenticatable implements PasskeyUser
                     fn (Builder $employee) => $employee->whereIn('employment_status', [
                         EmploymentStatus::Active,
                         EmploymentStatus::Suspended,
+                        EmploymentStatus::ArchivePending,
                     ]),
                 );
         });

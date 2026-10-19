@@ -10,6 +10,12 @@ const clientStatuses = [
     { value: 'active', label: 'Active' },
     { value: 'paused', label: 'Paused' },
     { value: 'discharged', label: 'Discharged' },
+];
+
+// Archive / Archive Pending are applied only through the lifecycle Archive action (reason + audit).
+// They are listed here only to display the record's current state; the server ignores them on edit.
+const lockedClientStatuses = [
+    { value: 'archive_pending', label: 'Archive Pending' },
     { value: 'archived', label: 'Archived' },
 ];
 
@@ -112,7 +118,12 @@ export function ClientForm({
                                 defaultValue={defaults.status}
                                 className={controlClassName}
                             >
-                                {clientStatuses.map((option) => (
+                                {[
+                                    ...clientStatuses,
+                                    ...lockedClientStatuses.filter(
+                                        (option) => option.value === client?.status,
+                                    ),
+                                ].map((option) => (
                                     <option key={option.value} value={option.value}>
                                         {option.label}
                                     </option>

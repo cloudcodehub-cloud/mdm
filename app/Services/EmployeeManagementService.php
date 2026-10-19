@@ -56,7 +56,7 @@ class EmployeeManagementService
      */
     public function update(Employee $employee, array $data, ?array $presentKeys = null): Employee
     {
-        return DB::transaction(function () use ($employee, $data, $presentKeys): Employee {
+        $updated = DB::transaction(function () use ($employee, $data, $presentKeys): Employee {
             $attributes = $this->employeeAttributes($data, $presentKeys ?? array_keys($data));
 
             if (filled($data['employee_number'] ?? null)) {
@@ -73,6 +73,11 @@ class EmployeeManagementService
 
             return $employee->fresh(['user', 'supervisor']) ?? $employee;
         });
+
+        // MDM 03: moving a DSP to another Supervisor may clear a pending Supervisor archive.
+        app(ArchivePendingService::class)->sweepSupervisors();
+
+        return $updated;
     }
 
     public function updateStatus(

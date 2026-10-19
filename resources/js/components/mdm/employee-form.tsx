@@ -17,6 +17,8 @@ const employmentStatuses = [
     { value: 'active', label: 'Active' },
     { value: 'suspended', label: 'Suspended' },
     { value: 'employment_ended', label: 'Employment Ended' },
+    // Applied automatically by an Admin archive request while live work blocks it (MDM 03).
+    { value: 'archive_pending', label: 'Archive Pending' },
     { value: 'archived', label: 'Archived' },
 ];
 

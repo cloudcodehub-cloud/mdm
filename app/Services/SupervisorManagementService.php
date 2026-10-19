@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\ClientStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\JobType;
 use App\Enums\ReviewStatus;
@@ -149,6 +150,35 @@ class SupervisorManagementService
             || $supervisor->supervisedClients()->exists();
     }
 
+    /**
+     * MDM 03 Archive Pending: live dependencies that block safe archival of a Supervisor.
+     * Archived DSPs/clients are history, not live responsibilities, so they do not block.
+     *
+     * @return array{dsp_count: int, client_count: int, other_report_count: int}
+     */
+    public function liveArchiveDependencies(Employee $supervisor): array
+    {
+        $liveReports = $supervisor->reports()
+            ->where('employment_status', '!=', EmploymentStatus::Archived);
+
+        return [
+            'dsp_count' => (clone $liveReports)->where('job_type', JobType::Dsp)->count(),
+            'other_report_count' => (clone $liveReports)->where('job_type', '!=', JobType::Dsp)->count(),
+            'client_count' => $supervisor->supervisedClients()
+                ->where('status', '!=', ClientStatus::Archived)
+                ->count(),
+        ];
+    }
+
+    public function hasLiveArchiveDependencies(Employee $supervisor): bool
+    {
+        $dependencies = $this->liveArchiveDependencies($supervisor);
+
+        return $dependencies['dsp_count'] > 0
+            || $dependencies['other_report_count'] > 0
+            || $dependencies['client_count'] > 0;
+    }
+
     public function promote(Employee $employee, User $actor): Employee
     {
         if ($this->findEligible($employee->id) === null) {
@@ -226,6 +256,9 @@ class SupervisorManagementService
             ]);
             $from->save();
         });
+
+        // MDM 03: a pending Supervisor archive completes once the team is covered.
+        app(ArchivePendingService::class)->finalizeSupervisorIfCleared($from);
     }
 
     /**
@@ -272,6 +305,9 @@ class SupervisorManagementService
             ]);
             $from->save();
         });
+
+        // MDM 03: a pending Supervisor archive completes once the caseload is covered.
+        app(ArchivePendingService::class)->finalizeSupervisorIfCleared($from);
     }
 
     public function revoke(Employee $supervisor, User $actor, ?Employee $replacement): Employee
@@ -293,7 +329,7 @@ class SupervisorManagementService
         $jobTitle = $supervisor->job_title;
         $previousRole = $supervisor->user?->role->value ?? Role::Supervisor->value;
 
-        return DB::transaction(function () use ($supervisor, $actor, $replacement, $blocks, $jobTitle, $previousRole): Employee {
+        $revoked = DB::transaction(function () use ($supervisor, $actor, $replacement, $blocks, $jobTitle, $previousRole): Employee {
             if ($blocks) {
                 $replacement = $this->assertReplacement($supervisor, $replacement);
 
@@ -324,6 +360,10 @@ class SupervisorManagementService
 
             return $supervisor->fresh(['user']) ?? $supervisor;
         });
+
+        app(ArchivePendingService::class)->finalizeSupervisorIfCleared($revoked);
+
+        return $revoked->fresh(['user']) ?? $revoked;
     }
 
     /**

@@ -48,7 +48,7 @@ class VisitClockOutService
      */
     public function clockOut(User $user, Visit $visit, array $payload): Visit
     {
-        return DB::transaction(function () use ($user, $visit, $payload): Visit {
+        $completed = DB::transaction(function () use ($user, $visit, $payload): Visit {
             /** @var Visit $visit */
             $visit = Visit::query()
                 ->with(['tasks', 'scheduledVisit', 'safetyChecks'])
@@ -58,7 +58,8 @@ class VisitClockOutService
 
             $employee = $user->employee;
 
-            if ($employee === null || ! $employee->isActiveDsp() || $visit->employee_id !== $employee->id) {
+            // Archive Pending DSPs may still finish (clock out of) their already-live visit.
+            if ($employee === null || ! $employee->canFinishActiveVisit() || $visit->employee_id !== $employee->id) {
                 abort(403);
             }
 
@@ -208,6 +209,11 @@ class VisitClockOutService
 
             return $visit->refresh();
         });
+
+        // MDM 03: a pending Client/DSP archive completes automatically once the active visit ends.
+        app(ArchivePendingService::class)->onVisitCompleted($completed);
+
+        return $completed;
     }
 
     private function assertInProgress(Visit $visit): void

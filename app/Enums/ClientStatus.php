@@ -7,6 +7,8 @@ enum ClientStatus: string
     case Active = 'active';
     case Paused = 'paused';
     case Discharged = 'discharged';
+    /** MDM 03: Admin archive accepted, finalization deferred until the active visit ends. */
+    case ArchivePending = 'archive_pending';
     case Archived = 'archived';
 
     public function label(): string
@@ -15,6 +17,7 @@ enum ClientStatus: string
             self::Active => 'Active',
             self::Paused => 'Paused',
             self::Discharged => 'Discharged',
+            self::ArchivePending => 'Archive Pending',
             self::Archived => 'Archived',
         };
     }

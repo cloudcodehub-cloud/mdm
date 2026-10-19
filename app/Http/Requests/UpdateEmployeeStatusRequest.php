@@ -22,7 +22,7 @@ class UpdateEmployeeStatusRequest extends FormRequest
             $this->input('employment_status') ?? $this->input('status') ?? ''
         ));
 
-        if ($status === EmploymentStatus::Archived) {
+        if (in_array($status, [EmploymentStatus::Archived, EmploymentStatus::ArchivePending], true)) {
             return $this->user()?->can('archive', $employee) ?? false;
         }
 

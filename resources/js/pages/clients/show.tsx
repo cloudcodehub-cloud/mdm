@@ -252,12 +252,19 @@ export default function ClientsShow({
                             ) : null}
                             {can.manageLifecycle ? (
                                 <>
-                                    {client.status !== 'active' && (
+                                    {client.status !== 'active' &&
+                                        (client.status !== 'archive_pending' ||
+                                            can.archive) && (
                                         <StatusForm
                                             clientId={client.id}
                                             clientName={client.name}
                                             statusValue="active"
-                                            label="Return to Active"
+                                            label={
+                                                client.status ===
+                                                'archive_pending'
+                                                    ? 'Cancel Archive Request'
+                                                    : 'Return to Active'
+                                            }
                                             preview={lifecycle_previews?.active}
                                         />
                                     )}
@@ -282,13 +289,15 @@ export default function ClientsShow({
                                         </>
                                     )}
                                     {can.archive &&
-                                        client.status !== 'archived' && (
+                                        client.status !== 'archived' &&
+                                        client.status !== 'archive_pending' && (
                                             <StatusForm
                                                 clientId={client.id}
                                                 clientName={client.name}
                                                 statusValue="archived"
                                                 label="Archive"
                                                 preview={lifecycle_previews?.archived}
+                                                requireReason
                                             />
                                         )}
                                 </>
@@ -302,6 +311,28 @@ export default function ClientsShow({
                         todayVisit={today_visit}
                         activeVisit={activeForThisClient}
                     />
+                )}
+
+                {client.archive_pending && (
+                    <div
+                        role="status"
+                        className="mb-4 rounded-xl border border-amber-500/40 bg-amber-50/70 p-4 text-sm dark:bg-amber-950/20"
+                    >
+                        <p className="font-medium">Archive Pending</p>
+                        <p className="text-muted-foreground mt-1">
+                            {client.archive_pending.message}
+                        </p>
+                        <p className="text-muted-foreground mt-1 text-xs">
+                            The active visit continues unchanged and future
+                            visits are cancelled. No new scheduling is allowed.
+                            {client.archive_pending.requested_by
+                                ? ` Requested by ${client.archive_pending.requested_by}.`
+                                : ''}
+                            {client.archive_pending.reason
+                                ? ` Reason: ${client.archive_pending.reason}`
+                                : ''}
+                        </p>
+                    </div>
                 )}
 
                 {care_plan_review_warnings.length > 0 && (
@@ -1246,6 +1277,9 @@ type LifecyclePreview = {
     effective_on: string;
     future_scheduled_count: number;
     affected_services: Array<{ id: number; name: string }>;
+    will_cancel_future_visits?: boolean;
+    will_enter_archive_pending?: boolean;
+    archive_blockers?: Array<{ type: string; label: string }>;
     active_visit?: { warning: string; dsp_name?: string | null } | null;
     consequences: string[];
 };
@@ -1270,8 +1304,14 @@ function StatusForm({
         statusValue === 'discharged' ||
         statusValue === 'archived';
     const impactLines = [
+        preview?.will_enter_archive_pending
+            ? `Archive Pending will be used: ${(preview.archive_blockers ?? []).map((blocker) => blocker.label).join('; ')}. The request is accepted now and completes automatically.`
+            : null,
         preview
             ? `Effective ${preview.effective_on}. ${preview.future_scheduled_count} future scheduled visit(s) affected.`
+            : null,
+        preview?.will_cancel_future_visits
+            ? 'Future scheduled visits will be cancelled; history is preserved.'
             : null,
         preview?.active_visit?.warning ?? null,
         ...(preview?.consequences ?? []),

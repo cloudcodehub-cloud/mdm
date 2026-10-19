@@ -50,6 +50,11 @@ use Illuminate\Support\Carbon;
  * @property string|null $status_reason
  * @property Carbon|null $status_changed_at
  * @property int|null $status_changed_by_user_id
+ * @property Carbon|null $archive_pending_at
+ * @property int|null $archive_pending_by_user_id
+ * @property string|null $archive_pending_reason
+ * @property array<int, array<string, mixed>>|null $archive_pending_blockers
+ * @property string|null $archive_pending_from_status
  * @property string|null $job_title
  * @property EmploymentType|null $employment_type
  * @property string|null $preferred_shift_type
@@ -199,6 +204,8 @@ class Employee extends Model
             'terminated_on' => 'date',
             'employment_status' => EmploymentStatus::class,
             'status_changed_at' => 'datetime',
+            'archive_pending_at' => 'datetime',
+            'archive_pending_blockers' => 'array',
             'job_type' => JobType::class,
             'employment_type' => EmploymentType::class,
             'desired_hours_per_week' => 'integer',
@@ -425,6 +432,51 @@ class Employee extends Model
     public function canPerformService(): bool
     {
         return $this->employment_status->allowsService();
+    }
+
+    public function isArchivePending(): bool
+    {
+        return $this->employment_status === EmploymentStatus::ArchivePending;
+    }
+
+    /**
+     * Archive Pending is not Employment Ended: it keeps login so live work can finish,
+     * unless the record was already Employment Ended when the archive was requested.
+     */
+    public function allowsLogin(): bool
+    {
+        if ($this->isArchivePending()
+            && $this->archive_pending_from_status === EmploymentStatus::EmploymentEnded->value) {
+            return false;
+        }
+
+        return $this->employment_status->allowsLogin();
+    }
+
+    /**
+     * A DSP may finish an already in-progress visit (tasks, notes, clock-out) while Active
+     * or Archive Pending. Archive Pending never allows NEW clock-ins or scheduling.
+     */
+    public function canFinishActiveVisit(): bool
+    {
+        if ($this->job_type !== JobType::Dsp) {
+            return false;
+        }
+
+        if ($this->isArchivePending()
+            && $this->archive_pending_from_status === EmploymentStatus::EmploymentEnded->value) {
+            return false;
+        }
+
+        return $this->employment_status->allowsFinishingActiveVisit();
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function archivePendingBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'archive_pending_by_user_id');
     }
 
     /**

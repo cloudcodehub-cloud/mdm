@@ -130,6 +130,13 @@ class Phase2CLifecycleAuthReviewTest extends TestCase
             ->patch(route('clients.status', $client), [
                 'status' => ClientStatus::Archived->value,
             ])
+            ->assertSessionHasErrors('reason');
+
+        $this->actingAs($admin)
+            ->patch(route('clients.status', $client), [
+                'status' => ClientStatus::Archived->value,
+                'reason' => 'Retention archive',
+            ])
             ->assertRedirect();
 
         $this->assertSame(ClientStatus::Archived, $client->fresh()->status);

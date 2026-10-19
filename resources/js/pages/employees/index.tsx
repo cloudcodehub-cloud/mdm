@@ -76,6 +76,7 @@ export default function EmployeesIndex({
                             <option value="active">Active</option>
                             <option value="suspended">Suspended</option>
                             <option value="employment_ended">Employment Ended</option>
+                            <option value="archive_pending">Archive Pending</option>
                             <option value="archived">Archived</option>
                         </select>
                         <Button type="submit" variant="secondary">

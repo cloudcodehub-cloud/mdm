@@ -104,7 +104,17 @@ export type AvailabilityDayRecord = {
     preferred_daypart: string | null;
 };
 
+/** MDM 03 Archive Pending: accepted archive request waiting on live work (null otherwise). */
+export type ArchivePendingInfo = {
+    requested_at: string | null;
+    requested_by: string | null;
+    reason: string | null;
+    blockers: Array<{ type: string; label: string; count: number }>;
+    message: string;
+};
+
 export type EmployeeDetail = EmployeeSummary & {
+    archive_pending?: ArchivePendingInfo | null;
     first_name: string;
     middle_name: string | null;
     last_name: string;
@@ -233,6 +243,7 @@ export type ClientSummary = {
 };
 
 export type ClientDetail = ClientSummary & {
+    archive_pending?: ArchivePendingInfo | null;
     first_name: string;
     middle_name: string | null;
     last_name: string;

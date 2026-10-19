@@ -63,6 +63,7 @@ export default function ClientsIndex({
                             <option value="active">Active</option>
                             <option value="paused">Paused</option>
                             <option value="discharged">Discharged</option>
+                            <option value="archive_pending">Archive Pending</option>
                             <option value="archived">Archived</option>
                         </select>
                         <select

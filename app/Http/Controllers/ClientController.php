@@ -239,6 +239,11 @@ class ClientController extends Controller
             ? DirectoryPresenter::clientDetail($client)
             : DirectoryPresenter::clientPreparationDetail($client, $nextPreparationVisit);
 
+        // Archive Pending admin detail (reason/requester) is not for DSPs.
+        if ($isDsp && isset($clientPayload['archive_pending'])) {
+            $clientPayload['archive_pending'] = null;
+        }
+
         $careOverview = $user === null
             ? [
                 'today' => [],
@@ -354,7 +359,19 @@ class ClientController extends Controller
     ): RedirectResponse {
         $data = $request->validated();
         unset($data['profile_photo'], $data['remove_photo']);
+
+        // Archive / Archive Pending changes go through ClientLifecycleService only (reason, audit, pending flow).
+        $requestedStatus = ClientStatus::tryFrom((string) ($data['status'] ?? ''));
+
+        if ($client->isArchivePending()
+            || in_array($requestedStatus, [ClientStatus::Archived, ClientStatus::ArchivePending], true)) {
+            unset($data['status']);
+        }
+
         $client->update($data);
+
+        // MDM 03: moving a client to another Supervisor may clear a pending Supervisor archive.
+        app(\App\Services\ArchivePendingService::class)->sweepSupervisors();
 
         if ($request->boolean('remove_photo')) {
             $photos->removeClient($client);
