@@ -159,13 +159,17 @@ class MdmDocumentFactory
                 'effective_clock_in' => $effective['start'] === null ? null : $this->settings->formatDateTime($effective['start']),
                 'effective_clock_out' => $effective['end'] === null ? null : $this->settings->formatDateTime($effective['end']),
                 'clocks_adjusted' => $effective['adjusted'],
+                'administratively_closed' => $visit->isAdministrativelyClosed(),
+                'administrative_close_reason' => $visit->administrative_close_reason,
                 'original_duration' => $this->minutesLabel(
                     $visit->clocked_out_at === null
                         ? null
                         : (int) $visit->clocked_in_at->diffInMinutes($visit->clocked_out_at)
                 ),
                 'effective_duration' => $this->minutesLabel($this->attendanceStatuses->workedMinutes($scheduled)),
-                'visit_status' => Str::headline($visit->status->value),
+                'visit_status' => $visit->isAdministrativelyClosed()
+                    ? 'Completed (administratively closed)'
+                    : Str::headline($visit->status->value),
                 'task_summary' => $this->taskSummary($visit),
                 'completed_tasks' => $this->tasksOf($visit, VisitTaskStatus::Completed),
                 'skipped_tasks' => $this->tasksOf($visit, VisitTaskStatus::Skipped),

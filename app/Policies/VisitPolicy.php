@@ -67,6 +67,33 @@ class VisitPolicy
         return false;
     }
 
+    /**
+     * MDM 05-03 / MASTER §10.5 — caseload Supervisor (or Admin) may administratively
+     * close an Active Visit. DSP EVV must never be impersonated.
+     */
+    public function administrativelyClose(User $user, Visit $visit): bool
+    {
+        if ($visit->status !== VisitStatus::InProgress || $visit->clocked_out_at !== null) {
+            return false;
+        }
+
+        if ($visit->isAdministrativelyClosed()) {
+            return false;
+        }
+
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        if ($user->isSupervisor() && $user->employee) {
+            $visit->loadMissing('client');
+
+            return $visit->client->supervisor_id === $user->employee->id;
+        }
+
+        return false;
+    }
+
     public function acknowledgeCriticalAlert(User $user, Visit $visit): bool
     {
         return $this->operate($user, $visit);

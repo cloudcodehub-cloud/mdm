@@ -687,6 +687,20 @@ final class DirectoryPresenter
             'clocked_out_at_label' => $visit->clocked_out_at === null
                 ? null
                 : $settings->formatTime($visit->clocked_out_at),
+            'administratively_closed' => $visit->isAdministrativelyClosed(),
+            'administrative_effective_ended_at' => $visit->administrative_effective_ended_at?->toIso8601String(),
+            'administrative_effective_ended_at_label' => $visit->administrative_effective_ended_at === null
+                ? null
+                : $settings->formatDateTime($visit->administrative_effective_ended_at),
+            'administratively_closed_at' => $visit->administratively_closed_at?->toIso8601String(),
+            'administratively_closed_at_label' => $visit->administratively_closed_at === null
+                ? null
+                : $settings->formatDateTime($visit->administratively_closed_at),
+            'administratively_closed_by_name' => $visit->administrativelyClosedBy?->name,
+            'administrative_close_reason' => $visit->administrative_close_reason,
+            'administrative_close_default_end' => $settings->datetimeLocalValue(
+                self::administrativeCloseDefaultEnd($visit, $settings),
+            ),
             'duration_label' => self::visitDurationLabel($visit),
             'location_method' => $visit->clock_in_location_method->value,
             'location_status' => $visit->clock_in_location_status->value,
@@ -1082,6 +1096,17 @@ final class DirectoryPresenter
                 'at' => $visit->clocked_out_at->toIso8601String(),
                 'at_label' => $settings->formatTime($visit->clocked_out_at),
             ];
+        } elseif ($visit->isAdministrativelyClosed()) {
+            $items[] = [
+                'id' => 'administrative-close',
+                'title' => 'Administratively closed',
+                'detail' => trim(($visit->administrativelyClosedBy?->name ?? 'Authorized staff')
+                    .' · '.($visit->administrative_close_reason ?? '')),
+                'at' => $visit->administratively_closed_at?->toIso8601String(),
+                'at_label' => $visit->administratively_closed_at === null
+                    ? null
+                    : $settings->formatTime($visit->administratively_closed_at),
+            ];
         }
 
         foreach ($visit->relationLoaded('exceptions') ? $visit->exceptions : [] as $exception) {
@@ -1446,15 +1471,38 @@ final class DirectoryPresenter
 
     public static function visitDurationLabel(Visit $visit): ?string
     {
-        if ($visit->clocked_out_at === null) {
+        $endedAt = $visit->effectiveEndedAt();
+
+        if ($endedAt === null) {
             return null;
         }
 
-        $minutes = (int) $visit->clocked_in_at->diffInMinutes($visit->clocked_out_at);
+        $minutes = (int) $visit->clocked_in_at->diffInMinutes($endedAt);
         $hours = intdiv(max(0, $minutes), 60);
         $remainder = max(0, $minutes) % 60;
 
         return sprintf('%dh %02dm', $hours, $remainder);
+    }
+
+    private static function administrativeCloseDefaultEnd(Visit $visit, SettingsService $settings): CarbonInterface
+    {
+        if (! $visit->isInProgress()) {
+            return $visit->effectiveEndedAt() ?? $settings->now();
+        }
+
+        $now = $settings->now();
+
+        try {
+            $scheduledEnd = $visit->scheduledVisit->endsAtOn();
+        } catch (\Throwable) {
+            return $now;
+        }
+
+        if ($scheduledEnd->lt($visit->clocked_in_at)) {
+            return $now;
+        }
+
+        return $scheduledEnd->gt($now) ? $now : $scheduledEnd;
     }
 
     /**

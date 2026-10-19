@@ -85,19 +85,22 @@ class AttendanceStatusService
         $adjustment = $this->approvedAdjustment($scheduledVisit);
 
         $originalStart = $visit?->clocked_in_at;
+        // DSP clock-out remains original EVV; Administrative Close supplies effective end only.
         $originalEnd = $visit?->clocked_out_at;
+        $administrativeEnd = $visit?->administrative_effective_ended_at;
+        $baseEnd = $originalEnd ?? $administrativeEnd;
 
         if ($adjustment === null) {
             return [
                 'start' => $originalStart,
-                'end' => $originalEnd,
+                'end' => $baseEnd,
                 'adjusted' => false,
             ];
         }
 
         return [
             'start' => $adjustment->requested_clocked_in_at ?? $originalStart,
-            'end' => $adjustment->requested_clocked_out_at ?? $originalEnd,
+            'end' => $adjustment->requested_clocked_out_at ?? $baseEnd,
             'adjusted' => true,
         ];
     }

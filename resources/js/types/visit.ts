@@ -88,6 +88,14 @@ export type ActiveVisitRecord = {
     clocked_in_at_label: string;
     clocked_out_at: string | null;
     clocked_out_at_label: string | null;
+    administratively_closed?: boolean;
+    administrative_effective_ended_at?: string | null;
+    administrative_effective_ended_at_label?: string | null;
+    administratively_closed_at?: string | null;
+    administratively_closed_at_label?: string | null;
+    administratively_closed_by_name?: string | null;
+    administrative_close_reason?: string | null;
+    administrative_close_default_end?: string | null;
     duration_label?: string | null;
     location_method: string;
     location_status: string;

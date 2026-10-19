@@ -24,6 +24,7 @@ import { VisitWorkflow } from '@/components/mdm/visit-workflow';
 import { ProgressRing } from '@/components/mdm/visual-summaries';
 import { EmptyState } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
+import { VisitAdministrativeCloseForm } from '@/components/mdm/visit-administrative-close-form';
 import { VisitClockOutReview } from '@/components/mdm/visit-clock-out-review';
 import { VisitIncidentPanel } from '@/components/mdm/visit-incident-panel';
 import { VisitNotesForm } from '@/components/mdm/visit-notes-form';
@@ -65,6 +66,7 @@ export default function VisitsShow({
         update_notes?: boolean;
         clock_out?: boolean;
         issue_safety_instruction?: boolean;
+        administratively_close?: boolean;
         report_incident?: boolean;
         request_correction?: boolean;
         view_exceptions?: boolean;
@@ -80,7 +82,8 @@ export default function VisitsShow({
         Boolean(
             can?.clock_out ||
                 can?.record_tasks ||
-                can?.issue_safety_instruction,
+                can?.issue_safety_instruction ||
+                can?.administratively_close,
         );
     const monitoring = !completed && !showActiveWorkspace;
     const title = completed
@@ -226,6 +229,9 @@ export default function VisitsShow({
                         canViewExceptions={Boolean(can?.view_exceptions)}
                         canFollowUp={Boolean(can?.follow_up)}
                         canViewNoteHistory={Boolean(can?.view_note_history)}
+                        canAdministrativelyClose={Boolean(
+                            can?.administratively_close,
+                        )}
                     />
                 )}
             </RecordPage>
@@ -267,6 +273,7 @@ function ActiveVisit({
         update_notes?: boolean;
         clock_out?: boolean;
         issue_safety_instruction?: boolean;
+        administratively_close?: boolean;
         report_incident?: boolean;
         view_note_history?: boolean;
     };
@@ -464,6 +471,15 @@ function ActiveVisit({
                     </div>
                 </div>
             </section>
+            {can?.administratively_close ? (
+                <RecordSection
+                    title="Administrative close"
+                    className="lg:col-span-12"
+                    description="For authorized Supervisors and Admins when a DSP cannot complete a normal clock-out. Does not fabricate DSP EVV."
+                >
+                    <VisitAdministrativeCloseForm visit={visit} />
+                </RecordSection>
+            ) : null}
         </div>
     );
 }
@@ -473,11 +489,13 @@ function VisitMonitoring({
     canViewExceptions,
     canFollowUp,
     canViewNoteHistory,
+    canAdministrativelyClose = false,
 }: {
     visit: ActiveVisitRecord;
     canViewExceptions: boolean;
     canFollowUp: boolean;
     canViewNoteHistory: boolean;
+    canAdministrativelyClose?: boolean;
 }) {
     const exceptions = visit.exceptions ?? [];
     const exceptionByTaskId = new Map(
@@ -551,6 +569,44 @@ function VisitMonitoring({
                     </p>
                 )}
             </RecordSection>
+            {canAdministrativelyClose ? (
+                <RecordSection
+                    title="Administrative close"
+                    className="lg:col-span-12"
+                    description="For authorized Supervisors and Admins when a DSP cannot complete a normal clock-out. Does not fabricate DSP EVV."
+                >
+                    <VisitAdministrativeCloseForm visit={visit} />
+                </RecordSection>
+            ) : null}
+            {visit.administratively_closed ? (
+                <RecordSection
+                    title="Administrative close"
+                    className="lg:col-span-12"
+                    compact
+                >
+                    <p className="text-sm">
+                        Closed by{' '}
+                        {visit.administratively_closed_by_name ?? 'authorized staff'}
+                        {visit.administratively_closed_at_label
+                            ? ` · ${visit.administratively_closed_at_label}`
+                            : ''}
+                    </p>
+                    {visit.administrative_effective_ended_at_label ? (
+                        <p className="text-muted-foreground mt-1 text-sm">
+                            Effective end{' '}
+                            {visit.administrative_effective_ended_at_label}
+                        </p>
+                    ) : null}
+                    {visit.administrative_close_reason ? (
+                        <p className="mt-2 whitespace-pre-wrap text-sm">
+                            {visit.administrative_close_reason}
+                        </p>
+                    ) : null}
+                    <p className="text-muted-foreground mt-2 text-xs">
+                        No DSP clock-out or clock-out GPS was recorded.
+                    </p>
+                </RecordSection>
+            ) : null}
             <RecordSection title="Notes / handover" className="lg:col-span-6">
                 <VisitNotesForm
                     visitId={visit.id}
@@ -653,12 +709,20 @@ function VisitFacts({
                     {completed && visit.clocked_out_at_label
                         ? ` · Out ${visit.clocked_out_at_label}`
                         : ''}
+                    {completed &&
+                    !visit.clocked_out_at_label &&
+                    visit.administrative_effective_ended_at_label
+                        ? ` · Effective end ${visit.administrative_effective_ended_at_label}`
+                        : ''}
                     {visit.duration_label ? ` · ${visit.duration_label}` : ''}
                 </span>
             </ContextGroup>
             <ContextGroup label="Attendance">
-                {visit.location_status_label}
-                {visit.clock_out_location_status_label
+                {visit.administratively_closed
+                    ? 'Administratively closed'
+                    : visit.location_status_label}
+                {!visit.administratively_closed &&
+                visit.clock_out_location_status_label
                     ? ` · Out ${visit.clock_out_location_status_label}`
                     : ''}
                 <span className="text-muted-foreground mt-0.5 block text-xs font-normal">

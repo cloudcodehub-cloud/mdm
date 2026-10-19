@@ -47,6 +47,7 @@ class VisitController extends Controller
             'client.supervisor.user',
             'employee',
             'scheduledVisit.shiftTemplate',
+            'administrativelyClosedBy',
             'tasks.skipReason',
             'safetyChecks',
             'safetyInstructions.createdBy',
@@ -105,6 +106,7 @@ class VisitController extends Controller
                 'update_notes' => $user?->can('updateNotes', $visit) ?? false,
                 'clock_out' => $user?->can('clockOut', $visit) ?? false,
                 'issue_safety_instruction' => $user?->can('issueSafetyInstruction', $visit) ?? false,
+                'administratively_close' => $user?->can('administrativelyClose', $visit) ?? false,
                 'report_incident' => $user?->can('create', [\App\Models\Incident::class, $visit]) ?? false,
                 'request_correction' => $visit->status === VisitStatus::Completed
                     && ($user?->can('create', [AttendanceCorrection::class, $visit->scheduledVisit]) ?? false),

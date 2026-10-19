@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 
 /**
@@ -25,6 +26,10 @@ use Illuminate\Support\Carbon;
  * @property VisitStatus $status
  * @property Carbon $clocked_in_at
  * @property Carbon|null $clocked_out_at
+ * @property Carbon|null $administrative_effective_ended_at
+ * @property Carbon|null $administratively_closed_at
+ * @property int|null $administratively_closed_by_user_id
+ * @property string|null $administrative_close_reason
  * @property string|null $clock_in_latitude
  * @property string|null $clock_in_longitude
  * @property string|null $clock_in_accuracy
@@ -58,6 +63,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, AttendanceCorrection> $attendanceCorrections
  * @property-read Collection<int, VisitNoteHistoryEvent> $noteHistoryEvents
  * @property-read Collection<int, Incident> $incidents
+ * @property-read User|null $administrativelyClosedBy
  *
  * @method static Builder<static> inProgress()
  * @method static Builder<static> visibleTo(User $user)
@@ -71,6 +77,10 @@ use Illuminate\Support\Carbon;
     'status',
     'clocked_in_at',
     'clocked_out_at',
+    'administrative_effective_ended_at',
+    'administratively_closed_at',
+    'administratively_closed_by_user_id',
+    'administrative_close_reason',
     'clock_in_latitude',
     'clock_in_longitude',
     'clock_in_accuracy',
@@ -105,6 +115,8 @@ class Visit extends Model
             'status' => VisitStatus::class,
             'clocked_in_at' => 'datetime',
             'clocked_out_at' => 'datetime',
+            'administrative_effective_ended_at' => 'datetime',
+            'administratively_closed_at' => 'datetime',
             'clock_in_location_method' => ClockInLocationMethod::class,
             'clock_in_location_status' => ClockInLocationStatus::class,
             'clock_out_location_method' => ClockInLocationMethod::class,
@@ -144,6 +156,14 @@ class Visit extends Model
     public function carePlan(): BelongsTo
     {
         return $this->belongsTo(CarePlan::class);
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function administrativelyClosedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'administratively_closed_by_user_id');
     }
 
     /**
@@ -215,6 +235,20 @@ class Visit extends Model
     public function isInProgress(): bool
     {
         return $this->status === VisitStatus::InProgress;
+    }
+
+    public function isAdministrativelyClosed(): bool
+    {
+        return $this->administratively_closed_at !== null;
+    }
+
+    /**
+     * Effective service end for attendance/reporting. DSP clock-out EVV stays
+     * on clocked_out_at; Administrative Close supplies a separate effective end.
+     */
+    public function effectiveEndedAt(): ?CarbonInterface
+    {
+        return $this->clocked_out_at ?? $this->administrative_effective_ended_at;
     }
 
     public function hasTimedSafetyChecks(): bool
