@@ -69,12 +69,45 @@ class AttendanceStatusService
             ->first();
     }
 
+    public function approvedAdjustmentForVisit(Visit $visit): ?AttendanceCorrection
+    {
+        $visit->loadMissing('scheduledVisit.attendanceCorrections');
+        $corrections = $visit->scheduledVisit?->attendanceCorrections
+            ?? AttendanceCorrection::query()->where('visit_id', $visit->id)->get();
+
+        return $corrections
+            ->filter(fn (AttendanceCorrection $correction): bool => $correction->isApproved()
+                && (int) $correction->visit_id === (int) $visit->id
+                && $correction->requestsTimeChange())
+            ->sortByDesc(fn (AttendanceCorrection $correction): int => $correction->reviewed_at?->getTimestamp() ?? 0)
+            ->first();
+    }
+
     public function pendingCorrection(ScheduledVisit $scheduledVisit): ?AttendanceCorrection
     {
         $scheduledVisit->loadMissing('attendanceCorrections');
 
         return $scheduledVisit->attendanceCorrections
             ->first(fn (AttendanceCorrection $correction): bool => $correction->isPending());
+    }
+
+    /**
+     * Effective window for one Visit segment (approved time overlay when present).
+     * MDM 05-22 — pending corrections are ignored.
+     *
+     * @return array{start: CarbonInterface|null, end: CarbonInterface|null, adjusted: bool}
+     */
+    public function segmentEffectiveWindow(Visit $visit): array
+    {
+        $adjustment = $this->approvedAdjustmentForVisit($visit);
+        $start = $adjustment?->requested_clocked_in_at ?? $visit->clocked_in_at;
+        $end = $adjustment?->requested_clocked_out_at ?? $visit->effectiveEndedAt();
+
+        return [
+            'start' => $start,
+            'end' => $end,
+            'adjusted' => $adjustment !== null,
+        ];
     }
 
     /**
@@ -85,50 +118,43 @@ class AttendanceStatusService
      */
     public function effectiveTimes(ScheduledVisit $scheduledVisit): array
     {
-        $scheduledVisit->loadMissing('visits');
-        $adjustment = $this->approvedAdjustment($scheduledVisit);
-
+        $scheduledVisit->loadMissing(['visits', 'attendanceCorrections']);
         $segments = $scheduledVisit->visits->sortBy('id')->values();
-        $first = $segments->first();
-        $lastWithEnd = $segments
-            ->filter(fn (Visit $visit): bool => $visit->effectiveEndedAt() !== null)
-            ->last();
 
-        $originalStart = $first?->clocked_in_at;
-        $baseEnd = $lastWithEnd?->effectiveEndedAt();
+        if ($segments->isEmpty()) {
+            return ['start' => null, 'end' => null, 'adjusted' => false];
+        }
 
-        if ($adjustment === null) {
-            return [
-                'start' => $originalStart,
-                'end' => $baseEnd,
-                'adjusted' => false,
-            ];
+        $starts = [];
+        $ends = [];
+        $adjusted = false;
+
+        foreach ($segments as $visit) {
+            $window = $this->segmentEffectiveWindow($visit);
+            if ($window['start'] !== null) {
+                $starts[] = $window['start'];
+            }
+            if ($window['end'] !== null) {
+                $ends[] = $window['end'];
+            }
+            $adjusted = $adjusted || $window['adjusted'];
         }
 
         return [
-            'start' => $adjustment->requested_clocked_in_at ?? $originalStart,
-            'end' => $adjustment->requested_clocked_out_at ?? $baseEnd,
-            'adjusted' => true,
+            'start' => $starts === [] ? null : collect($starts)->sortBy(fn (CarbonInterface $t) => $t->getTimestamp())->first(),
+            'end' => $ends === [] ? null : collect($ends)->sortByDesc(fn (CarbonInterface $t) => $t->getTimestamp())->first(),
+            'adjusted' => $adjusted,
         ];
     }
 
     /**
      * Sum worked minutes across linked Visit segments. Gaps between segments are
      * unserved and are never fabricated into hours (MDM 05 §10.7).
+     * Per-segment approved corrections overlay only that segment.
      */
     public function workedMinutes(ScheduledVisit $scheduledVisit): ?int
     {
-        $adjustment = $this->approvedAdjustment($scheduledVisit);
-        if ($adjustment !== null) {
-            $times = $this->effectiveTimes($scheduledVisit);
-            if ($times['start'] === null || $times['end'] === null) {
-                return null;
-            }
-
-            return max(0, (int) $times['start']->diffInMinutes($times['end']));
-        }
-
-        $scheduledVisit->loadMissing('visits');
+        $scheduledVisit->loadMissing(['visits', 'attendanceCorrections']);
         if ($scheduledVisit->visits->isEmpty()) {
             return null;
         }
@@ -141,12 +167,12 @@ class AttendanceStatusService
                 return null;
             }
 
-            $end = $visit->effectiveEndedAt();
-            if ($visit->clocked_in_at === null || $end === null) {
+            $window = $this->segmentEffectiveWindow($visit);
+            if ($window['start'] === null || $window['end'] === null) {
                 continue;
             }
 
-            $total += max(0, (int) $visit->clocked_in_at->diffInMinutes($end));
+            $total += max(0, (int) $window['start']->diffInMinutes($window['end']));
             $anyComplete = true;
         }
 

@@ -34,6 +34,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $handed_off_at
  * @property int|null $handed_off_by_user_id
  * @property string|null $handoff_reason
+ * @property bool $evv_reconstructed
  * @property string|null $clock_in_latitude
  * @property string|null $clock_in_longitude
  * @property string|null $clock_in_accuracy
@@ -91,6 +92,7 @@ use Illuminate\Support\Carbon;
     'handed_off_at',
     'handed_off_by_user_id',
     'handoff_reason',
+    'evv_reconstructed',
     'clock_in_latitude',
     'clock_in_longitude',
     'clock_in_accuracy',
@@ -128,6 +130,7 @@ class Visit extends Model
             'administrative_effective_ended_at' => 'datetime',
             'administratively_closed_at' => 'datetime',
             'handed_off_at' => 'datetime',
+            'evv_reconstructed' => 'boolean',
             'clock_in_location_method' => ClockInLocationMethod::class,
             'clock_in_location_status' => ClockInLocationStatus::class,
             'clock_out_location_method' => ClockInLocationMethod::class,

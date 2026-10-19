@@ -20,16 +20,19 @@ class AttendanceCorrectionController extends Controller
         $user = $request->user();
         abort_unless($user !== null, 401);
 
-        $corrections->submit($scheduledVisit, $user, [
-            'requested_clocked_in_at' => $request->string('requested_clocked_in_at')->value() ?: null,
-            'requested_clocked_out_at' => $request->string('requested_clocked_out_at')->value() ?: null,
-            'reason' => $request->string('reason')->value(),
-            'note' => $request->string('note')->value() !== '' ? $request->string('note')->value() : null,
-        ]);
+        $payload = $request->validated();
+        // MDM 05-02 — surface illegal coordinate manufacturing attempts even if not validated.
+        foreach (['latitude', 'longitude', 'requested_clock_in_latitude', 'requested_clock_out_latitude'] as $forbidden) {
+            if ($request->filled($forbidden)) {
+                $payload[$forbidden] = $request->input($forbidden);
+            }
+        }
+
+        $corrections->submit($scheduledVisit, $user, $payload);
 
         $message = $user->isAdmin()
-            ? __('Attendance correction applied. Original clock times were preserved.')
-            : __('Correction request submitted for review. Original clock times were preserved.');
+            ? __('Visit correction applied. Original EVV evidence was preserved.')
+            : __('Correction request submitted for review. Original EVV evidence was preserved.');
 
         Inertia::flash('toast', ['type' => 'success', 'message' => $message]);
 
@@ -46,7 +49,7 @@ class AttendanceCorrectionController extends Controller
 
         $corrections->approve($attendanceCorrection, $user, $request->validated('review_note'));
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Correction approved. Original clock times were preserved.')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Correction approved. Original EVV evidence was preserved.')]);
 
         return redirect()->route('attendance.show', $attendanceCorrection->scheduled_visit_id);
     }

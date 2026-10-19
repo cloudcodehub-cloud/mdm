@@ -9,6 +9,9 @@ export type AttendanceCorrectionRecord = {
     visit_id: number | null;
     status: string;
     status_label: string;
+    is_evv_reconstruction?: boolean;
+    overlap_conflict?: boolean;
+    proposed_fields?: string[];
     reason: string;
     note: string | null;
     review_note: string | null;
@@ -20,6 +23,10 @@ export type AttendanceCorrectionRecord = {
     original_clock_out: string | null;
     requested_clock_in: string | null;
     requested_clock_out: string | null;
+    original_visit_notes?: string | null;
+    requested_visit_notes?: string | null;
+    original_handover_note?: string | null;
+    requested_handover_note?: string | null;
     employee_name?: string | null;
     client_name?: string | null;
 };
@@ -58,9 +65,19 @@ export type AttendanceRecord = {
     has_adjustment: boolean;
     adjustment_label: string | null;
     is_adjusted: boolean;
+    evv_reconstructed?: boolean;
+    visit_notes?: string | null;
+    handover_note?: string | null;
     can_request_correction: boolean;
     pending_correction_id: number | null;
+    pending_overlap_conflict?: boolean;
     corrections?: AttendanceCorrectionRecord[];
+    visit_segments?: Array<{
+        id: number;
+        employee_name?: string | null;
+        status: string;
+        evv_reconstructed?: boolean;
+    }>;
     clock_in_input?: string | null;
     clock_out_input?: string | null;
 };

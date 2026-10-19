@@ -130,7 +130,8 @@ class MdmDocumentFactory
         ]);
 
         $scheduled = $visit->scheduledVisit;
-        $effective = $this->attendanceStatuses->effectiveTimes($scheduled);
+        // Prefer this Visit segment's approved overlay (linked handoff / Phase 6D).
+        $effective = $this->attendanceStatuses->segmentEffectiveWindow($visit);
         $includeFollowUp = $user->can('viewAny', VisitException::class);
         $context = $this->contexts->make($user);
         $clientNumber = $visit->client->client_number;
@@ -166,7 +167,11 @@ class MdmDocumentFactory
                         ? null
                         : (int) $visit->clocked_in_at->diffInMinutes($visit->clocked_out_at)
                 ),
-                'effective_duration' => $this->minutesLabel($this->attendanceStatuses->workedMinutes($scheduled)),
+                'effective_duration' => $this->minutesLabel(
+                    ($effective['start'] === null || $effective['end'] === null)
+                        ? null
+                        : max(0, (int) $effective['start']->diffInMinutes($effective['end']))
+                ),
                 'visit_status' => $visit->isAdministrativelyClosed()
                     ? 'Completed (administratively closed)'
                     : Str::headline($visit->status->value),

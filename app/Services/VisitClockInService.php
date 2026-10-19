@@ -70,10 +70,15 @@ class VisitClockInService
                 ]);
             }
 
-            if (in_array($scheduledVisit->status, [
-                ScheduledVisitStatus::Cancelled,
-                ScheduledVisitStatus::Completed,
-            ], true) && ! $scheduledVisit->handoff_pending) {
+            // Cancelled is never startable — handoff_pending does not bypass lifecycle cancel.
+            if ($scheduledVisit->status === ScheduledVisitStatus::Cancelled) {
+                throw ValidationException::withMessages([
+                    'scheduled_visit' => 'This scheduled visit cannot be started.',
+                ]);
+            }
+
+            if ($scheduledVisit->status === ScheduledVisitStatus::Completed
+                && ! $scheduledVisit->handoff_pending) {
                 throw ValidationException::withMessages([
                     'scheduled_visit' => 'This scheduled visit cannot be started.',
                 ]);
@@ -86,6 +91,8 @@ class VisitClockInService
                 ->first();
 
             // Mid-service handoff: replacement DSP clocks in after prior segment ended.
+            // Bypass is limited to the "already has a completed segment" gate — not compliance,
+            // assignee identity, one-active-per-DSP, or Cancelled status.
             if ($priorCompleted !== null && ! $scheduledVisit->handoff_pending) {
                 throw ValidationException::withMessages([
                     'scheduled_visit' => 'This scheduled visit already has a completed visit. Use the authorized handoff workflow before starting another segment.',
@@ -106,6 +113,8 @@ class VisitClockInService
                 ]);
             }
 
+            // Handoff replacements are InProgress + handoff_pending; only Scheduled rows
+            // require the normal early/late window (isEligibleToStart).
             if ($scheduledVisit->status === ScheduledVisitStatus::Scheduled && ! $scheduledVisit->isEligibleToStart($now)) {
                 throw ValidationException::withMessages([
                     'scheduled_visit' => $this->ineligibleMessage($scheduledVisit, $now),

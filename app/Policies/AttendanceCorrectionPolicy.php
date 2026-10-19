@@ -36,6 +36,19 @@ class AttendanceCorrectionPolicy
             return false;
         }
 
+        $scheduledVisit->loadMissing('visits');
+
+        // DSP may request correction for their own completed Visit segment(s).
+        $ownCompleted = $scheduledVisit->visits->first(
+            fn (Visit $visit): bool => $visit->employee_id === $user->employee->id
+                && $visit->status === VisitStatus::Completed,
+        );
+
+        if ($ownCompleted !== null) {
+            return true;
+        }
+
+        // Legacy single-Visit path when visits relation is empty but latest visit matches.
         if ($scheduledVisit->employee_id !== $user->employee->id) {
             return false;
         }

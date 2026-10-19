@@ -33,8 +33,13 @@ export default function AttendanceShow({
     documents?: { completed_visit?: string | null };
 }) {
     const correctionForm = useForm({
+        visit_id: record.visit_id ?? '',
         requested_clocked_in_at: record.clock_in_input ?? '',
         requested_clocked_out_at: record.clock_out_input ?? '',
+        requested_visit_notes: record.visit_notes ?? '',
+        requested_handover_note: record.handover_note ?? '',
+        requested_clock_in_unavailable_reason: '',
+        is_evv_reconstruction: false as boolean,
         reason: '',
         note: '',
     });
@@ -121,13 +126,62 @@ export default function AttendanceShow({
                     {can.request_correction && (
                         <RecordSection title="Attendance correction" className="lg:col-span-5">
                             <p className="text-muted-foreground mb-3 text-sm">
-                                Original DSP clock events stay on the visit
-                                record. Approved adjustments are stored separately.
+                                Original DSP clock events, notes, and GPS evidence
+                                stay on the visit. Pending requests are not
+                                effective until approved.
                             </p>
+                            {record.pending_overlap_conflict ? (
+                                <p className="text-destructive mb-3 text-sm">
+                                    A pending correction has an unresolved
+                                    same-DSP overlap conflict and cannot be
+                                    finalized until resolved.
+                                </p>
+                            ) : null}
                             <form
                                 className="space-y-3"
                                 onSubmit={(event) => {
                                     event.preventDefault();
+                                    correctionForm.transform((data) => {
+                                        const payload: Record<string, unknown> =
+                                            {
+                                                visit_id: data.visit_id
+                                                    ? Number(data.visit_id)
+                                                    : null,
+                                                requested_clocked_in_at:
+                                                    data.requested_clocked_in_at ||
+                                                    null,
+                                                requested_clocked_out_at:
+                                                    data.requested_clocked_out_at ||
+                                                    null,
+                                                reason: data.reason,
+                                                note: data.note || null,
+                                                is_evv_reconstruction: Boolean(
+                                                    data.is_evv_reconstruction,
+                                                ),
+                                            };
+                                        if (
+                                            data.requested_visit_notes !==
+                                            (record.visit_notes ?? '')
+                                        ) {
+                                            payload.requested_visit_notes =
+                                                data.requested_visit_notes;
+                                        }
+                                        if (
+                                            data.requested_handover_note !==
+                                            (record.handover_note ?? '')
+                                        ) {
+                                            payload.requested_handover_note =
+                                                data.requested_handover_note;
+                                        }
+                                        if (
+                                            data.requested_clock_in_unavailable_reason.trim() !==
+                                            ''
+                                        ) {
+                                            payload.requested_clock_in_unavailable_reason =
+                                                data.requested_clock_in_unavailable_reason;
+                                        }
+                                        return payload;
+                                    });
                                     correctionForm.post(
                                         storeCorrection.url(record.id),
                                         { preserveScroll: true },
@@ -186,6 +240,84 @@ export default function AttendanceShow({
                                         }
                                     />
                                 </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="requested_visit_notes">
+                                        Corrected visit notes
+                                    </Label>
+                                    <textarea
+                                        id="requested_visit_notes"
+                                        rows={2}
+                                        value={
+                                            correctionForm.data
+                                                .requested_visit_notes
+                                        }
+                                        onChange={(event) =>
+                                            correctionForm.setData(
+                                                'requested_visit_notes',
+                                                event.target.value,
+                                            )
+                                        }
+                                        className="border-input flex min-h-16 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="requested_handover_note">
+                                        Corrected handover note
+                                    </Label>
+                                    <textarea
+                                        id="requested_handover_note"
+                                        rows={2}
+                                        value={
+                                            correctionForm.data
+                                                .requested_handover_note
+                                        }
+                                        onChange={(event) =>
+                                            correctionForm.setData(
+                                                'requested_handover_note',
+                                                event.target.value,
+                                            )
+                                        }
+                                        className="border-input flex min-h-16 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="requested_clock_in_unavailable_reason">
+                                        GPS context / attestation note
+                                    </Label>
+                                    <textarea
+                                        id="requested_clock_in_unavailable_reason"
+                                        rows={2}
+                                        value={
+                                            correctionForm.data
+                                                .requested_clock_in_unavailable_reason
+                                        }
+                                        onChange={(event) =>
+                                            correctionForm.setData(
+                                                'requested_clock_in_unavailable_reason',
+                                                event.target.value,
+                                            )
+                                        }
+                                        className="border-input flex min-h-16 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                                        placeholder="Cannot manufacture missing coordinates"
+                                    />
+                                </div>
+                                <label className="flex items-center gap-2 text-sm">
+                                    <input
+                                        type="checkbox"
+                                        checked={
+                                            correctionForm.data
+                                                .is_evv_reconstruction
+                                        }
+                                        onChange={(event) =>
+                                            correctionForm.setData(
+                                                'is_evv_reconstruction',
+                                                event.target.checked,
+                                            )
+                                        }
+                                    />
+                                    Mark as EVV reconstruction (missing original
+                                    clocks)
+                                </label>
                                 <div className="grid gap-2">
                                     <Label htmlFor="reason">Reason</Label>
                                     <textarea

@@ -216,11 +216,13 @@ class AttendanceService
      */
     public function serialize(ScheduledVisit $scheduledVisit, User $user, bool $detailed = false): array
     {
+        $scheduledVisit->loadMissing(['visits.employee', 'attendanceCorrections']);
         $status = $this->statuses->statusFor($scheduledVisit);
-        $visit = $scheduledVisit->visit;
+        $visit = $scheduledVisit->activeVisit() ?? $scheduledVisit->visit;
         $effective = $this->statuses->effectiveTimes($scheduledVisit);
         $pending = $this->statuses->pendingCorrection($scheduledVisit);
         $approved = $this->statuses->approvedAdjustment($scheduledVisit);
+        $worked = $this->statuses->workedMinutes($scheduledVisit);
 
         $row = [
             'id' => $scheduledVisit->id,
@@ -238,11 +240,14 @@ class AttendanceService
             'supervisor_name' => $this->supervisorName($scheduledVisit),
             'scheduled_time' => DirectoryPresenter::visitTimeLabel($scheduledVisit),
             'original_clock_in' => $this->stamp($visit?->clocked_in_at),
-            'original_clock_out' => $this->stamp($visit?->clocked_out_at),
+            'original_clock_out' => $this->stamp($visit?->clocked_out_at ?? $visit?->administrative_effective_ended_at),
             'effective_clock_in' => $this->stamp($effective['start']),
             'effective_clock_out' => $this->stamp($effective['end']),
-            'worked_duration' => $this->durationLabel($effective['start'], $effective['end']),
-            'original_duration' => $this->durationLabel($visit?->clocked_in_at, $visit?->clocked_out_at),
+            'worked_duration' => $this->minutesLabel($worked),
+            'original_duration' => $this->durationLabel(
+                $visit?->clocked_in_at,
+                $visit?->clocked_out_at ?? $visit?->administrative_effective_ended_at,
+            ),
             'status' => $status->value,
             'status_label' => $status->label(),
             'has_gps_issue' => $this->statuses->hasGpsIssue($visit),
@@ -251,10 +256,14 @@ class AttendanceService
             'has_adjustment' => $approved !== null || $pending !== null,
             'adjustment_label' => $this->adjustmentLabel($approved, $pending),
             'is_adjusted' => $effective['adjusted'],
+            'evv_reconstructed' => (bool) ($visit?->evv_reconstructed),
+            'visit_notes' => $visit?->visit_notes,
+            'handover_note' => $visit?->handover_note,
             'can_request_correction' => $user->can('create', [AttendanceCorrection::class, $scheduledVisit])
                 && $visit !== null
                 && $pending === null,
             'pending_correction_id' => $pending?->id,
+            'pending_overlap_conflict' => (bool) ($pending?->overlap_conflict),
         ];
 
         if (! $detailed) {
@@ -265,8 +274,19 @@ class AttendanceService
             ->map(fn (AttendanceCorrection $correction): array => $this->serializeCorrection($correction))
             ->values()
             ->all();
+        $row['visit_segments'] = $scheduledVisit->visits
+            ->map(fn ($segment) => [
+                'id' => $segment->id,
+                'employee_name' => $segment->employee?->full_name,
+                'status' => $segment->status->value,
+                'evv_reconstructed' => (bool) $segment->evv_reconstructed,
+            ])
+            ->values()
+            ->all();
         $row['clock_in_input'] = $this->settings->datetimeLocalValue($visit?->clocked_in_at);
-        $row['clock_out_input'] = $this->settings->datetimeLocalValue($visit?->clocked_out_at);
+        $row['clock_out_input'] = $this->settings->datetimeLocalValue(
+            $visit?->clocked_out_at ?? $visit?->administrative_effective_ended_at,
+        );
 
         return $row;
     }
@@ -284,6 +304,9 @@ class AttendanceService
             'visit_id' => $correction->visit_id,
             'status' => $correction->status->value,
             'status_label' => $correction->status->label(),
+            'is_evv_reconstruction' => (bool) $correction->is_evv_reconstruction,
+            'overlap_conflict' => (bool) $correction->overlap_conflict,
+            'proposed_fields' => $correction->proposed_fields ?? [],
             'reason' => $correction->reason,
             'note' => $correction->note,
             'review_note' => $correction->review_note,
@@ -295,6 +318,14 @@ class AttendanceService
             'original_clock_out' => $this->stamp($correction->original_clocked_out_at),
             'requested_clock_in' => $this->stamp($correction->requested_clocked_in_at),
             'requested_clock_out' => $this->stamp($correction->requested_clocked_out_at),
+            'original_visit_notes' => $correction->original_visit_notes,
+            'requested_visit_notes' => $correction->requested_visit_notes,
+            'original_handover_note' => $correction->original_handover_note,
+            'requested_handover_note' => $correction->requested_handover_note,
+            'requested_clock_in_location_status' => $correction->requested_clock_in_location_status,
+            'requested_clock_in_unavailable_reason' => $correction->requested_clock_in_unavailable_reason,
+            'requested_clock_out_location_status' => $correction->requested_clock_out_location_status,
+            'requested_clock_out_unavailable_reason' => $correction->requested_clock_out_unavailable_reason,
             'employee_name' => $scheduled?->employee?->full_name,
             'client_name' => $scheduled?->client?->full_name,
         ];
@@ -334,7 +365,15 @@ class AttendanceService
             return null;
         }
 
-        $minutes = (int) $start->diffInMinutes($end);
+        return $this->minutesLabel((int) $start->diffInMinutes($end));
+    }
+
+    private function minutesLabel(?int $minutes): ?string
+    {
+        if ($minutes === null) {
+            return null;
+        }
+
         $hours = intdiv(max(0, $minutes), 60);
         $remainder = max(0, $minutes) % 60;
 

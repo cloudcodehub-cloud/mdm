@@ -689,6 +689,7 @@ final class DirectoryPresenter
                 : $settings->formatTime($visit->clocked_out_at),
             'replaced_visit_id' => $visit->replaced_visit_id,
             'is_linked_handoff' => $visit->isLinkedHandoffSegment(),
+            'evv_reconstructed' => (bool) $visit->evv_reconstructed,
             'handed_off_at' => $visit->handed_off_at?->toIso8601String(),
             'handed_off_at_label' => $visit->handed_off_at === null
                 ? null

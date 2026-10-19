@@ -94,6 +94,29 @@ class VisitNoteHistoryService
         })->values()->all();
     }
 
+    /**
+     * MDM 05 §L — approved Request Correction may update completed-Visit notes
+     * while retaining previous content in history.
+     */
+    public function recordApprovedCorrectionChange(
+        Visit $visit,
+        User $actor,
+        string $fieldKey,
+        ?string $previous,
+        ?string $next,
+        string $reason,
+    ): void {
+        $this->recordFieldChange(
+            $visit,
+            $actor,
+            $fieldKey,
+            $this->normalize($previous),
+            $this->normalize($next),
+            $reason,
+            requireReasonWhenAmending: false,
+        );
+    }
+
     private function recordFieldChange(
         Visit $visit,
         User $actor,
