@@ -164,6 +164,9 @@ class SchedulingMatchService
             ->count();
         $workload = $this->workload($dsp, $serviceDate);
         $block = $this->availability->hardBlockReason($dsp, $serviceDate, $requested, $exceptVisitId);
+        $conflict = $dsp->isActiveDsp()
+            ? $this->availability->availabilityConflict($dsp, $serviceDate, $requested)
+            : null;
         $covers = $block === null && $this->availability->covers($dsp, $serviceDate, $requested);
         $confirmed = $this->availability->availabilityConfirmed($dsp, $serviceDate);
         $overlap = $this->availability->overlapWithAvailability($dsp, $serviceDate, $requested);
@@ -236,6 +239,8 @@ class SchedulingMatchService
             'availability_confirmed' => $confirmed,
             'hard_blocked' => $block !== null,
             'block_reason' => $block,
+            'availability_conflict_kind' => $conflict['kind'] ?? null,
+            'requires_availability_override' => $conflict !== null,
             'score' => $score,
             'reasons' => $reasons,
             'reason_label' => implode(' · ', $reasons),
@@ -298,7 +303,10 @@ class SchedulingMatchService
         $options = [];
 
         foreach ($rows as $row) {
-            if ($row['hard_blocked'] && ($row['block_reason'] ?? '') !== 'This DSP is not available during the requested window.') {
+            if ($row['hard_blocked'] && ! in_array($row['block_reason'] ?? '', [
+                DspAvailabilityService::UNAVAILABLE_MESSAGE,
+                DspAvailabilityService::UNAVAILABLE_EXCEPTION_MESSAGE,
+            ], true)) {
                 continue;
             }
 

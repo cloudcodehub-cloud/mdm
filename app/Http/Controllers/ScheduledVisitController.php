@@ -15,6 +15,7 @@ use App\Models\Client;
 use App\Models\Employee;
 use App\Models\ScheduledVisit;
 use App\Models\User;
+use App\Services\AvailabilityOverrideService;
 use App\Services\ScheduleCalendarService;
 use App\Services\ScheduledVisitService;
 use App\Services\SchedulingMatchService;
@@ -243,8 +244,13 @@ class ScheduledVisitController extends Controller
         return redirect()->route('scheduled-visits.show', $visit);
     }
 
-    public function show(Request $request, ScheduledVisit $scheduledVisit, VisitClockInService $clockIn, VisitCarePreviewService $carePreview): Response
-    {
+    public function show(
+        Request $request,
+        ScheduledVisit $scheduledVisit,
+        VisitClockInService $clockIn,
+        VisitCarePreviewService $carePreview,
+        AvailabilityOverrideService $overrides,
+    ): Response {
         $this->authorize('view', $scheduledVisit);
 
         $scheduledVisit->load([
@@ -293,10 +299,13 @@ class ScheduledVisitController extends Controller
                 'start_unavailable_reason' => $this->startUnavailableReason($scheduledVisit, $phase),
                 'assigned_visit_tasks' => $carePreview->assignedTasksFor($scheduledVisit),
                 'recorded_visit' => $recorded === null ? null : DirectoryPresenter::visitDetail($recorded),
+                'availability_overrides' => $overrides->serializeForVisit($scheduledVisit),
             ],
             'can' => [
                 'update' => $canUpdate,
                 'replace' => $canUpdate,
+                'acknowledge_availability_override' => ($user?->can('acknowledgeAvailabilityOverride', $scheduledVisit) ?? false)
+                    && $overrides->hasUnacknowledged($scheduledVisit),
                 'duplicate' => $user?->can('create', ScheduledVisit::class) ?? false,
                 'clock_in' => ($user?->can('clockIn', $scheduledVisit) ?? false)
                     && $phase === 'eligible',
@@ -368,7 +377,12 @@ class ScheduledVisitController extends Controller
             default => (string) $request->string('service_date')->value(),
         };
 
-        $copy = $visits->duplicate($scheduledVisit, $date, $user);
+        $copy = $visits->duplicate(
+            $scheduledVisit,
+            $date,
+            $user,
+            $request->filled('override_reason') ? trim($request->string('override_reason')->value()) : null,
+        );
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Visit duplicated.')]);
 
@@ -397,9 +411,12 @@ class ScheduledVisitController extends Controller
             'ends_at' => $scheduledVisit->ends_at,
             'service_type' => $scheduledVisit->service_type,
             'status' => $scheduledVisit->status->value,
+            'override_reason' => $request->filled('override_reason')
+                ? trim($request->string('override_reason')->value())
+                : null,
         ];
 
-        $visits->assertSchedulable($user, $payload, $scheduledVisit);
+        $conflict = $visits->assertSchedulable($user, $payload, $scheduledVisit);
 
         $visit = $assignments->reassign(
             $scheduledVisit->loadMissing('shiftTemplate'),
@@ -408,6 +425,7 @@ class ScheduledVisitController extends Controller
             $request->string('reason')->value(),
             VisitAssignmentKind::Replacement,
             $request->boolean('mark_call_off'),
+            $conflict !== null ? $payload['override_reason'] : null,
         );
 
         $notifications->visitReassigned($visit, $previous);
@@ -415,6 +433,23 @@ class ScheduledVisitController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('DSP replacement saved.')]);
 
         return redirect()->route('scheduled-visits.show', $visit);
+    }
+
+    public function acknowledgeAvailabilityOverride(
+        Request $request,
+        ScheduledVisit $scheduledVisit,
+        AvailabilityOverrideService $overrides,
+    ): RedirectResponse {
+        $this->authorize('acknowledgeAvailabilityOverride', $scheduledVisit);
+
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+
+        $overrides->acknowledge($scheduledVisit, $user);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Availability override acknowledged.')]);
+
+        return redirect()->route('scheduled-visits.show', $scheduledVisit);
     }
 
     /**

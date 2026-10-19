@@ -23,6 +23,12 @@ class DspAvailabilityService
 {
     public const PENDING_LEAVE_ATTENTION = 'Pending leave request may conflict with this visit. Assignments stay unchanged until leave is approved.';
 
+    public const LEAVE_CONFLICT_MESSAGE = 'This DSP has approved leave during the requested window.';
+
+    public const UNAVAILABLE_MESSAGE = 'This DSP is not available during the requested window.';
+
+    public const UNAVAILABLE_EXCEPTION_MESSAGE = 'This DSP has an approved unavailable period during the requested window.';
+
     public function __construct(
         private SettingsService $settings,
         private VisitAssignmentService $assignments,
@@ -641,30 +647,24 @@ class DspAvailabilityService
     /**
      * @param  array{start: int, end: int}  $requested
      */
-    public function hardBlockReason(Employee $employee, CarbonInterface|string $date, array $requested, ?int $exceptVisitId = null): ?string
-    {
+    public function hardBlockReason(
+        Employee $employee,
+        CarbonInterface|string $date,
+        array $requested,
+        ?int $exceptVisitId = null,
+        bool $allowUnavailableOverride = false,
+    ): ?string {
         if (! $employee->isActiveDsp()) {
             return 'Only active DSP employees can be scheduled.';
         }
 
-        $leave = $this->leaveWindows($employee, $date);
-        $clip = $this->clipWindow($requested);
+        // MDM 04-19: approved leave / approved unavailable exceptions are overridable by an
+        // authorized, reasoned override. Inactive DSPs and double-booking never are.
+        if (! $allowUnavailableOverride) {
+            $conflict = $this->availabilityConflict($employee, $date, $requested);
 
-        foreach ($leave as $window) {
-            if ($clip['start'] < $window['end'] && $clip['end'] > $window['start']) {
-                return 'This DSP has approved leave during the requested window.';
-            }
-        }
-
-        if (! $this->covers($employee, $date, $requested)) {
-            $hasWeekly = DspWeeklyAvailability::query()->where('employee_id', $employee->id)->exists();
-
-            if ($hasWeekly) {
-                return 'This DSP is not available during the requested window.';
-            }
-
-            if ($leave !== []) {
-                return 'This DSP has approved leave during the requested window.';
+            if ($conflict !== null) {
+                return $conflict['message'];
             }
         }
 
@@ -678,6 +678,86 @@ class DspAvailabilityService
         }
 
         return null;
+    }
+
+    /**
+     * Approved-Unavailable conflict (approved leave or approved unavailable availability
+     * exception / weekly unavailability) for a requested window. Excludes double-booking
+     * and inactive-DSP blocks, which are never overridable.
+     *
+     * @param  array{start: int, end: int}  $requested
+     * @return array{kind: string, message: string}|null
+     */
+    public function availabilityConflict(Employee $employee, CarbonInterface|string $date, array $requested): ?array
+    {
+        $leave = $this->leaveWindows($employee, $date);
+        $clip = $this->clipWindow($requested);
+
+        foreach ($leave as $window) {
+            if ($clip['start'] < $window['end'] && $clip['end'] > $window['start']) {
+                return ['kind' => 'leave', 'message' => self::LEAVE_CONFLICT_MESSAGE];
+            }
+        }
+
+        if (! $this->covers($employee, $date, $requested)) {
+            if ($this->overlapsUnavailableException($employee, $date, $requested)) {
+                return ['kind' => 'unavailable', 'message' => self::UNAVAILABLE_EXCEPTION_MESSAGE];
+            }
+
+            $hasWeekly = DspWeeklyAvailability::query()->where('employee_id', $employee->id)->exists();
+
+            if ($hasWeekly) {
+                return ['kind' => 'unavailable', 'message' => self::UNAVAILABLE_MESSAGE];
+            }
+
+            if ($leave !== []) {
+                return ['kind' => 'leave', 'message' => self::LEAVE_CONFLICT_MESSAGE];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array{start: int, end: int}  $requested
+     */
+    public function availabilityConflictReason(Employee $employee, CarbonInterface|string $date, array $requested): ?string
+    {
+        return $this->availabilityConflict($employee, $date, $requested)['message'] ?? null;
+    }
+
+    /**
+     * @param  array{start: int, end: int}  $requested
+     */
+    private function overlapsUnavailableException(Employee $employee, CarbonInterface|string $date, array $requested): bool
+    {
+        $day = Carbon::parse($date)->startOfDay();
+        $clip = $this->clipWindow($requested);
+
+        $overlaps = function (CarbonInterface $on, array $window) use ($employee): bool {
+            return DspAvailabilityException::query()
+                ->where('employee_id', $employee->id)
+                ->where('is_available', false)
+                ->whereDate('exception_date', $on->toDateString())
+                ->get()
+                ->contains(function (DspAvailabilityException $exception) use ($window): bool {
+                    $range = $this->exceptionWindow($exception);
+
+                    return $window['start'] < $range['end'] && $window['end'] > $range['start'];
+                });
+        };
+
+        if ($clip['end'] > $clip['start'] && $overlaps($day, $clip)) {
+            return true;
+        }
+
+        if ($requested['end'] > 1440) {
+            $next = ['start' => 0, 'end' => min(1440, $requested['end'] - 1440)];
+
+            return $overlaps($day->copy()->addDay(), $next);
+        }
+
+        return false;
     }
 
     public function preferredDaypart(Employee $employee, CarbonInterface|string $date): ?PreferredDaypart

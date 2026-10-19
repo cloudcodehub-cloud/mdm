@@ -24,6 +24,7 @@ class DuplicateScheduledVisitRequest extends FormRequest
         return [
             'preset' => ['nullable', 'in:tomorrow,next_week'],
             'service_date' => ['required_without:preset', 'nullable', 'date'],
+            'override_reason' => ['nullable', 'string', 'max:2000'],
         ];
     }
 }

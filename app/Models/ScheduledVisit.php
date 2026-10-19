@@ -70,6 +70,7 @@ use RuntimeException;
  * @property-read Collection<int, CareService> $careServices
  * @property-read Collection<int, AttendanceCorrection> $attendanceCorrections
  * @property-read Collection<int, ScheduledVisitAssignment> $assignments
+ * @property-read Collection<int, ScheduledVisitAvailabilityOverride> $availabilityOverrides
  *
  * @method static Builder<static> scheduled()
  * @method static Builder<static> open()
@@ -276,6 +277,16 @@ class ScheduledVisit extends Model
     public function assignments(): HasMany
     {
         return $this->hasMany(ScheduledVisitAssignment::class)->orderByDesc('assigned_at')->orderByDesc('id');
+    }
+
+    /**
+     * Visit-specific overrides of the assigned DSP's approved unavailable period (MDM 04-19).
+     *
+     * @return HasMany<ScheduledVisitAvailabilityOverride, $this>
+     */
+    public function availabilityOverrides(): HasMany
+    {
+        return $this->hasMany(ScheduledVisitAvailabilityOverride::class)->orderByDesc('overridden_at')->orderByDesc('id');
     }
 
     /**

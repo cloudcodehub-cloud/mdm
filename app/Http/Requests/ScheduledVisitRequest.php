@@ -87,6 +87,9 @@ class ScheduledVisitRequest extends FormRequest
             'service_type' => $serviceType,
             'notes' => $this->blankToNull($this->input('notes')),
             'cancellation_reason' => $this->blankToNull($this->input('cancellation_reason')),
+            'override_reason' => is_string($this->input('override_reason'))
+                ? $this->blankToNull(trim($this->input('override_reason')))
+                : null,
             'updated_by_user_id' => $this->user()?->id,
             'repeat' => filter_var($this->input('repeat'), FILTER_VALIDATE_BOOLEAN),
         ];
@@ -126,6 +129,7 @@ class ScheduledVisitRequest extends FormRequest
             ])],
             'notes' => ['nullable', 'string'],
             'cancellation_reason' => ['nullable', 'string'],
+            'override_reason' => ['nullable', 'string', 'max:2000'],
             'series_scope' => ['nullable', Rule::enum(SeriesEditScope::class)],
             'repeat' => ['sometimes', 'boolean'],
             'repeat_pattern' => ['nullable', Rule::enum(VisitRecurrencePattern::class)],
@@ -182,6 +186,7 @@ class ScheduledVisitRequest extends FormRequest
                     'notes',
                     'one_off_tasks',
                     'task_overrides',
+                    'override_reason',
                 ]), $existing);
             } catch (ValidationException $exception) {
                 foreach ($exception->errors() as $key => $messages) {

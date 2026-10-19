@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\ClientStatus;
+use App\Enums\ComplianceStaffingStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\JobType;
 use App\Enums\ScheduledVisitStatus;
@@ -28,7 +29,10 @@ class SupervisorOperationsService
         private SettingsService $settings,
         private VisitOperationsStatus $operationsStatus,
         private IncidentService $incidents,
+        private AvailabilityOverrideService $availabilityOverrides,
     ) {}
+
+    private const STAFFING_QUEUE_LIMIT = 10;
 
     /**
      * @return array<string, mixed>
@@ -183,6 +187,21 @@ class SupervisorOperationsService
             fn (array $row): bool => (bool) ($row['overdue_for_acknowledgment'] ?? false),
         ));
 
+        $staffingNeededQuery = $this->futureOpenQuery($scheduledQuery, $today)
+            ->where(function (Builder $query): void {
+                $query->where('staffing_needed', true)->orWhereNull('employee_id');
+            });
+        $graceQuery = $this->futureOpenQuery($scheduledQuery, $today)
+            ->where('compliance_staffing_status', ComplianceStaffingStatus::Grace->value);
+        $atRiskQuery = $this->futureOpenQuery($scheduledQuery, $today)
+            ->where('compliance_staffing_status', ComplianceStaffingStatus::AtRisk->value);
+
+        $staffingNeededCount = (clone $staffingNeededQuery)->count();
+        $graceCount = (clone $graceQuery)->count();
+        $atRiskCount = (clone $atRiskQuery)->count();
+
+        $unacknowledgedOverrides = $this->availabilityOverrides->unacknowledgedNearTerm($scheduledQuery, 200);
+
         return [
             'today' => $today,
             'timezone' => $this->settings->timezone(),
@@ -199,6 +218,44 @@ class SupervisorOperationsService
                     count($unacknowledgedIncidents),
                     'Submitted Incidents awaiting management acknowledgment',
                     route('incidents.index'),
+                ),
+                $this->metric(
+                    'staffing_needed',
+                    'Staffing Needed',
+                    $staffingNeededCount,
+                    'Upcoming visits with no assigned DSP',
+                    route('scheduled-visits.index'),
+                ),
+                $this->metric(
+                    'compliance_grace',
+                    'Compliance Grace visits',
+                    $graceCount,
+                    'Nearest visit preserved after a Hard Stop',
+                    route('scheduled-visits.index'),
+                ),
+                $this->metric(
+                    'compliance_at_risk',
+                    'Compliance At Risk',
+                    $atRiskCount,
+                    'Later visits needing action after a Hard Stop',
+                    route('scheduled-visits.index'),
+                ),
+                $this->metric(
+                    'availability_overrides_unacknowledged',
+                    'Unacknowledged overrides',
+                    $unacknowledgedOverrides->count(),
+                    'Near-term unavailable-period overrides awaiting DSP acknowledgment',
+                ),
+            ],
+            'staffing_needed_visits' => $this->boardScheduledVisits(
+                $this->staffingQueue($staffingNeededQuery),
+                $now,
+            ),
+            'grace_visits' => $this->boardScheduledVisits($this->staffingQueue($graceQuery), $now),
+            'at_risk_visits' => $this->boardScheduledVisits($this->staffingQueue($atRiskQuery), $now),
+            'availability_overrides' => [
+                'unacknowledged' => $this->values(
+                    $unacknowledgedOverrides->take(25)->map(fn ($override): array => $this->availabilityOverrides->serializeAttention($override)),
                 ),
             ],
             'assigned_dsps' => $this->people($assignedDsps),
@@ -311,12 +368,43 @@ class SupervisorOperationsService
                 'name' => $scheduled->client->full_name,
                 'client_number' => $scheduled->client->client_number,
             ],
-            'employee' => [
+            'employee' => $scheduled->employee === null ? null : [
                 'id' => $scheduled->employee->id,
                 'name' => $scheduled->employee->full_name,
                 'employee_number' => $scheduled->employee->employee_number,
             ],
+            'staffing_needed' => $scheduled->isStaffingNeeded(),
+            'compliance_staffing_status' => $scheduled->compliance_staffing_status,
+            'compliance_staffing_reason' => $scheduled->compliance_staffing_reason,
+            'attention_reason' => $scheduled->attention_reason,
         ];
+    }
+
+    /**
+     * Upcoming (today onward), non-cancelled, not-yet-completed visits within the scoped query.
+     *
+     * @param  Builder<ScheduledVisit>  $scheduledQuery
+     * @return Builder<ScheduledVisit>
+     */
+    private function futureOpenQuery(Builder $scheduledQuery, string $today): Builder
+    {
+        return (clone $scheduledQuery)
+            ->open()
+            ->whereDate('service_date', '>=', $today);
+    }
+
+    /**
+     * @param  Builder<ScheduledVisit>  $query
+     * @return Collection<int, ScheduledVisit>
+     */
+    private function staffingQueue(Builder $query): Collection
+    {
+        return (clone $query)
+            ->with(['client', 'employee', 'shiftTemplate', 'visit.tasks', 'visit.exceptions'])
+            ->orderBy('service_date')
+            ->orderBy('id')
+            ->limit(self::STAFFING_QUEUE_LIMIT)
+            ->get();
     }
 
     /**

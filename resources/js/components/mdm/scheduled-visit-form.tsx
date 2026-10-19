@@ -787,6 +787,42 @@ export function ScheduledVisitForm({
                         />
                     )}
 
+                    {(errors.availability_override_required ||
+                        selectedDsp?.requires_availability_override) && (
+                        <section className="border-warning/40 bg-warning/10 grid gap-2 rounded-md border p-4 text-sm">
+                            <p className="font-medium">
+                                Availability override
+                            </p>
+                            <p className="text-muted-foreground text-xs">
+                                {selectedDsp?.block_reason ??
+                                    errors.availability_override_required}{' '}
+                                An authorized Supervisor or Admin may assign
+                                this DSP to this visit only with a reason. The
+                                DSP is notified and must acknowledge; double
+                                booking, compliance Hard Stops, and other blocks
+                                still apply.
+                            </p>
+                            <Field
+                                label="Availability override reason"
+                                htmlFor="override_reason"
+                                error={
+                                    errors.override_reason ??
+                                    errors.availability_override_required
+                                }
+                            >
+                                <textarea
+                                    id="override_reason"
+                                    name="override_reason"
+                                    rows={2}
+                                    required={Boolean(
+                                        errors.availability_override_required,
+                                    )}
+                                    className={`${controlClassName} h-auto py-2`}
+                                />
+                            </Field>
+                        </section>
+                    )}
+
                     <section className="surface-panel grid gap-3 p-4 md:grid-cols-2 md:p-5">
                         <div className="md:col-span-2">
                             <p className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">

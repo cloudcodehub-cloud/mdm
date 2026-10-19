@@ -37,7 +37,13 @@ export default function ScheduledVisitsShow({
     documents,
 }: {
     visit: VisitRecord;
-    can: { update: boolean; clock_in: boolean; duplicate?: boolean; replace?: boolean };
+    can: {
+        update: boolean;
+        clock_in: boolean;
+        duplicate?: boolean;
+        replace?: boolean;
+        acknowledge_availability_override?: boolean;
+    };
     activeVisit: DashboardActiveVisit | null;
     clockInVisit: ClockInVisitSummary | null;
     dsps?: DspScheduleOption[];
@@ -126,6 +132,39 @@ export default function ScheduledVisitsShow({
                     <AttentionBanner>
                         {visit.attention_reason ?? 'This visit needs staffing attention.'}
                     </AttentionBanner>
+                )}
+
+                {can.acknowledge_availability_override && (
+                    <div className="space-y-2">
+                    <AttentionBanner>
+                        <span className="block font-medium">
+                            You were assigned to this visit during your approved
+                            leave or unavailable period.
+                        </span>
+                        {(visit.availability_overrides ?? [])
+                            .filter(
+                                (row) =>
+                                    row.current_assignment && !row.acknowledged,
+                            )
+                            .map((row) => (
+                                <span key={row.id} className="mt-1 block text-sm">
+                                    {row.conflict_summary} Reason:{' '}
+                                    {row.override_reason}
+                                    {row.overridden_by_name
+                                        ? ` (${row.overridden_by_name}, ${row.overridden_at_label})`
+                                        : ''}
+                                </span>
+                            ))}
+                    </AttentionBanner>
+                    <Form
+                        action={`/scheduled-visits/${visit.id}/availability-override/acknowledge`}
+                        method="post"
+                    >
+                        <Button type="submit" size="sm">
+                            Acknowledge assignment
+                        </Button>
+                    </Form>
+                    </div>
                 )}
 
                 {role === 'DSP' && visit.visit_phase !== 'completed' && (
@@ -240,6 +279,30 @@ export default function ScheduledVisitsShow({
                 {recorded?.timeline && recorded.timeline.length > 0 && (
                     <RecordSection title="Timeline" compact>
                         <ActivityTimeline items={recorded.timeline} />
+                    </RecordSection>
+                )}
+
+                {(visit.availability_overrides?.length ?? 0) > 0 && (
+                    <RecordSection title="Availability overrides" compact>
+                        <ul className="space-y-2 text-sm">
+                            {visit.availability_overrides?.map((row) => (
+                                <li key={row.id}>
+                                    {row.employee_name} ·{' '}
+                                    {row.conflict_kind === 'leave'
+                                        ? 'Approved leave'
+                                        : 'Approved unavailable'}{' '}
+                                    overridden
+                                    {row.overridden_by_name
+                                        ? ` by ${row.overridden_by_name}`
+                                        : ''}{' '}
+                                    ({row.overridden_at_label}) · Reason:{' '}
+                                    {row.override_reason} ·{' '}
+                                    {row.acknowledged
+                                        ? `Acknowledged ${row.acknowledged_at_label ?? ''}`
+                                        : 'Awaiting DSP acknowledgment'}
+                                </li>
+                            ))}
+                        </ul>
                     </RecordSection>
                 )}
 

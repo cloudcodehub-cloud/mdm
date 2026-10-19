@@ -14,6 +14,8 @@ export type AvailabilityDspRow = {
     availability_confirmed?: boolean;
     hard_blocked: boolean;
     block_reason: string | null;
+    availability_conflict_kind?: 'leave' | 'unavailable' | null;
+    requires_availability_override?: boolean;
     score: number;
     reasons: string[];
     reason_label: string;

@@ -35,6 +35,7 @@ class VisitAssignmentService
         string $reason,
         VisitAssignmentKind $kind = VisitAssignmentKind::Reassigned,
         bool $markCallOff = false,
+        ?string $overrideReason = null,
     ): ScheduledVisit {
         $current = $visit->assignments()->whereNull('ended_at')->first();
 
@@ -80,7 +81,15 @@ class VisitAssignmentService
             ]);
         }
 
-        return $visit->fresh(['employee', 'assignments.employee', 'assignments.assignedBy']) ?? $visit;
+        $fresh = $visit->fresh(['employee', 'assignments.employee', 'assignments.assignedBy']) ?? $visit;
+
+        // MDM 04-19: record the Visit-specific unavailable-period override (audit + DSP notice)
+        // only when the replacement actually conflicts with an approved unavailable period.
+        if ($overrideReason !== null && trim($overrideReason) !== '') {
+            app(AvailabilityOverrideService::class)->recordIfConflict($fresh, $actor, $overrideReason);
+        }
+
+        return $fresh;
     }
 
     /**

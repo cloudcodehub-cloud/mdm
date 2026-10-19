@@ -412,6 +412,20 @@ export type VisitRecord = {
         assigned_at?: string | null;
         ended_at?: string | null;
     }>;
+    availability_overrides?: Array<{
+        id: number;
+        employee_id: number;
+        employee_name: string | null;
+        current_assignment: boolean;
+        conflict_kind: 'leave' | 'unavailable' | string;
+        conflict_summary: string;
+        override_reason: string;
+        overridden_by_name: string | null;
+        overridden_at_label: string;
+        acknowledged: boolean;
+        acknowledged_at_label: string | null;
+        acknowledged_by_name: string | null;
+    }>;
     one_off_tasks?: Array<{
         id?: number;
         catalog_item_id?: number | null;

@@ -25,6 +25,7 @@ class ReplaceScheduledVisitRequest extends FormRequest
             'employee_id' => ['required', 'integer', 'exists:employees,id'],
             'reason' => ['required', 'string', 'max:1000'],
             'mark_call_off' => ['sometimes', 'boolean'],
+            'override_reason' => ['nullable', 'string', 'max:2000'],
         ];
     }
 }

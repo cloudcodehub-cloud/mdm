@@ -111,6 +111,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('scheduled-visits.duplicate');
     Route::post('scheduled-visits/{scheduled_visit}/replace', [ScheduledVisitController::class, 'replace'])
         ->name('scheduled-visits.replace');
+    Route::post('scheduled-visits/{scheduled_visit}/availability-override/acknowledge', [ScheduledVisitController::class, 'acknowledgeAvailabilityOverride'])
+        ->name('scheduled-visits.availability-override.acknowledge');
 
     Route::get('my-availability', [DspAvailabilityController::class, 'index'])->name('my-availability.index');
     Route::post('my-availability/requests', [DspAvailabilityController::class, 'store'])->name('my-availability.store');

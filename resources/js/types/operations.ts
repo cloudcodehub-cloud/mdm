@@ -33,7 +33,27 @@ export type OperationsVisitRow = {
     has_high_priority_open?: boolean;
     task_summary: OperationsTaskSummary;
     client: { id: number; name: string; client_number: string };
-    employee: { id: number; name: string; employee_number: string };
+    /** Null for Staffing Needed visits that currently have no assigned DSP. */
+    employee: { id: number; name: string; employee_number: string } | null;
+    staffing_needed?: boolean;
+    compliance_staffing_status?: string | null;
+    compliance_staffing_reason?: string | null;
+    attention_reason?: string | null;
+};
+
+export type AvailabilityOverrideAttention = {
+    id: number;
+    scheduled_visit_id: number;
+    service_date: string;
+    time_label: string;
+    days_until: number;
+    client: { id: number; name: string };
+    employee: { id: number; name: string };
+    conflict_kind: 'leave' | 'unavailable' | string;
+    conflict_summary: string;
+    override_reason: string;
+    overridden_by_name: string | null;
+    overridden_at_label: string;
 };
 
 export type VisitExceptionRecord = {
@@ -84,6 +104,12 @@ export type OperationsBoard = {
     }>;
     assigned_dsps: OperationsPerson[];
     assigned_clients: OperationsPerson[];
+    staffing_needed_visits?: OperationsVisitRow[];
+    grace_visits?: OperationsVisitRow[];
+    at_risk_visits?: OperationsVisitRow[];
+    availability_overrides?: {
+        unacknowledged: AvailabilityOverrideAttention[];
+    };
     today_visits: OperationsVisitRow[];
     active_visits: OperationsVisitRow[];
     completed_visits: OperationsVisitRow[];

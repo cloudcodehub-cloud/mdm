@@ -32,6 +32,7 @@ class ScheduledVisitService
         private AuthorizationUsageService $authorizationUsage,
         private ClientServiceLocationService $serviceLocations,
         private ComplianceEligibilityService $complianceEligibility,
+        private AvailabilityOverrideService $availabilityOverrides,
     ) {}
 
     /**
@@ -49,6 +50,11 @@ class ScheduledVisitService
 
             if ($actor !== null) {
                 $this->assignments->recordInitial($visit, $actor);
+                $this->availabilityOverrides->recordIfConflict(
+                    $visit,
+                    $actor,
+                    $this->nullableString($data['override_reason'] ?? null),
+                );
 
                 if (($data['notify'] ?? true) !== false) {
                     $this->notifications->visitAssigned($visit);
@@ -93,15 +99,20 @@ class ScheduledVisitService
 
             $visit = $visit->fresh(['oneOffTasks', 'employee', 'client', 'shiftTemplate']) ?? $visit;
             $this->afterUpdate($visit, $before, $data);
+            $this->recordOverrideAfterUpdate($visit, $before, $data);
 
             return $visit;
         });
     }
 
     /**
+     * Validates a scheduling payload. Returns the Approved-Unavailable conflict that was
+     * authorized by an override (so callers know an override record is required), or null.
+     *
      * @param  array<string, mixed>  $data
+     * @return array{kind: string, message: string}|null
      */
-    public function assertSchedulable(User $user, array $data, ?ScheduledVisit $existing = null): void
+    public function assertSchedulable(User $user, array $data, ?ScheduledVisit $existing = null): ?array
     {
         $client = Client::query()->find((int) $data['client_id']);
         $dsp = Employee::query()->find((int) $data['employee_id']);
@@ -192,29 +203,122 @@ class ScheduledVisitService
 
         $this->assertNoOverlap($data, $existing);
 
-        if ($status === ScheduledVisitStatus::Scheduled) {
-            $requested = $this->matching->requestedWindow($data);
+        if ($status !== ScheduledVisitStatus::Scheduled) {
+            return null;
+        }
 
-            if ($requested !== null) {
-                $block = $this->availability->hardBlockReason(
-                    $dsp,
-                    (string) $data['service_date'],
-                    $requested,
-                    $existing?->id,
-                );
+        $requested = $this->matching->requestedWindow($data);
+        $conflict = null;
 
-                if ($block !== null) {
-                    throw ValidationException::withMessages([
-                        'employee_id' => $block,
-                    ]);
-                }
-            }
+        if ($requested !== null) {
+            // Independent hard blocks (inactive DSP, double-booking) are never overridable.
+            $block = $this->availability->hardBlockReason(
+                $dsp,
+                (string) $data['service_date'],
+                $requested,
+                $existing?->id,
+                allowUnavailableOverride: true,
+            );
 
-            if (! $user->isAdmin() && ! $this->matching->dspIsEligible($user, $client, $dsp)) {
+            if ($block !== null) {
                 throw ValidationException::withMessages([
-                    'employee_id' => 'This DSP is not in the eligible pool for the client’s assigned supervisor.',
+                    'employee_id' => $block,
                 ]);
             }
+
+            $conflict = $this->availability->availabilityConflict($dsp, (string) $data['service_date'], $requested);
+        }
+
+        if (! $user->isAdmin() && ! $this->matching->dspIsEligible($user, $client, $dsp)) {
+            throw ValidationException::withMessages([
+                'employee_id' => 'This DSP is not in the eligible pool for the client’s assigned supervisor.',
+            ]);
+        }
+
+        if ($conflict !== null) {
+            $this->assertOverrideAuthorized($user, $conflict, $data, $existing, $dsp);
+        }
+
+        return $conflict;
+    }
+
+    /**
+     * MDM 04-19: an approved leave / approved unavailable conflict needs an authorized,
+     * reasoned, Visit-specific override. Never bypasses any other hard block.
+     *
+     * @param  array{kind: string, message: string}  $conflict
+     * @param  array<string, mixed>  $data
+     */
+    private function assertOverrideAuthorized(User $user, array $conflict, array $data, ?ScheduledVisit $existing, Employee $dsp): void
+    {
+        $reason = $this->nullableString($data['override_reason'] ?? null);
+
+        if ($user->isDsp() || (! $user->isAdmin() && ! $user->isSupervisor())) {
+            throw ValidationException::withMessages([
+                'employee_id' => $conflict['message'].' Only an authorized Supervisor or Admin can override an approved unavailable period.',
+            ]);
+        }
+
+        if ($reason !== null) {
+            return;
+        }
+
+        if ($existing !== null && $this->isUnchangedOverriddenAssignment($existing, $dsp, $data)) {
+            return;
+        }
+
+        $message = $conflict['message'].' An authorized override reason is required to assign this DSP to this visit.';
+
+        throw ValidationException::withMessages([
+            'availability_override_required' => $message,
+            'override_reason' => 'Give a reason to override the DSP’s approved '.($conflict['kind'] === 'leave' ? 'leave' : 'unavailable period').' for this visit.',
+            'employee_id' => $message,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function isUnchangedOverriddenAssignment(ScheduledVisit $existing, Employee $dsp, array $data): bool
+    {
+        if ($existing->employee_id !== $dsp->id || ! $this->availabilityOverrides->hasOverrideFor($existing, $dsp->id)) {
+            return false;
+        }
+
+        if ($existing->service_date->toDateString() !== Carbon::parse((string) $data['service_date'])->toDateString()) {
+            return false;
+        }
+
+        $current = $this->matching->requestedWindow([
+            'shift_template_id' => $existing->shift_template_id,
+            'starts_at' => $existing->starts_at,
+            'ends_at' => $existing->ends_at,
+        ]);
+
+        return $current !== null && $current === $this->matching->requestedWindow($data);
+    }
+
+    /**
+     * @param  array<string, mixed>  $before
+     * @param  array<string, mixed>  $data
+     */
+    private function recordOverrideAfterUpdate(ScheduledVisit $visit, array $before, array $data): void
+    {
+        $reason = $this->nullableString($data['override_reason'] ?? null);
+        $actor = $this->actor($data);
+
+        if ($reason === null || $actor === null || $visit->employee_id === null) {
+            return;
+        }
+
+        $changed = (int) $before['employee_id'] !== $visit->employee_id
+            || $before['service_date'] !== $visit->service_date->toDateString()
+            || $before['starts_at'] !== $visit->starts_at
+            || $before['ends_at'] !== $visit->ends_at
+            || $before['shift_template_id'] !== $visit->shift_template_id;
+
+        if ($changed || ! $this->availabilityOverrides->hasOverrideFor($visit, $visit->employee_id)) {
+            $this->availabilityOverrides->recordIfConflict($visit, $actor, $reason);
         }
     }
 
@@ -557,7 +661,7 @@ class ScheduledVisitService
         return substr($time, 0, 8);
     }
 
-    public function duplicate(ScheduledVisit $source, string $serviceDate, User $actor): ScheduledVisit
+    public function duplicate(ScheduledVisit $source, string $serviceDate, User $actor, ?string $overrideReason = null): ScheduledVisit
     {
         $source->loadMissing(['oneOffTasks', 'careServices', 'taskOverrides']);
 
@@ -588,6 +692,7 @@ class ScheduledVisitService
             ])->all(),
             'created_by_user_id' => $actor->id,
             'updated_by_user_id' => $actor->id,
+            'override_reason' => $overrideReason,
         ];
 
         $this->assertSchedulable($actor, $payload);

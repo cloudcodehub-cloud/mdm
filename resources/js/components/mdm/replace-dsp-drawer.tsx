@@ -54,6 +54,8 @@ export function ReplaceDspDrawer({
                         method="post"
                         className="grid gap-3 px-4"
                     >
+                        {({ errors, processing }) => (
+                            <>
                         <select
                             name="employee_id"
                             required
@@ -77,12 +79,48 @@ export function ReplaceDspDrawer({
                             className={controlClassName}
                             aria-label="Reason"
                         />
+                        {errors.employee_id && (
+                            <p className="text-destructive text-sm">
+                                {errors.employee_id}
+                            </p>
+                        )}
+                        {errors.availability_override_required && (
+                            <div className="border-warning/40 bg-warning/10 grid gap-2 rounded-md border p-3 text-sm">
+                                <p className="font-medium">
+                                    Availability override required
+                                </p>
+                                <p className="text-muted-foreground text-xs">
+                                    This DSP has an approved leave or unavailable
+                                    period that conflicts with this visit. An
+                                    authorized override applies to this visit only.
+                                    The DSP will be notified and asked to
+                                    acknowledge.
+                                </p>
+                                <textarea
+                                    name="override_reason"
+                                    required
+                                    rows={3}
+                                    placeholder="Availability override reason"
+                                    className={`${controlClassName} h-auto py-2`}
+                                    aria-label="Availability override reason"
+                                />
+                                {errors.override_reason && (
+                                    <p className="text-destructive text-xs">
+                                        {errors.override_reason}
+                                    </p>
+                                )}
+                            </div>
+                        )}
                         <label className="flex items-center gap-2 text-sm">
                             <input type="checkbox" name="mark_call_off" value="1" />
                             Mark original DSP unavailable for this window
                         </label>
                         <SheetFooter className="px-0">
-                            <Button type="submit">Assign replacement</Button>
+                            <Button type="submit" disabled={processing}>
+                                {errors.availability_override_required
+                                    ? 'Assign with override'
+                                    : 'Assign replacement'}
+                            </Button>
                             <Button
                                 type="button"
                                 variant="ghost"
@@ -91,6 +129,8 @@ export function ReplaceDspDrawer({
                                 Cancel
                             </Button>
                         </SheetFooter>
+                            </>
+                        )}
                     </Form>
                 </SheetContent>
             </Sheet>

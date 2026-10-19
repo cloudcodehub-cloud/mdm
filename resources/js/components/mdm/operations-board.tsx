@@ -56,6 +56,84 @@ export function OperationsBoardView({
 
             <div className="grid gap-4 lg:grid-cols-12">
                 <Panel
+                    title="Staffing Needed"
+                    description="Upcoming visits with no assigned DSP, soonest first."
+                    className="lg:col-span-4"
+                >
+                    <StaffingQueueList
+                        visits={operations.staffing_needed_visits ?? []}
+                        empty="No visits need staffing."
+                        detail="staffing"
+                    />
+                </Panel>
+                <Panel
+                    title="Compliance Grace visits"
+                    description="Nearest visit preserved after a DSP Hard Stop."
+                    className="lg:col-span-4"
+                >
+                    <StaffingQueueList
+                        visits={operations.grace_visits ?? []}
+                        empty="No Grace visits."
+                        detail="compliance"
+                    />
+                </Panel>
+                <Panel
+                    title="Compliance At Risk"
+                    description="Later visits needing action after a DSP Hard Stop."
+                    className="lg:col-span-4"
+                >
+                    <StaffingQueueList
+                        visits={operations.at_risk_visits ?? []}
+                        empty="No At Risk visits."
+                        detail="compliance"
+                    />
+                </Panel>
+                <Panel
+                    title="Unacknowledged availability overrides"
+                    description="Near-term visits assigned over a DSP's approved leave or unavailable period that the DSP has not acknowledged."
+                    className="lg:col-span-12"
+                >
+                    {(operations.availability_overrides?.unacknowledged ?? [])
+                        .length === 0 ? (
+                        <EmptyState
+                            compact
+                            message="No unacknowledged availability overrides."
+                        />
+                    ) : (
+                        <ul className="space-y-2 text-sm">
+                            {(
+                                operations.availability_overrides
+                                    ?.unacknowledged ?? []
+                            ).map((override) => (
+                                <li key={override.id}>
+                                    <Link
+                                        href={showScheduled.url(
+                                            override.scheduled_visit_id,
+                                        )}
+                                        className="hover:text-foreground font-medium"
+                                    >
+                                        {override.client.name} ·{' '}
+                                        {override.service_date}{' '}
+                                        {override.time_label}
+                                    </Link>
+                                    <p className="text-muted-foreground text-xs">
+                                        {override.employee.name} ·{' '}
+                                        {override.conflict_kind === 'leave'
+                                            ? 'Approved leave'
+                                            : 'Approved unavailable'}{' '}
+                                        overridden
+                                        {override.overridden_by_name
+                                            ? ` by ${override.overridden_by_name}`
+                                            : ''}{' '}
+                                        ({override.overridden_at_label}) ·
+                                        Reason: {override.override_reason}
+                                    </p>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </Panel>
+                <Panel
                     title="Today's visits"
                     description="Scheduled, in progress, completed, late, and exceptions."
                     className="lg:col-span-12"
@@ -281,6 +359,56 @@ export function OperationsBoardView({
     );
 }
 
+export function StaffingQueueList({
+    visits,
+    empty,
+    detail,
+}: {
+    visits: OperationsVisitRow[];
+    empty: string;
+    detail: 'staffing' | 'compliance';
+}) {
+    if (visits.length === 0) {
+        return <EmptyState compact message={empty} />;
+    }
+
+    return (
+        <ul className="space-y-2">
+            {visits.map((visit) => {
+                const note =
+                    detail === 'compliance'
+                        ? visit.compliance_staffing_reason
+                        : visit.attention_reason;
+
+                return (
+                    <li key={visit.scheduled_visit_id}>
+                        <Link
+                            href={showScheduled.url(visit.scheduled_visit_id)}
+                            className="hover:text-foreground block text-sm"
+                        >
+                            <span className="font-medium">
+                                {visit.client.name}
+                            </span>
+                            <span className="text-muted-foreground block text-xs">
+                                {visit.service_date} · {visit.time_label} ·{' '}
+                                {visit.service_type}
+                            </span>
+                            <span className="text-muted-foreground block text-xs">
+                                {visit.employee?.name ?? 'No DSP assigned'}
+                            </span>
+                            {note && (
+                                <span className="text-muted-foreground block text-xs">
+                                    {note}
+                                </span>
+                            )}
+                        </Link>
+                    </li>
+                );
+            })}
+        </ul>
+    );
+}
+
 export function OperationsVisitTable({
     visits,
     empty,
@@ -325,7 +453,7 @@ export function OperationsVisitTable({
                                     {visit.client.name}
                                 </p>
                                 <p className="text-muted-foreground text-xs">
-                                    {visit.employee.name}
+                                    {visit.employee?.name ?? 'Staffing Needed'}
                                 </p>
                             </td>
                             <td className="py-3">{visit.service_type}</td>

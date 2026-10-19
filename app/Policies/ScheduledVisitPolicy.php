@@ -50,6 +50,17 @@ class ScheduledVisitPolicy
         return $scheduledVisit->employee_id === $user->employee->id;
     }
 
+    /**
+     * Only the currently assigned DSP may acknowledge an availability override on their own assignment.
+     */
+    public function acknowledgeAvailabilityOverride(User $user, ScheduledVisit $scheduledVisit): bool
+    {
+        return $user->isDsp()
+            && $user->employee !== null
+            && $scheduledVisit->employee_id !== null
+            && $scheduledVisit->employee_id === $user->employee->id;
+    }
+
     public function create(User $user): bool
     {
         if ($user->isAdmin()) {
