@@ -21,6 +21,7 @@ class UpdateVisitNotesRequest extends FormRequest
         $this->merge([
             'visit_notes' => $this->blankToNull($this->input('visit_notes')),
             'handover_note' => $this->blankToNull($this->input('handover_note')),
+            'notes_correction_reason' => $this->blankToNull($this->input('notes_correction_reason')),
         ]);
     }
 
@@ -32,6 +33,8 @@ class UpdateVisitNotesRequest extends FormRequest
         return [
             'visit_notes' => ['nullable', 'string', 'max:5000'],
             'handover_note' => ['nullable', 'string', 'max:5000'],
+            // Required by VisitNoteHistoryService when amending an existing Visit Note (MDM 01 §2.30).
+            'notes_correction_reason' => ['nullable', 'string', 'max:1000'],
         ];
     }
 

@@ -16,7 +16,10 @@ class VisitClockOutController extends Controller
         Visit $visit,
         VisitClockOutService $clockOut,
     ): RedirectResponse {
-        $clockOut->updateNotes($visit, $request->validated());
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+
+        $clockOut->updateNotes($user, $visit, $request->validated());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Visit notes saved.')]);
 

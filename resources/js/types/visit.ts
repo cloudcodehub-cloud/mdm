@@ -103,6 +103,17 @@ export type ActiveVisitRecord = {
     clock_out_unavailable_reason: string | null;
     visit_notes: string | null;
     handover_note: string | null;
+    note_history?: Array<{
+        id: number;
+        field_key: string;
+        field_label: string;
+        previous_content: string | null;
+        new_content: string | null;
+        reason: string | null;
+        actor_name: string | null;
+        occurred_at: string | null;
+        occurred_at_label: string | null;
+    }>;
     extended_visit_reason?: string | null;
     unfinished_required_acknowledged: boolean;
     safety_check_interval_minutes?: number | null;

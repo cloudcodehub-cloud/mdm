@@ -56,6 +56,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, VisitSafetyCheck> $safetyChecks
  * @property-read Collection<int, VisitSafetyInstruction> $safetyInstructions
  * @property-read Collection<int, AttendanceCorrection> $attendanceCorrections
+ * @property-read Collection<int, VisitNoteHistoryEvent> $noteHistoryEvents
  * @property-read Collection<int, Incident> $incidents
  *
  * @method static Builder<static> inProgress()
@@ -191,6 +192,14 @@ class Visit extends Model
     public function attendanceCorrections(): HasMany
     {
         return $this->hasMany(AttendanceCorrection::class)->orderByDesc('id');
+    }
+
+    /**
+     * @return HasMany<VisitNoteHistoryEvent, $this>
+     */
+    public function noteHistoryEvents(): HasMany
+    {
+        return $this->hasMany(VisitNoteHistoryEvent::class)->orderByDesc('id');
     }
 
     /**

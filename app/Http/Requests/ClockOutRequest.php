@@ -60,6 +60,10 @@ class ClockOutRequest extends FormRequest
             $merge['extended_visit_reason'] = $this->blankToNull($this->input('extended_visit_reason'));
         }
 
+        if ($this->exists('notes_correction_reason')) {
+            $merge['notes_correction_reason'] = $this->blankToNull($this->input('notes_correction_reason'));
+        }
+
         $this->merge($merge);
     }
 
@@ -86,6 +90,7 @@ class ClockOutRequest extends FormRequest
             ],
             'visit_notes' => ['sometimes', 'nullable', 'string', 'max:5000'],
             'handover_note' => ['required', 'string', 'max:5000'],
+            'notes_correction_reason' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'extended_visit_reason' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'acknowledge_unfinished_required' => ['sometimes', 'boolean'],
             'discard_incident_draft' => ['sometimes', 'boolean'],

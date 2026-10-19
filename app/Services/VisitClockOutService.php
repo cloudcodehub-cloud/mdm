@@ -22,21 +22,24 @@ class VisitClockOutService
         private ActiveVisitAttentionService $attention,
         private SettingsService $settings,
         private IncidentService $incidents,
+        private VisitNoteHistoryService $noteHistory,
     ) {}
 
     /**
      * @param  array<string, mixed>  $payload
      */
-    public function updateNotes(Visit $visit, array $payload): Visit
+    public function updateNotes(User $user, Visit $visit, array $payload): Visit
     {
-        return DB::transaction(function () use ($visit, $payload): Visit {
+        return DB::transaction(function () use ($user, $visit, $payload): Visit {
             /** @var Visit $visit */
             $visit = Visit::query()->whereKey($visit->id)->lockForUpdate()->firstOrFail();
             $this->assertInProgress($visit);
 
+            $notes = $this->noteHistory->apply($visit, $user, $payload);
+
             $visit->update([
-                'visit_notes' => $payload['visit_notes'] ?? null,
-                'handover_note' => $payload['handover_note'] ?? null,
+                'visit_notes' => $notes['visit_notes'],
+                'handover_note' => $notes['handover_note'],
             ]);
 
             return $visit->refresh();
@@ -72,9 +75,8 @@ class VisitClockOutService
             $this->assertInProgress($visit);
 
             $now = $this->settings->now();
-            $handover = array_key_exists('handover_note', $payload)
-                ? $payload['handover_note']
-                : $visit->handover_note;
+            $notes = $this->noteHistory->apply($visit, $user, $payload);
+            $handover = $notes['handover_note'];
 
             if (! filled($handover)) {
                 throw ValidationException::withMessages([
@@ -154,9 +156,7 @@ class VisitClockOutService
                 'clock_out_location_method' => ClockInLocationMethod::from((string) $payload['location_method']),
                 'clock_out_location_status' => $status,
                 'clock_out_unavailable_reason' => $unavailableReason,
-                'visit_notes' => array_key_exists('visit_notes', $payload)
-                    ? $payload['visit_notes']
-                    : $visit->visit_notes,
+                'visit_notes' => $notes['visit_notes'],
                 'handover_note' => $handover,
                 'extended_visit_reason' => $extendedReason,
                 'unfinished_required_acknowledged' => $pendingRequired->isNotEmpty() && $acknowledged,

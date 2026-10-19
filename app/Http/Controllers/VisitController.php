@@ -13,6 +13,7 @@ use App\Services\ActiveVisitAttentionService;
 use App\Services\CareOverviewService;
 use App\Services\CriticalAlertService;
 use App\Services\IncidentService;
+use App\Services\VisitNoteHistoryService;
 use App\Services\VisitSafetyCheckService;
 use App\Services\VisitSafetyInstructionService;
 use App\Services\VisitTaskGenerator;
@@ -33,6 +34,7 @@ class VisitController extends Controller
         CriticalAlertService $criticalAlerts,
         VisitSafetyInstructionService $safetyInstructions,
         IncidentService $incidents,
+        VisitNoteHistoryService $noteHistory,
     ): Response {
         $this->authorize('view', $visit);
 
@@ -87,6 +89,10 @@ class VisitController extends Controller
                 'safety_instructions' => $safetyInstructionPayload,
                 'tasks_gated_by_safety' => $tasksGated,
                 'incidents' => $incidentPayload,
+                // MDM 01 §2.30 — note history for viewers authorized to see the Visit.
+                'note_history' => ($user?->can('view', $visit) ?? false)
+                    ? $noteHistory->serializeForVisit($visit)
+                    : [],
             ],
             'skip_reasons' => $canRecord && ! $tasksGated ? DirectoryPresenter::skipReasons() : [],
             'care_history' => $user !== null ? $overview->forClient($visit->client, $user)['history'] : [],
@@ -103,6 +109,7 @@ class VisitController extends Controller
                 'request_correction' => $visit->status === VisitStatus::Completed
                     && ($user?->can('create', [AttendanceCorrection::class, $visit->scheduledVisit]) ?? false),
                 'view_exceptions' => $user?->can('viewAny', VisitException::class) ?? false,
+                'view_note_history' => $user?->can('view', $visit) ?? false,
                 'follow_up' => $visit->exceptions->contains(
                     fn (VisitException $exception): bool => $user?->can('followUp', $exception) ?? false,
                 ),

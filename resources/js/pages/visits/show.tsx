@@ -68,6 +68,7 @@ export default function VisitsShow({
         report_incident?: boolean;
         request_correction?: boolean;
         view_exceptions?: boolean;
+        view_note_history?: boolean;
         follow_up?: boolean;
     };
     documents?: { completed_visit?: string | null };
@@ -224,6 +225,7 @@ export default function VisitsShow({
                         visit={visit}
                         canViewExceptions={Boolean(can?.view_exceptions)}
                         canFollowUp={Boolean(can?.follow_up)}
+                        canViewNoteHistory={Boolean(can?.view_note_history)}
                     />
                 )}
             </RecordPage>
@@ -266,6 +268,7 @@ function ActiveVisit({
         clock_out?: boolean;
         issue_safety_instruction?: boolean;
         report_incident?: boolean;
+        view_note_history?: boolean;
     };
     careHistory: CareHistoryItem[];
     supervisor: SupervisorContact | null;
@@ -446,6 +449,8 @@ function ActiveVisit({
                         visitNotes={visit.visit_notes}
                         handoverNote={visit.handover_note}
                         canUpdate={Boolean(can?.update_notes)}
+                        noteHistory={visit.note_history ?? []}
+                        canViewHistory={Boolean(can?.view_note_history)}
                     />
                     <div>
                         <p className="mb-3 text-sm font-medium">
@@ -467,10 +472,12 @@ function VisitMonitoring({
     visit,
     canViewExceptions,
     canFollowUp,
+    canViewNoteHistory,
 }: {
     visit: ActiveVisitRecord;
     canViewExceptions: boolean;
     canFollowUp: boolean;
+    canViewNoteHistory: boolean;
 }) {
     const exceptions = visit.exceptions ?? [];
     const exceptionByTaskId = new Map(
@@ -545,34 +552,14 @@ function VisitMonitoring({
                 )}
             </RecordSection>
             <RecordSection title="Notes / handover" className="lg:col-span-6">
-                {visit.visit_notes || visit.handover_note ? (
-                    <dl className="grid gap-3 text-sm">
-                        {visit.visit_notes && (
-                            <div>
-                                <dt className="text-muted-foreground text-xs">
-                                    Visit notes
-                                </dt>
-                                <dd className="mt-0.5 whitespace-pre-wrap">
-                                    {visit.visit_notes}
-                                </dd>
-                            </div>
-                        )}
-                        {visit.handover_note && (
-                            <div>
-                                <dt className="text-muted-foreground text-xs">
-                                    Handover
-                                </dt>
-                                <dd className="mt-0.5 whitespace-pre-wrap">
-                                    {visit.handover_note}
-                                </dd>
-                            </div>
-                        )}
-                    </dl>
-                ) : (
-                    <p className="text-muted-foreground text-sm">
-                        No visit notes or handover recorded.
-                    </p>
-                )}
+                <VisitNotesForm
+                    visitId={visit.id}
+                    visitNotes={visit.visit_notes}
+                    handoverNote={visit.handover_note}
+                    canUpdate={false}
+                    noteHistory={visit.note_history ?? []}
+                    canViewHistory={canViewNoteHistory}
+                />
             </RecordSection>
             <RecordSection title="Exceptions" className="lg:col-span-6">
                 {exceptions.length === 0 ? (
