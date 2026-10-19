@@ -8,14 +8,18 @@ use App\Enums\ClockInLocationStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\GpsFallbackReason;
 use App\Enums\ScheduledVisitStatus;
+use App\Enums\VisitExceptionStatus;
 use App\Enums\VisitStatus;
 use App\Models\Client;
 use App\Models\ClientAdminHistoryEvent;
 use App\Models\Employee;
 use App\Models\EmployeeAdminHistoryEvent;
+use App\Models\EmployeeTimeOff;
 use App\Models\ScheduledVisit;
 use App\Models\User;
 use App\Models\Visit;
+use App\Models\VisitException;
+use App\Services\EmployeeLifecycleService;
 use App\Services\SupervisorManagementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -379,6 +383,62 @@ class Phase5CArchivePendingTest extends TestCase
         );
     }
 
+    public function test_supervisor_section_28_approvals_and_exceptions_block_premature_finalize(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $supervisor = Employee::factory()->supervisor()->create();
+        $replacement = Employee::factory()->supervisor()->create();
+        $dsp = Employee::factory()->dsp()->forSupervisor($supervisor)->create();
+        $client = Client::factory()->forSupervisor($supervisor)->create();
+
+        EmployeeTimeOff::factory()->pending()->create([
+            'employee_id' => $dsp->id,
+            'requested_by_user_id' => $dsp->user_id,
+        ]);
+
+        $completed = ScheduledVisit::factory()->forClient($client)->forDsp($dsp)->create([
+            'service_date' => '2026-10-19',
+            'status' => ScheduledVisitStatus::Completed,
+            'supervisor_id' => $supervisor->id,
+        ]);
+        $completedVisit = Visit::factory()->create([
+            'scheduled_visit_id' => $completed->id,
+            'client_id' => $client->id,
+            'employee_id' => $dsp->id,
+            'status' => VisitStatus::Completed,
+            'clocked_in_at' => now()->subDay(),
+            'clocked_out_at' => now()->subDay()->addHours(4),
+        ]);
+        $exception = VisitException::factory()->create([
+            'visit_id' => $completedVisit->id,
+            'status' => VisitExceptionStatus::Open,
+        ]);
+
+        $this->archiveEmployee($admin, $supervisor, 'Coverage transfer')->assertRedirect();
+
+        $blockerTypes = collect($supervisor->fresh()->archive_pending_blockers)->pluck('type')->all();
+        $this->assertContains('pending_approvals', $blockerTypes);
+        $this->assertContains('exceptions', $blockerTypes);
+
+        $service = app(SupervisorManagementService::class);
+        $service->reassignTeam($supervisor, $replacement, [$dsp->id], $admin);
+        $service->reassignCaseload($supervisor->fresh(), $replacement, [$client->id], $admin);
+
+        // Team/caseload/approvals moved with the DSP, but the open exception still names this Supervisor.
+        $this->assertSame(EmploymentStatus::ArchivePending, $supervisor->fresh()->employment_status);
+        $liveTypes = collect(app(EmployeeLifecycleService::class)->archiveBlockers($supervisor->fresh()))
+            ->pluck('type')
+            ->all();
+        $this->assertContains('exceptions', $liveTypes);
+        $this->assertNotContains('supervisor_team', $liveTypes);
+        $this->assertNotContains('pending_approvals', $liveTypes);
+
+        $exception->forceFill(['status' => VisitExceptionStatus::Resolved])->save();
+
+        $this->assertTrue(app(EmployeeLifecycleService::class)->finalizeArchivePending($supervisor->fresh()));
+        $this->assertSame(EmploymentStatus::Archived, $supervisor->fresh()->employment_status);
+    }
+
     public function test_new_scheduling_is_blocked_while_archive_pending(): void
     {
         $admin = User::factory()->admin()->create();
@@ -470,7 +530,7 @@ class Phase5CArchivePendingTest extends TestCase
         $this->assertSame(ClientStatus::Archived, $client->fresh()->status);
     }
 
-    public function test_admin_can_cancel_a_pending_archive_request(): void
+    public function test_admin_cannot_cancel_a_pending_archive_request(): void
     {
         $admin = User::factory()->admin()->create();
         $dsp = Employee::factory()->dsp()->create();
@@ -478,24 +538,23 @@ class Phase5CArchivePendingTest extends TestCase
         $this->activeVisit($client, $dsp);
 
         $this->archiveEmployee($admin, $dsp)->assertRedirect();
+        $this->archiveClient($admin, $client)->assertRedirect();
 
         $this->actingAs($admin)
             ->patch(route('employees.status', $dsp), [
                 'employment_status' => EmploymentStatus::Active->value,
             ])
-            ->assertRedirect();
+            ->assertSessionHasErrors('employment_status');
 
-        $dsp->refresh();
-        $this->assertSame(EmploymentStatus::Active, $dsp->employment_status);
-        $this->assertNull($dsp->archive_pending_at);
-        $this->assertNull($dsp->archive_pending_reason);
-        $this->assertTrue(
-            EmployeeAdminHistoryEvent::query()
-                ->where('employee_id', $dsp->id)
-                ->where('old_value', 'Archive Pending')
-                ->where('new_value', 'Active')
-                ->exists(),
-        );
+        $this->actingAs($admin)
+            ->patch(route('clients.status', $client), [
+                'status' => ClientStatus::Active->value,
+            ])
+            ->assertSessionHasErrors('status');
+
+        $this->assertSame(EmploymentStatus::ArchivePending, $dsp->fresh()->employment_status);
+        $this->assertSame(ClientStatus::ArchivePending, $client->fresh()->status);
+        $this->assertNotNull($dsp->fresh()->archive_pending_at);
     }
 
     public function test_archive_pending_cannot_be_set_directly_and_is_not_employment_ended(): void

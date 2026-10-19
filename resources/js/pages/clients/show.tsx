@@ -253,18 +253,12 @@ export default function ClientsShow({
                             {can.manageLifecycle ? (
                                 <>
                                     {client.status !== 'active' &&
-                                        (client.status !== 'archive_pending' ||
-                                            can.archive) && (
+                                        client.status !== 'archive_pending' && (
                                         <StatusForm
                                             clientId={client.id}
                                             clientName={client.name}
                                             statusValue="active"
-                                            label={
-                                                client.status ===
-                                                'archive_pending'
-                                                    ? 'Cancel Archive Request'
-                                                    : 'Return to Active'
-                                            }
+                                            label="Return to Active"
                                             preview={lifecycle_previews?.active}
                                         />
                                     )}

@@ -120,7 +120,6 @@ class ClientLifecycleService
             ClientStatus::Active => [
                 'Prospective eligibility is restored only if service/authorization dates permit.',
                 'Historical or cancelled visits are not automatically recreated.',
-                'Returning from Archive Pending cancels the pending archive request.',
             ],
         };
 
@@ -187,15 +186,16 @@ class ClientLifecycleService
         }
 
         if ($client->isArchivePending()) {
-            if (! $actor->isAdmin()) {
+            if ($target === ClientStatus::Archived) {
+                // Already accepted. Finalize only when the active-visit blocker is gone.
+            } elseif ($actor->isAdmin()) {
+                // MDM 03 §25: no Cancel Pending / undo transition — wait for auto-finalize.
+                throw ValidationException::withMessages([
+                    'status' => 'This client has a pending archive. Archiving completes automatically after the active visit ends; the request cannot be cancelled.',
+                ]);
+            } else {
                 throw ValidationException::withMessages([
                     'status' => 'Only administrators may change a client with a pending archive.',
-                ]);
-            }
-
-            if (! in_array($target, [ClientStatus::Archived, ClientStatus::Active], true)) {
-                throw ValidationException::withMessages([
-                    'status' => 'This client has a pending archive. Cancel it by returning the client to Active, or let the archive complete.',
                 ]);
             }
         }
@@ -218,10 +218,6 @@ class ClientLifecycleService
             $this->finalizeArchivePending($client, $actor, $now);
 
             return $client->refresh();
-        }
-
-        if ($client->isArchivePending() && $target === ClientStatus::Active) {
-            return $this->cancelArchivePending($client, $actor, $reason, $now, $effectiveOn);
         }
 
         return DB::transaction(function () use ($client, $actor, $target, $reason, $now, $effectiveOn): Client {
@@ -277,39 +273,6 @@ class ClientLifecycleService
                 'summary' => 'Client lifecycle changed to '.$target->label(),
                 'old_value' => $previous->label(),
                 'new_value' => $target->label(),
-                'reason' => $reason,
-                'effective_on' => $effectiveOn,
-                'subject' => $client,
-            ]);
-
-            return $client->refresh();
-        });
-    }
-
-    /**
-     * Return a pending archive to Active without archiving. Cancelled future visits are not recreated.
-     */
-    private function cancelArchivePending(
-        Client $client,
-        User $actor,
-        ?string $reason,
-        CarbonInterface $now,
-        string $effectiveOn,
-    ): Client {
-        return DB::transaction(function () use ($client, $actor, $reason, $now, $effectiveOn): Client {
-            $client->forceFill([
-                'status' => ClientStatus::Active,
-                'status_reason' => $reason,
-                'status_changed_at' => $now,
-                'status_changed_by_user_id' => $actor->id,
-                ...$this->clearedArchivePendingAttributes(),
-            ])->save();
-
-            $this->history->record($client, $actor, [
-                'category' => ClientAdminHistoryCategory::Lifecycle,
-                'summary' => 'Archive request cancelled — returned to Active',
-                'old_value' => ClientStatus::ArchivePending->label(),
-                'new_value' => ClientStatus::Active->label(),
                 'reason' => $reason,
                 'effective_on' => $effectiveOn,
                 'subject' => $client,

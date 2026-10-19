@@ -8,11 +8,14 @@ use App\Enums\JobType;
 use App\Enums\ReviewStatus;
 use App\Enums\Role;
 use App\Enums\VisitExceptionStatus;
+use App\Enums\ScheduledVisitStatus;
 use App\Models\AttendanceCorrection;
 use App\Models\Client;
 use App\Models\DspAvailabilityRequest;
 use App\Models\Employee;
+use App\Models\EmployeeProfileChangeRequest;
 use App\Models\EmployeeTimeOff;
+use App\Models\ScheduledVisit;
 use App\Models\User;
 use App\Models\VisitException;
 use App\Support\DirectoryPresenter;
@@ -151,15 +154,31 @@ class SupervisorManagementService
     }
 
     /**
-     * MDM 03 Archive Pending: live dependencies that block safe archival of a Supervisor.
-     * Archived DSPs/clients are history, not live responsibilities, so they do not block.
+     * MDM 03 §28 / MDM 08 Supervisor Archive: live dependencies that block safe archival.
+     * Impact surface: assigned clients/DSPs, pending approvals, exceptions, future operational
+     * relationships. Archived reports/clients are history and do not block.
      *
-     * @return array{dsp_count: int, client_count: int, other_report_count: int}
+     * @return array{
+     *     dsp_count: int,
+     *     client_count: int,
+     *     other_report_count: int,
+     *     pending_approval_count: int,
+     *     open_exception_count: int,
+     *     future_relationship_count: int
+     * }
      */
     public function liveArchiveDependencies(Employee $supervisor): array
     {
         $liveReports = $supervisor->reports()
             ->where('employment_status', '!=', EmploymentStatus::Archived);
+
+        $pendingApprovals = $this->pendingApprovalCountFor($supervisor);
+        $openExceptions = $this->openExceptionCountFor($supervisor);
+        $futureRelationships = ScheduledVisit::query()
+            ->where('supervisor_id', $supervisor->id)
+            ->where('status', ScheduledVisitStatus::Scheduled)
+            ->whereDate('service_date', '>=', app(SettingsService::class)->today())
+            ->count();
 
         return [
             'dsp_count' => (clone $liveReports)->where('job_type', JobType::Dsp)->count(),
@@ -167,6 +186,9 @@ class SupervisorManagementService
             'client_count' => $supervisor->supervisedClients()
                 ->where('status', '!=', ClientStatus::Archived)
                 ->count(),
+            'pending_approval_count' => $pendingApprovals,
+            'open_exception_count' => $openExceptions,
+            'future_relationship_count' => $futureRelationships,
         ];
     }
 
@@ -176,7 +198,57 @@ class SupervisorManagementService
 
         return $dependencies['dsp_count'] > 0
             || $dependencies['other_report_count'] > 0
-            || $dependencies['client_count'] > 0;
+            || $dependencies['client_count'] > 0
+            || $dependencies['pending_approval_count'] > 0
+            || $dependencies['open_exception_count'] > 0
+            || $dependencies['future_relationship_count'] > 0;
+    }
+
+    private function pendingApprovalCountFor(Employee $supervisor): int
+    {
+        $availability = DspAvailabilityRequest::query()
+            ->where('status', ReviewStatus::Pending)
+            ->whereHas('employee', fn (Builder $query) => $query->where('supervisor_id', $supervisor->id))
+            ->count();
+
+        $timeOff = EmployeeTimeOff::query()
+            ->where('status', ReviewStatus::Pending)
+            ->whereHas('employee', fn (Builder $query) => $query->where('supervisor_id', $supervisor->id))
+            ->count();
+
+        $corrections = AttendanceCorrection::query()
+            ->pending()
+            ->where(function (Builder $query) use ($supervisor): void {
+                $query->whereHas(
+                    'scheduledVisit.employee',
+                    fn (Builder $employee) => $employee->where('supervisor_id', $supervisor->id),
+                )->orWhereHas(
+                    'scheduledVisit',
+                    fn (Builder $visit) => $visit->where('supervisor_id', $supervisor->id),
+                );
+            })
+            ->count();
+
+        $profile = EmployeeProfileChangeRequest::query()
+            ->where('status', ReviewStatus::Pending)
+            ->whereHas('employee', fn (Builder $query) => $query->where('supervisor_id', $supervisor->id))
+            ->count();
+
+        return $availability + $timeOff + $corrections + $profile;
+    }
+
+    private function openExceptionCountFor(Employee $supervisor): int
+    {
+        return VisitException::query()
+            ->where('status', '!=', VisitExceptionStatus::Resolved)
+            ->where(function (Builder $query) use ($supervisor): void {
+                $query->whereHas('visit.scheduledVisit', function (Builder $visit) use ($supervisor): void {
+                    $visit->where('supervisor_id', $supervisor->id)
+                        ->orWhereIn('employee_id', $supervisor->reports()->select('id'))
+                        ->orWhereIn('client_id', $supervisor->supervisedClients()->select('id'));
+                });
+            })
+            ->count();
     }
 
     public function promote(Employee $employee, User $actor): Employee
@@ -243,6 +315,14 @@ class SupervisorManagementService
                 ->whereIn('id', $dsps->modelKeys())
                 ->update(['supervisor_id' => $replacement->id]);
 
+            // Cover future operational relationships for transferred DSPs (MDM 03 §28).
+            ScheduledVisit::query()
+                ->where('supervisor_id', $from->id)
+                ->whereIn('employee_id', $dsps->modelKeys())
+                ->where('status', ScheduledVisitStatus::Scheduled)
+                ->whereDate('service_date', '>=', app(SettingsService::class)->today())
+                ->update(['supervisor_id' => $replacement->id]);
+
             $this->appendHistory($from, [
                 'action' => 'reassigned_team',
                 'previous_role' => Role::Supervisor->value,
@@ -292,6 +372,14 @@ class SupervisorManagementService
                 ->whereIn('id', $clients->modelKeys())
                 ->update(['supervisor_id' => $replacement->id]);
 
+            // Cover future operational relationships for transferred clients (MDM 03 §28).
+            ScheduledVisit::query()
+                ->where('supervisor_id', $from->id)
+                ->whereIn('client_id', $clients->modelKeys())
+                ->where('status', ScheduledVisitStatus::Scheduled)
+                ->whereDate('service_date', '>=', app(SettingsService::class)->today())
+                ->update(['supervisor_id' => $replacement->id]);
+
             $this->appendHistory($from, [
                 'action' => 'reassigned_caseload',
                 'previous_role' => Role::Supervisor->value,
@@ -339,6 +427,12 @@ class SupervisorManagementService
 
                 Client::query()
                     ->where('supervisor_id', $supervisor->id)
+                    ->update(['supervisor_id' => $replacement->id]);
+
+                ScheduledVisit::query()
+                    ->where('supervisor_id', $supervisor->id)
+                    ->where('status', ScheduledVisitStatus::Scheduled)
+                    ->whereDate('service_date', '>=', app(SettingsService::class)->today())
                     ->update(['supervisor_id' => $replacement->id]);
             }
 

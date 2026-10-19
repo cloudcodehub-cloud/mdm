@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\JobType;
 use App\Enums\Role;
+use App\Enums\ScheduledVisitStatus;
 use App\Models\AttendanceCorrection;
 use App\Models\Client;
 use App\Models\DspAvailabilityRequest;
@@ -169,11 +170,26 @@ class SupervisorManagementTest extends TestCase
         $to = Employee::factory()->supervisor()->create();
         $dsp = Employee::factory()->dsp()->forSupervisor($from)->create();
         $client = Client::factory()->forSupervisor($from)->create();
-        $visit = ScheduledVisit::factory()
+        // Historical completed visit stays with the original Supervisor of record.
+        $historical = ScheduledVisit::factory()
             ->forClient($client)
             ->forDsp($dsp)
-            ->create(['supervisor_id' => $from->id]);
-        $recordedVisit = Visit::factory()->forScheduledVisit($visit)->create();
+            ->create([
+                'supervisor_id' => $from->id,
+                'service_date' => now()->subDay()->toDateString(),
+                'status' => ScheduledVisitStatus::Completed,
+            ]);
+        $recordedVisit = Visit::factory()->forScheduledVisit($historical)->create();
+
+        // Future operational relationship must transfer with the team/caseload (MDM 03 §28).
+        $future = ScheduledVisit::factory()
+            ->forClient($client)
+            ->forDsp($dsp)
+            ->create([
+                'supervisor_id' => $from->id,
+                'service_date' => now()->addDay()->toDateString(),
+                'status' => ScheduledVisitStatus::Scheduled,
+            ]);
 
         $this->actingAs($from->user()->firstOrFail())
             ->get(route('employees.show', $dsp))
@@ -198,8 +214,9 @@ class SupervisorManagementTest extends TestCase
 
         $this->assertSame($to->id, $dsp->fresh()->supervisor_id);
         $this->assertSame($to->id, $client->fresh()->supervisor_id);
-        $this->assertSame($from->id, $visit->fresh()->supervisor_id);
-        $this->assertSame($visit->id, $recordedVisit->fresh()->scheduled_visit_id);
+        $this->assertSame($from->id, $historical->fresh()->supervisor_id);
+        $this->assertSame($to->id, $future->fresh()->supervisor_id);
+        $this->assertSame($historical->id, $recordedVisit->fresh()->scheduled_visit_id);
 
         $this->actingAs($from->user()->firstOrFail())
             ->get(route('employees.show', $dsp))

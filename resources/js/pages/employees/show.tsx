@@ -144,17 +144,14 @@ export default function EmployeesShow({
                             ) : null}
                             {can.manage_lifecycle ? (
                                 <>
-                                    {employee.employment_status !== 'active' && (
+                                    {employee.employment_status !== 'active' &&
+                                        employee.employment_status !==
+                                            'archive_pending' && (
                                         <StatusForm
                                             employeeId={employee.id}
                                             employeeName={employee.name}
                                             statusValue="active"
-                                            label={
-                                                employee.employment_status ===
-                                                'archive_pending'
-                                                    ? 'Cancel Archive Request'
-                                                    : 'Return to Active'
-                                            }
+                                            label="Return to Active"
                                             preview={lifecycle_previews?.active}
                                         />
                                     )}

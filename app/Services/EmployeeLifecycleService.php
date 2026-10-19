@@ -30,7 +30,8 @@ class EmployeeLifecycleService
      * MDM 03 Archive Pending: live operational work that blocks safe archival right now.
      *
      * - DSP / any employee: an in-progress Visit (active visit must finish first).
-     * - Supervisor: DSPs/clients still on the caseload (must be reassigned/covered).
+     * - Supervisor (MDM 03 §28): assigned clients/DSPs, pending approvals, exceptions,
+     *   and future operational relationships must be reassigned/covered first.
      *
      * @return list<array{type: string, label: string, count: int, visit_id?: int}>
      */
@@ -70,6 +71,30 @@ class EmployeeLifecycleService
                     'type' => 'supervisor_caseload',
                     'label' => $dependencies['client_count'].' client(s) on the caseload must be reassigned',
                     'count' => $dependencies['client_count'],
+                ];
+            }
+
+            if ($dependencies['pending_approval_count'] > 0) {
+                $blockers[] = [
+                    'type' => 'pending_approvals',
+                    'label' => $dependencies['pending_approval_count'].' pending approval(s) must be resolved or reassigned',
+                    'count' => $dependencies['pending_approval_count'],
+                ];
+            }
+
+            if ($dependencies['open_exception_count'] > 0) {
+                $blockers[] = [
+                    'type' => 'exceptions',
+                    'label' => $dependencies['open_exception_count'].' open exception(s) must be resolved or reassigned',
+                    'count' => $dependencies['open_exception_count'],
+                ];
+            }
+
+            if ($dependencies['future_relationship_count'] > 0) {
+                $blockers[] = [
+                    'type' => 'future_relationships',
+                    'label' => $dependencies['future_relationship_count'].' future scheduled visit(s) still list this Supervisor of record',
+                    'count' => $dependencies['future_relationship_count'],
                 ];
             }
         }
@@ -151,7 +176,6 @@ class EmployeeLifecycleService
                 'Prospective service eligibility is restored only if other eligibility rules (compliance, leave, etc.) permit.',
                 'Login access is restored for linked accounts when returning from Employment Ended or Archived.',
                 'Previously released Staffing Needed visits are not automatically reassigned.',
-                'Returning from Archive Pending cancels the pending archive request.',
             ],
         };
 
@@ -253,7 +277,10 @@ class EmployeeLifecycleService
                 return $employee->fresh(['user', 'supervisor']) ?? $employee;
             }
 
-            return $this->cancelArchivePending($employee, $actor, $target, $reason, $now, $effectiveOn);
+            // MDM 03 §25: no Cancel Pending / undo transition — wait for auto-finalize.
+            throw ValidationException::withMessages([
+                'employment_status' => 'This employee has a pending archive. Archiving completes automatically after blocking dependencies end; the request cannot be cancelled.',
+            ]);
         }
 
         if ($target === EmploymentStatus::Archived) {
@@ -355,56 +382,6 @@ class EmployeeLifecycleService
                     'from_status' => $previous->value,
                 ],
             ]);
-
-            return $employee->fresh(['user', 'supervisor']) ?? $employee;
-        });
-    }
-
-    /**
-     * Return a pending archive to Active (or the status it came from) without archiving.
-     */
-    private function cancelArchivePending(
-        Employee $employee,
-        User $actor,
-        EmploymentStatus $target,
-        ?string $reason,
-        CarbonInterface $now,
-        string $effectiveOn,
-    ): Employee {
-        return DB::transaction(function () use ($employee, $actor, $target, $reason, $now, $effectiveOn): Employee {
-            $fromStatus = EmploymentStatus::tryFrom((string) $employee->archive_pending_from_status);
-
-            $employee->forceFill([
-                'employment_status' => $target,
-                'status_reason' => $target === EmploymentStatus::Active ? $reason : $employee->status_reason,
-                'status_changed_at' => $now,
-                'status_changed_by_user_id' => $actor->id,
-                'terminated_on' => $target === EmploymentStatus::Active ? null : $employee->terminated_on,
-                ...$this->clearedArchivePendingAttributes(),
-            ])->save();
-
-            $this->history->record($employee, $actor, [
-                'category' => EmployeeAdminHistoryCategory::Lifecycle,
-                'summary' => 'Archive request cancelled — returned to '.$target->label(),
-                'old_value' => EmploymentStatus::ArchivePending->label(),
-                'new_value' => $target->label(),
-                'reason' => $reason,
-                'effective_on' => $effectiveOn,
-                'subject' => $employee,
-            ]);
-
-            if ($fromStatus === EmploymentStatus::EmploymentEnded
-                && $target === EmploymentStatus::Active
-                && $employee->user_id !== null) {
-                $this->history->record($employee, $actor, [
-                    'category' => EmployeeAdminHistoryCategory::Login,
-                    'summary' => 'Linked login access restored with Active employment',
-                    'old_value' => 'deactivated',
-                    'new_value' => 'active',
-                    'reason' => $reason,
-                    'effective_on' => $effectiveOn,
-                ]);
-            }
 
             return $employee->fresh(['user', 'supervisor']) ?? $employee;
         });
@@ -553,12 +530,10 @@ class EmployeeLifecycleService
                 EmploymentStatus::Active,
                 EmploymentStatus::Archived,
             ],
-            // Pending archive finishes automatically; Admin may only confirm it or cancel the request.
-            EmploymentStatus::ArchivePending => array_values(array_filter([
-                EmploymentStatus::Active,
+            // Pending archive finishes automatically; Admin may only re-confirm Archive (no-op finalize).
+            EmploymentStatus::ArchivePending => [
                 EmploymentStatus::Archived,
-                EmploymentStatus::tryFrom((string) $employee->archive_pending_from_status),
-            ])),
+            ],
             EmploymentStatus::Archived => [
                 EmploymentStatus::Active,
             ],

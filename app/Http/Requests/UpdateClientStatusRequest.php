@@ -24,7 +24,7 @@ class UpdateClientStatusRequest extends FormRequest
             return $this->user()?->can('archive', $client) ?? false;
         }
 
-        // A pending archive may only be confirmed or cancelled by an Admin (Supervisors never initiate it).
+        // A pending archive is Admin-owned; Supervisors never initiate or alter it.
         if ($client->isArchivePending()) {
             return $this->user()?->can('archive', $client) ?? false;
         }
