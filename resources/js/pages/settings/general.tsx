@@ -48,6 +48,8 @@ type Props = {
         staffing_needed_urgency_hours: number;
         logo_url?: string | null;
         has_logo?: boolean;
+        horizontal_logo_url?: string | null;
+        has_horizontal_logo?: boolean;
     };
     pendingTimezoneChange?: {
         timezone: string;
@@ -311,6 +313,12 @@ export default function General({
 
                             <section className="space-y-4">
                                 <h2 className="text-base font-medium">Branding</h2>
+                                <p className="text-muted-foreground text-xs">
+                                    Two-logo maximum (MDM 11-06). Primary for
+                                    documents/general branding; Horizontal preferred
+                                    for the application shell. MDM remains the
+                                    product brand.
+                                </p>
                                 <div className="grid gap-2">
                                     <Label htmlFor="logo">Primary Agency logo</Label>
                                     {settings.logo_url ? (
@@ -321,8 +329,8 @@ export default function General({
                                         />
                                     ) : (
                                         <p className="text-muted-foreground text-sm">
-                                            Optional. MDM branding is used when no
-                                            logo is uploaded.
+                                            Optional. Used for PDFs/documents and as
+                                            shell fallback.
                                         </p>
                                     )}
                                     <Input
@@ -338,10 +346,44 @@ export default function General({
                                                 name="remove_logo"
                                                 value="1"
                                             />
-                                            Remove current logo
+                                            Remove primary logo
                                         </label>
                                     ) : null}
                                     <InputError message={errors.logo} />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="horizontal_logo">
+                                        Horizontal Agency logo
+                                    </Label>
+                                    {settings.horizontal_logo_url ? (
+                                        <img
+                                            src={settings.horizontal_logo_url}
+                                            alt=""
+                                            className="h-10 w-auto max-w-xs object-contain"
+                                        />
+                                    ) : (
+                                        <p className="text-muted-foreground text-sm">
+                                            Optional. Preferred in the application
+                                            header when present.
+                                        </p>
+                                    )}
+                                    <Input
+                                        id="horizontal_logo"
+                                        name="horizontal_logo"
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp"
+                                    />
+                                    {settings.has_horizontal_logo ? (
+                                        <label className="text-muted-foreground flex items-center gap-2 text-sm">
+                                            <input
+                                                type="checkbox"
+                                                name="remove_horizontal_logo"
+                                                value="1"
+                                            />
+                                            Remove horizontal logo
+                                        </label>
+                                    ) : null}
+                                    <InputError message={errors.horizontal_logo} />
                                 </div>
                             </section>
 

@@ -5,6 +5,7 @@ import {
     ChartColumn,
     ClipboardCheck,
     Clock3,
+    FolderOpen,
     HeartHandshake,
     LayoutDashboard,
     LifeBuoy,
@@ -18,6 +19,7 @@ import { dashboard } from '@/routes';
 import { index as attendance } from '@/routes/attendance';
 import { index as clients } from '@/routes/clients';
 import { index as compliance } from '@/routes/compliance';
+import { index as adminDocuments } from '@/routes/admin/documents';
 import { index as employees } from '@/routes/employees';
 import { index as messages } from '@/routes/messages';
 import { index as incidents } from '@/routes/incidents';
@@ -111,6 +113,12 @@ export const mainNavigation: RoleNavItem[] = [
         href: reports(),
         icon: ChartColumn,
         roles: ['ADMIN', 'SUPERVISOR'],
+    },
+    {
+        title: 'Documents',
+        href: adminDocuments(),
+        icon: FolderOpen,
+        roles: ['ADMIN'],
     },
     {
         title: 'Messages',

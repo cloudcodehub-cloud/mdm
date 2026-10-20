@@ -43,6 +43,8 @@ class UpdateOrganizationSettingsRequest extends FormRequest
             'staffing_needed_urgency_hours' => ['required', 'integer', 'min:1', 'max:720'],
             'logo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'remove_logo' => ['sometimes', 'boolean'],
+            'horizontal_logo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'remove_horizontal_logo' => ['sometimes', 'boolean'],
             // High-risk Official Agency Name change (MDM 11-05 / 11-11).
             'official_name_change_reason' => ['nullable', 'string', 'max:1000'],
             'confirm_official_name_change' => ['sometimes', 'boolean'],

@@ -49,6 +49,8 @@ class GeneralSettingsController extends Controller
                 'staffing_needed_urgency_hours' => $this->settings->staffingNeededUrgencyHours(),
                 'logo_url' => $this->settings->logoUrl(),
                 'has_logo' => filled($current->logo_path),
+                'horizontal_logo_url' => $this->settings->horizontalLogoUrl(),
+                'has_horizontal_logo' => filled($current->horizontal_logo_path),
             ],
             'pendingTimezoneChange' => $this->settings->pendingTimezoneChangePayload(),
             'timezoneImpactPreview' => $this->settings->timezoneChangeImpactPreview($timezone),
@@ -121,6 +123,12 @@ class GeneralSettingsController extends Controller
             $this->settings->removeLogo();
         } elseif ($request->file('logo')) {
             $this->settings->storeLogo($request->file('logo'));
+        }
+
+        if ($request->boolean('remove_horizontal_logo')) {
+            $this->settings->removeHorizontalLogo();
+        } elseif ($request->file('horizontal_logo')) {
+            $this->settings->storeHorizontalLogo($request->file('horizontal_logo'));
         }
 
         if ($scheduleTimezoneChange) {

@@ -23,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $main_email
  * @property string|null $website
  * @property string|null $logo_path
+ * @property string|null $horizontal_logo_path
  * @property string $timezone
  * @property string|null $pending_timezone
  * @property Carbon|null $pending_timezone_effective_at
@@ -52,6 +53,7 @@ use Illuminate\Support\Carbon;
     'main_email',
     'website',
     'logo_path',
+    'horizontal_logo_path',
     'timezone',
     'pending_timezone',
     'pending_timezone_effective_at',

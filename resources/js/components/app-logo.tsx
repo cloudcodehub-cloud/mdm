@@ -3,7 +3,14 @@ import { PRODUCT_SHORT_NAME, PRODUCT_SUBTITLE } from '@/lib/brand';
 import { usePage } from '@inertiajs/react';
 
 export default function AppLogo() {
-    const logoUrl = usePage().props.organization?.logo_url;
+    const organization = usePage().props.organization as
+        | {
+              shell_logo_url?: string | null;
+              logo_url?: string | null;
+          }
+        | undefined;
+    // MDM 11-06: Horizontal → Primary → MDM mark for shell/header.
+    const logoUrl = organization?.shell_logo_url ?? organization?.logo_url;
 
     return (
         <>

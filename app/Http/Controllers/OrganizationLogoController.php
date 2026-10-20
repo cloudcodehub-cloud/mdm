@@ -3,12 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Services\SettingsService;
+use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OrganizationLogoController extends Controller
 {
-    public function __invoke(SettingsService $settings): StreamedResponse
+    public function __invoke(Request $request, SettingsService $settings): StreamedResponse
     {
-        return $settings->streamLogo();
+        $variant = $request->query('variant', 'primary');
+        $variant = $variant === 'horizontal' ? 'horizontal' : 'primary';
+
+        return $settings->streamLogo($variant);
     }
 }

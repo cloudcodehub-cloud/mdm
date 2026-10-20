@@ -64,6 +64,8 @@ class SettingsService
         unset(
             $data['logo'],
             $data['remove_logo'],
+            $data['horizontal_logo'],
+            $data['remove_horizontal_logo'],
             $data['official_name_change_reason'],
             $data['confirm_official_name_change'],
             $data['timezone_change_reason'],
@@ -436,6 +438,23 @@ class SettingsService
         $this->resolved = $settings->fresh() ?? $settings;
     }
 
+    public function storeHorizontalLogo(UploadedFile $file): void
+    {
+        $settings = $this->current();
+        $this->deleteLogoFile($settings->horizontal_logo_path);
+        $path = $file->store('agency-logos', 'local');
+        $settings->update(['horizontal_logo_path' => $path]);
+        $this->resolved = $settings->fresh() ?? $settings;
+    }
+
+    public function removeHorizontalLogo(): void
+    {
+        $settings = $this->current();
+        $this->deleteLogoFile($settings->horizontal_logo_path);
+        $settings->update(['horizontal_logo_path' => null]);
+        $this->resolved = $settings->fresh() ?? $settings;
+    }
+
     public function logoUrl(): ?string
     {
         if (! filled($this->current()->logo_path)) {
@@ -443,14 +462,54 @@ class SettingsService
         }
 
         return route('organization.logo', [
+            'variant' => 'primary',
             'v' => $this->current()->updated_at?->timestamp,
         ]);
     }
 
+    public function horizontalLogoUrl(): ?string
+    {
+        if (! filled($this->current()->horizontal_logo_path)) {
+            return null;
+        }
+
+        return route('organization.logo', [
+            'variant' => 'horizontal',
+            'v' => $this->current()->updated_at?->timestamp,
+        ]);
+    }
+
+    /**
+     * MDM 11-06 shell/header preference: Horizontal → Primary → MDM identity.
+     */
+    public function shellLogoUrl(): ?string
+    {
+        return $this->horizontalLogoUrl() ?? $this->logoUrl();
+    }
+
     public function logoDataUri(): ?string
     {
-        $path = $this->current()->logo_path;
+        return $this->logoDataUriForPath($this->current()->logo_path);
+    }
 
+    public function horizontalLogoDataUri(): ?string
+    {
+        return $this->logoDataUriForPath($this->current()->horizontal_logo_path);
+    }
+
+    public function streamLogo(string $variant = 'primary'): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $path = $variant === 'horizontal'
+            ? $this->current()->horizontal_logo_path
+            : $this->current()->logo_path;
+
+        abort_unless(filled($path) && Storage::disk('local')->exists($path), 404);
+
+        return Storage::disk('local')->response($path);
+    }
+
+    private function logoDataUriForPath(?string $path): ?string
+    {
         if (! filled($path) || ! Storage::disk('local')->exists($path)) {
             return null;
         }
@@ -463,14 +522,6 @@ class SettingsService
         }
 
         return 'data:'.$mime.';base64,'.base64_encode($contents);
-    }
-
-    public function streamLogo(): \Symfony\Component\HttpFoundation\StreamedResponse
-    {
-        $path = $this->current()->logo_path;
-        abort_unless(filled($path) && Storage::disk('local')->exists($path), 404);
-
-        return Storage::disk('local')->response($path);
     }
 
     private function deleteLogoFile(?string $path): void
@@ -762,6 +813,8 @@ class SettingsService
             'country' => $location['country'],
             'location_label' => $location['label'],
             'logo_url' => $this->logoUrl(),
+            'horizontal_logo_url' => $this->horizontalLogoUrl(),
+            'shell_logo_url' => $this->shellLogoUrl(),
         ];
     }
 
