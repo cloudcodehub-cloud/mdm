@@ -33,6 +33,12 @@ class StoreAttendanceCorrectionRequest extends FormRequest
             'requested_clock_out_location_status' => ['nullable', 'string', 'max:64'],
             'requested_clock_out_unavailable_reason' => ['nullable', 'string', 'max:2000'],
             'is_evv_reconstruction' => ['sometimes', 'boolean'],
+            'task_corrections' => ['sometimes', 'array'],
+            'task_corrections.*.visit_task_id' => ['required_with:task_corrections', 'integer', 'exists:visit_tasks,id'],
+            'task_corrections.*.requested_status' => ['required_with:task_corrections', 'string', 'in:pending,completed,skipped'],
+            'task_corrections.*.requested_skip_reason_id' => ['nullable', 'integer', 'exists:skip_reasons,id'],
+            'task_corrections.*.requested_skip_comment' => ['nullable', 'string', 'max:2000'],
+            'task_corrections.*.requested_completion_note' => ['nullable', 'string', 'max:5000'],
             'reason' => ['required', 'string', 'max:500'],
             'note' => ['nullable', 'string', 'max:5000'],
         ];

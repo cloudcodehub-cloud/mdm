@@ -19,6 +19,8 @@ use Illuminate\Support\Carbon;
  * @property bool $is_evv_reconstruction
  * @property bool $overlap_conflict
  * @property list<string>|null $proposed_fields
+ * @property string|null $original_attendance_status
+ * @property list<array<string, mixed>>|null $task_corrections
  * @property Carbon|null $original_clocked_in_at
  * @property Carbon|null $original_clocked_out_at
  * @property Carbon|null $requested_clocked_in_at
@@ -59,6 +61,8 @@ use Illuminate\Support\Carbon;
     'is_evv_reconstruction',
     'overlap_conflict',
     'proposed_fields',
+    'original_attendance_status',
+    'task_corrections',
     'original_clocked_in_at',
     'original_clocked_out_at',
     'requested_clocked_in_at',
@@ -98,6 +102,7 @@ class AttendanceCorrection extends Model
             'is_evv_reconstruction' => 'boolean',
             'overlap_conflict' => 'boolean',
             'proposed_fields' => 'array',
+            'task_corrections' => 'array',
             'original_clocked_in_at' => 'datetime',
             'original_clocked_out_at' => 'datetime',
             'requested_clocked_in_at' => 'datetime',
@@ -130,6 +135,18 @@ class AttendanceCorrection extends Model
     {
         return $this->proposes('clock_in_gps_context')
             || $this->proposes('clock_out_gps_context');
+    }
+
+    public function requestsTaskChange(): bool
+    {
+        return $this->proposes('tasks') || ($this->task_corrections !== null && $this->task_corrections !== []);
+    }
+
+    public function isMissedReconstruction(): bool
+    {
+        return $this->is_evv_reconstruction
+            && $this->original_attendance_status === 'missed'
+            && $this->visit_id === null;
     }
 
     /**

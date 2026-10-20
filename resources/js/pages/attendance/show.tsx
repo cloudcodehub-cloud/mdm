@@ -23,6 +23,15 @@ import {
 import { show as showVisit } from '@/routes/visits';
 import type { AttendanceRecord } from '@/types/attendance';
 
+type TaskCorrectionDraft = {
+    visit_task_id: number;
+    requested_status: string;
+    requested_skip_reason_id: string;
+    requested_skip_comment: string;
+    requested_completion_note: string;
+    dirty: boolean;
+};
+
 export default function AttendanceShow({
     record,
     can,
@@ -39,7 +48,19 @@ export default function AttendanceShow({
         requested_visit_notes: record.visit_notes ?? '',
         requested_handover_note: record.handover_note ?? '',
         requested_clock_in_unavailable_reason: '',
-        is_evv_reconstruction: false as boolean,
+        is_evv_reconstruction: Boolean(record.can_reconstruct_missed),
+        task_corrections: (record.visit_tasks ?? []).map(
+            (task): TaskCorrectionDraft => ({
+                visit_task_id: task.id,
+                requested_status: task.status,
+                requested_skip_reason_id: task.skip_reason_id
+                    ? String(task.skip_reason_id)
+                    : '',
+                requested_skip_comment: task.skip_comment ?? '',
+                requested_completion_note: task.completion_note ?? '',
+                dirty: false,
+            }),
+        ),
         reason: '',
         note: '',
     });
@@ -126,10 +147,18 @@ export default function AttendanceShow({
                     {can.request_correction && (
                         <RecordSection title="Attendance correction" className="lg:col-span-5">
                             <p className="text-muted-foreground mb-3 text-sm">
-                                Original DSP clock events, notes, and GPS evidence
-                                stay on the visit. Pending requests are not
-                                effective until approved.
+                                Original DSP clock events, notes, GPS evidence,
+                                and task outcomes stay on record. Pending
+                                requests are not effective until approved.
                             </p>
+                            {record.can_reconstruct_missed ? (
+                                <p className="mb-3 text-sm">
+                                    This Scheduled Visit is Missed with no Visit
+                                    EVV. Reconstruction creates an
+                                    administratively reconstructed Completed
+                                    Visit and keeps the original Missed history.
+                                </p>
+                            ) : null}
                             {record.pending_overlap_conflict ? (
                                 <p className="text-destructive mb-3 text-sm">
                                     A pending correction has an unresolved
@@ -179,6 +208,36 @@ export default function AttendanceShow({
                                         ) {
                                             payload.requested_clock_in_unavailable_reason =
                                                 data.requested_clock_in_unavailable_reason;
+                                        }
+                                        const taskRows = data.task_corrections
+                                            .filter((row) => row.dirty)
+                                            .map((row) => ({
+                                                visit_task_id:
+                                                    row.visit_task_id,
+                                                requested_status:
+                                                    row.requested_status,
+                                                requested_skip_reason_id:
+                                                    row.requested_status ===
+                                                    'skipped'
+                                                        ? Number(
+                                                              row.requested_skip_reason_id,
+                                                          ) || null
+                                                        : null,
+                                                requested_skip_comment:
+                                                    row.requested_status ===
+                                                    'skipped'
+                                                        ? row.requested_skip_comment ||
+                                                          null
+                                                        : null,
+                                                requested_completion_note:
+                                                    row.requested_status ===
+                                                    'completed'
+                                                        ? row.requested_completion_note ||
+                                                          null
+                                                        : null,
+                                            }));
+                                        if (taskRows.length > 0) {
+                                            payload.task_corrections = taskRows;
                                         }
                                         return payload;
                                     });
@@ -314,10 +373,153 @@ export default function AttendanceShow({
                                                 event.target.checked,
                                             )
                                         }
+                                        disabled={Boolean(
+                                            record.can_reconstruct_missed,
+                                        )}
                                     />
-                                    Mark as EVV reconstruction (missing original
-                                    clocks)
+                                    {record.can_reconstruct_missed
+                                        ? 'Zero-EVV Missed reconstruction (required)'
+                                        : 'Mark as EVV reconstruction (missing original clocks)'}
                                 </label>
+                                {(record.visit_tasks ?? []).length > 0 ? (
+                                    <div className="space-y-3">
+                                        <Label>Task / status corrections</Label>
+                                        {correctionForm.data.task_corrections.map(
+                                            (row, index) => {
+                                                const task =
+                                                    record.visit_tasks?.[
+                                                        index
+                                                    ];
+                                                if (!task) {
+                                                    return null;
+                                                }
+
+                                                return (
+                                                    <div
+                                                        key={row.visit_task_id}
+                                                        className="border-border space-y-2 border-t pt-3 first:border-t-0 first:pt-0"
+                                                    >
+                                                        <p className="text-sm font-medium">
+                                                            {task.title}
+                                                            <span className="text-muted-foreground ml-2 text-xs font-normal">
+                                                                was{' '}
+                                                                {
+                                                                    task.status_label
+                                                                }
+                                                            </span>
+                                                        </p>
+                                                        <select
+                                                            value={
+                                                                row.requested_status
+                                                            }
+                                                            onChange={(
+                                                                event,
+                                                            ) => {
+                                                                const next = [
+                                                                    ...correctionForm
+                                                                        .data
+                                                                        .task_corrections,
+                                                                ];
+                                                                next[index] = {
+                                                                    ...row,
+                                                                    requested_status:
+                                                                        event
+                                                                            .target
+                                                                            .value,
+                                                                    dirty:
+                                                                        event
+                                                                            .target
+                                                                            .value !==
+                                                                        task.status,
+                                                                };
+                                                                correctionForm.setData(
+                                                                    'task_corrections',
+                                                                    next,
+                                                                );
+                                                            }}
+                                                            className="border-input flex h-9 w-full rounded-md border bg-background px-3 text-sm"
+                                                        >
+                                                            <option value="pending">
+                                                                Pending
+                                                            </option>
+                                                            <option value="completed">
+                                                                Completed
+                                                            </option>
+                                                            <option value="skipped">
+                                                                Skipped
+                                                            </option>
+                                                        </select>
+                                                        {row.requested_status ===
+                                                            'skipped' &&
+                                                        row.dirty ? (
+                                                            <select
+                                                                value={
+                                                                    row.requested_skip_reason_id
+                                                                }
+                                                                onChange={(
+                                                                    event,
+                                                                ) => {
+                                                                    const next =
+                                                                        [
+                                                                            ...correctionForm
+                                                                                .data
+                                                                                .task_corrections,
+                                                                        ];
+                                                                    next[
+                                                                        index
+                                                                    ] = {
+                                                                        ...row,
+                                                                        requested_skip_reason_id:
+                                                                            event
+                                                                                .target
+                                                                                .value,
+                                                                    };
+                                                                    correctionForm.setData(
+                                                                        'task_corrections',
+                                                                        next,
+                                                                    );
+                                                                }}
+                                                                className="border-input flex h-9 w-full rounded-md border bg-background px-3 text-sm"
+                                                                required
+                                                            >
+                                                                <option value="">
+                                                                    Skip reason…
+                                                                </option>
+                                                                {(
+                                                                    record.skip_reasons ??
+                                                                    []
+                                                                ).map(
+                                                                    (
+                                                                        reason,
+                                                                    ) => (
+                                                                        <option
+                                                                            key={
+                                                                                reason.id
+                                                                            }
+                                                                            value={String(
+                                                                                reason.id,
+                                                                            )}
+                                                                        >
+                                                                            {
+                                                                                reason.name
+                                                                            }
+                                                                        </option>
+                                                                    ),
+                                                                )}
+                                                            </select>
+                                                        ) : null}
+                                                    </div>
+                                                );
+                                            },
+                                        )}
+                                        <InputError
+                                            message={
+                                                correctionForm.errors
+                                                    .task_corrections
+                                            }
+                                        />
+                                    </div>
+                                ) : null}
                                 <div className="grid gap-2">
                                     <Label htmlFor="reason">Reason</Label>
                                     <textarea
@@ -389,14 +591,24 @@ export default function AttendanceShow({
                                         <p className="mt-2 text-sm">
                                             {correction.reason}
                                         </p>
-                                        <p className="text-muted-foreground mt-1 text-xs">
-                                            Original{' '}
-                                            {correction.original_clock_in ??
-                                                '—'}{' '}
-                                            –{' '}
-                                            {correction.original_clock_out ??
-                                                '—'}
-                                        </p>
+                                        {correction.original_attendance_status ===
+                                            'missed' &&
+                                        correction.is_evv_reconstruction ? (
+                                            <p className="text-muted-foreground mt-1 text-xs">
+                                                Original attendance: Missed
+                                                (preserved). Reconstruction does
+                                                not fabricate DSP GPS.
+                                            </p>
+                                        ) : (
+                                            <p className="text-muted-foreground mt-1 text-xs">
+                                                Original{' '}
+                                                {correction.original_clock_in ??
+                                                    '—'}{' '}
+                                                –{' '}
+                                                {correction.original_clock_out ??
+                                                    '—'}
+                                            </p>
+                                        )}
                                         <p className="text-xs">
                                             Requested{' '}
                                             {correction.requested_clock_in ??
@@ -405,13 +617,25 @@ export default function AttendanceShow({
                                             {correction.requested_clock_out ??
                                                 'unchanged'}
                                         </p>
+                                        {(correction.task_corrections ?? [])
+                                            .length > 0 ? (
+                                            <p className="text-muted-foreground mt-1 text-xs">
+                                                Task corrections:{' '}
+                                                {(
+                                                    correction.task_corrections ??
+                                                    []
+                                                ).length}{' '}
+                                                item(s); originals retained on
+                                                the correction record.
+                                            </p>
+                                        ) : null}
                                         {correction.review_note && (
                                             <p className="mt-2 text-sm">
                                                 Review note:{' '}
                                                 {correction.review_note}
                                             </p>
                                         )}
-                                        {can.review_corrections &&
+                                        {correction.can_review &&
                                             correction.status === 'pending' && (
                                                 <CorrectionReview
                                                     id={correction.id}

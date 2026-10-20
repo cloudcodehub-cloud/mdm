@@ -60,9 +60,40 @@ class AttendanceCorrectionPolicy
         return $visit instanceof Visit && $visit->status === VisitStatus::Completed;
     }
 
+    /**
+     * MDM 01 §2.44 / MDM 05 §L / MASTER §4.8 — Supervisors review DSP-originated
+     * corrections in caseload. No self-approval. Supervisor-initiated requests need Admin.
+     * Admin retains agency-wide review authority.
+     */
     public function approve(User $user, AttendanceCorrection $correction): bool
     {
-        return $user->isAdmin() && $correction->isPending();
+        if (! $correction->isPending()) {
+            return false;
+        }
+
+        $correction->loadMissing('scheduledVisit');
+
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        if (! $user->isSupervisor() || $user->employee === null) {
+            return false;
+        }
+
+        if (! $user->can('view', $correction->scheduledVisit)) {
+            return false;
+        }
+
+        // Independent approval: initiator cannot also approve.
+        if ($correction->requested_by_user_id === $user->id) {
+            return false;
+        }
+
+        $requester = $correction->requestedBy;
+
+        // Supervisor may review DSP-originated requests only (MDM 05 §L).
+        return $requester !== null && $requester->isDsp();
     }
 
     public function reject(User $user, AttendanceCorrection $correction): bool

@@ -3,6 +3,37 @@ export type AttendancePerson = {
     name: string;
 };
 
+export type AttendanceTaskCorrectionRow = {
+    visit_task_id: number;
+    original_status?: string;
+    requested_status: string;
+    original_skip_reason_id?: number | null;
+    requested_skip_reason_id?: number | null;
+    original_skip_comment?: string | null;
+    requested_skip_comment?: string | null;
+    original_completion_note?: string | null;
+    requested_completion_note?: string | null;
+};
+
+export type AttendanceVisitTask = {
+    id: number;
+    title: string;
+    status: string;
+    status_label: string;
+    skip_reason_id: number | null;
+    skip_comment: string | null;
+    completion_note: string | null;
+    can_skip: boolean;
+};
+
+export type AttendanceSkipReason = {
+    id: number;
+    name: string;
+    code: string;
+    requires_comment: boolean;
+    requires_explanation: boolean;
+};
+
 export type AttendanceCorrectionRecord = {
     id: number;
     scheduled_visit_id: number;
@@ -10,8 +41,11 @@ export type AttendanceCorrectionRecord = {
     status: string;
     status_label: string;
     is_evv_reconstruction?: boolean;
+    original_attendance_status?: string | null;
     overlap_conflict?: boolean;
     proposed_fields?: string[];
+    task_corrections?: AttendanceTaskCorrectionRow[];
+    can_review?: boolean;
     reason: string;
     note: string | null;
     review_note: string | null;
@@ -69,6 +103,7 @@ export type AttendanceRecord = {
     visit_notes?: string | null;
     handover_note?: string | null;
     can_request_correction: boolean;
+    can_reconstruct_missed?: boolean;
     pending_correction_id: number | null;
     pending_overlap_conflict?: boolean;
     corrections?: AttendanceCorrectionRecord[];
@@ -78,6 +113,8 @@ export type AttendanceRecord = {
         status: string;
         evv_reconstructed?: boolean;
     }>;
+    visit_tasks?: AttendanceVisitTask[];
+    skip_reasons?: AttendanceSkipReason[];
     clock_in_input?: string | null;
     clock_out_input?: string | null;
 };

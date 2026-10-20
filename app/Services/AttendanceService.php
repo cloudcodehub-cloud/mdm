@@ -112,6 +112,8 @@ class AttendanceService
             'supervisor',
             'shiftTemplate',
             'visit.exceptions',
+            'visit.tasks.skipReason',
+            'visits.tasks.skipReason',
             'attendanceCorrections.requestedBy',
             'attendanceCorrections.reviewedBy',
         ]);
@@ -124,7 +126,7 @@ class AttendanceService
      */
     public function pendingCorrections(User $user): array
     {
-        if (! $user->isAdmin()) {
+        if (! $user->isAdmin() && ! $user->isSupervisor()) {
             return [];
         }
 
@@ -133,7 +135,8 @@ class AttendanceService
             ->with(['scheduledVisit.client', 'scheduledVisit.employee', 'requestedBy', 'visit'])
             ->orderByDesc('id')
             ->get()
-            ->map(fn (AttendanceCorrection $correction): array => $this->serializeCorrection($correction))
+            ->filter(fn (AttendanceCorrection $correction): bool => $user->can('approve', $correction))
+            ->map(fn (AttendanceCorrection $correction): array => $this->serializeCorrection($correction, $user))
             ->values()
             ->all();
 
@@ -260,8 +263,13 @@ class AttendanceService
             'visit_notes' => $visit?->visit_notes,
             'handover_note' => $visit?->handover_note,
             'can_request_correction' => $user->can('create', [AttendanceCorrection::class, $scheduledVisit])
-                && $visit !== null
-                && $pending === null,
+                && $pending === null
+                && ($visit !== null || $status === AttendanceStatus::Missed),
+            'can_reconstruct_missed' => $user->can('create', [AttendanceCorrection::class, $scheduledVisit])
+                && $pending === null
+                && $visit === null
+                && $status === AttendanceStatus::Missed
+                && ($user->isAdmin() || $user->isSupervisor()),
             'pending_correction_id' => $pending?->id,
             'pending_overlap_conflict' => (bool) ($pending?->overlap_conflict),
         ];
@@ -271,7 +279,7 @@ class AttendanceService
         }
 
         $row['corrections'] = $scheduledVisit->attendanceCorrections
-            ->map(fn (AttendanceCorrection $correction): array => $this->serializeCorrection($correction))
+            ->map(fn (AttendanceCorrection $correction): array => $this->serializeCorrection($correction, $user))
             ->values()
             ->all();
         $row['visit_segments'] = $scheduledVisit->visits
@@ -283,6 +291,24 @@ class AttendanceService
             ])
             ->values()
             ->all();
+        $row['visit_tasks'] = ($visit?->tasks ?? collect())
+            ->map(fn ($task) => [
+                'id' => $task->id,
+                'title' => $task->title,
+                'status' => $task->status->value,
+                'status_label' => match ($task->status->value) {
+                    'completed' => 'Completed',
+                    'skipped' => 'Skipped',
+                    default => 'Pending',
+                },
+                'skip_reason_id' => $task->skip_reason_id,
+                'skip_comment' => $task->skip_comment,
+                'completion_note' => $task->completion_note,
+                'can_skip' => (bool) $task->can_skip,
+            ])
+            ->values()
+            ->all();
+        $row['skip_reasons'] = DirectoryPresenter::skipReasons();
         $row['clock_in_input'] = $this->settings->datetimeLocalValue($visit?->clocked_in_at);
         $row['clock_out_input'] = $this->settings->datetimeLocalValue(
             $visit?->clocked_out_at ?? $visit?->administrative_effective_ended_at,
@@ -294,7 +320,7 @@ class AttendanceService
     /**
      * @return array<string, mixed>
      */
-    public function serializeCorrection(AttendanceCorrection $correction): array
+    public function serializeCorrection(AttendanceCorrection $correction, ?User $user = null): array
     {
         $scheduled = $correction->relationLoaded('scheduledVisit') ? $correction->scheduledVisit : null;
 
@@ -305,8 +331,11 @@ class AttendanceService
             'status' => $correction->status->value,
             'status_label' => $correction->status->label(),
             'is_evv_reconstruction' => (bool) $correction->is_evv_reconstruction,
+            'original_attendance_status' => $correction->original_attendance_status,
             'overlap_conflict' => (bool) $correction->overlap_conflict,
             'proposed_fields' => $correction->proposed_fields ?? [],
+            'task_corrections' => $correction->task_corrections ?? [],
+            'can_review' => $user !== null && $user->can('approve', $correction),
             'reason' => $correction->reason,
             'note' => $correction->note,
             'review_note' => $correction->review_note,

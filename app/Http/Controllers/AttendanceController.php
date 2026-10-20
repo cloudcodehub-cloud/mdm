@@ -55,7 +55,7 @@ class AttendanceController extends Controller
                 AttendanceStatus::cases(),
             ),
             'can' => [
-                'review_corrections' => $user->isAdmin(),
+                'review_corrections' => $user->isAdmin() || $user->isSupervisor(),
                 'filter_employees' => ! $user->isDsp(),
             ],
         ]);
@@ -75,7 +75,7 @@ class AttendanceController extends Controller
             'record' => $record,
             'can' => [
                 'request_correction' => $record['can_request_correction'],
-                'review_corrections' => $user->isAdmin(),
+                'review_corrections' => $user->isAdmin() || $user->isSupervisor(),
             ],
             'documents' => [
                 'completed_visit' => ($visit !== null && $visit->status === VisitStatus::Completed)
