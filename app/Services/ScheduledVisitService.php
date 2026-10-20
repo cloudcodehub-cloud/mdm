@@ -421,6 +421,13 @@ class ScheduledVisitService
             ...$locationSnapshot,
         ];
 
+        // MDM 11-01: stamp schedule timezone at creation only; never rewrite on later agency TZ changes.
+        if ($existing === null) {
+            $payload['schedule_timezone'] = filled($data['schedule_timezone'] ?? null)
+                ? (string) $data['schedule_timezone']
+                : app(SettingsService::class)->timezone();
+        }
+
         if (array_key_exists('series_id', $data)) {
             $payload['series_id'] = filled($data['series_id']) ? (int) $data['series_id'] : null;
         }
@@ -564,6 +571,9 @@ class ScheduledVisitService
             'service_date' => $data['service_date'],
             'starts_at' => filled($data['starts_at'] ?? null) ? $this->normalizedTime((string) $data['starts_at']) : null,
             'ends_at' => filled($data['ends_at'] ?? null) ? $this->normalizedTime((string) $data['ends_at']) : null,
+            'schedule_timezone' => filled($data['schedule_timezone'] ?? null)
+                ? (string) $data['schedule_timezone']
+                : app(SettingsService::class)->timezone(),
         ]);
 
         if ($visit->shift_template_id !== null) {

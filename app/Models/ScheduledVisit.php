@@ -39,6 +39,7 @@ use RuntimeException;
  * @property Carbon $service_date
  * @property string|null $starts_at
  * @property string|null $ends_at
+ * @property string|null $schedule_timezone IANA timezone stamped at creation (MDM 11-01)
  * @property string $service_type
  * @property ScheduledVisitStatus $status
  * @property string|null $notes
@@ -98,6 +99,7 @@ use RuntimeException;
     'service_date',
     'starts_at',
     'ends_at',
+    'schedule_timezone',
     'service_type',
     'status',
     'notes',
@@ -121,6 +123,15 @@ class ScheduledVisit extends Model
 {
     /** @use HasFactory<ScheduledVisitFactory> */
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        static::creating(function (ScheduledVisit $visit): void {
+            if (! filled($visit->schedule_timezone)) {
+                $visit->schedule_timezone = app(SettingsService::class)->timezone();
+            }
+        });
+    }
 
     /**
      * @return array<string, string>
@@ -385,6 +396,22 @@ class ScheduledVisit extends Model
         return $this->shiftTemplate?->spansOvernight() ?? false;
     }
 
+    /**
+     * Wall-clock interpretation timezone for this visit (Decision 11-01).
+     * Stamped at creation; Agency timezone changes do not silently reinterpret it.
+     */
+    public function scheduleTimezone(): string
+    {
+        $settings = app(SettingsService::class);
+        $stamped = trim((string) $this->schedule_timezone);
+
+        if ($stamped !== '' && $settings->isValidTimezone($stamped)) {
+            return $stamped;
+        }
+
+        return $settings->timezone();
+    }
+
     public function startsAtOn(?CarbonInterface $serviceDate = null): CarbonInterface
     {
         $date = $serviceDate ?? $this->service_date;
@@ -394,7 +421,7 @@ class ScheduledVisit extends Model
         }
 
         if ($this->shiftTemplate !== null) {
-            return $this->shiftTemplate->startsAtOn($date);
+            return $this->shiftTemplate->startsAtOn($date, $this->scheduleTimezone());
         }
 
         throw new RuntimeException('Scheduled visit is missing both explicit start time and a shift template.');
@@ -415,7 +442,7 @@ class ScheduledVisit extends Model
         }
 
         if ($this->shiftTemplate !== null) {
-            return $this->shiftTemplate->endsAtOn($date);
+            return $this->shiftTemplate->endsAtOn($date, $this->scheduleTimezone());
         }
 
         throw new RuntimeException('Scheduled visit is missing both explicit end time and a shift template.');
@@ -574,7 +601,11 @@ class ScheduledVisit extends Model
 
     private function clockOn(CarbonInterface $serviceDate, string $time): CarbonInterface
     {
-        return app(SettingsService::class)->at($serviceDate->toDateString(), $time);
+        return app(SettingsService::class)->at(
+            $serviceDate->toDateString(),
+            $time,
+            $this->scheduleTimezone(),
+        );
     }
 
     private function normalizedTime(string $time): string

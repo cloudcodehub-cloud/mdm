@@ -15,7 +15,7 @@ class DocumentContextFactory
 
     public function make(User $user): DocumentContext
     {
-        $agency = $this->settings->agencyName();
+        $agency = $this->settings->officialAgencyName();
 
         return new DocumentContext(
             agencyName: $agency,

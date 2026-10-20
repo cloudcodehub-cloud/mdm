@@ -31,13 +31,24 @@ class OrganizationSettingsTest extends TestCase
     {
         return array_merge([
             'organization_name' => 'Lakeside Supports',
-            'timezone' => 'Pacific/Auckland',
+            'display_name' => 'Lakeside',
+            'address_line_1' => '12 Harbor Rd',
+            'city' => 'Auckland',
+            'state' => 'AUK',
+            'postal_code' => '1010',
+            'country' => 'New Zealand',
+            'main_phone' => '+64-9-555-0100',
+            'main_email' => 'hello@lakeside.example',
+            'website' => 'https://lakeside.example',
+            'timezone' => 'America/New_York',
             'date_format' => DateFormat::Iso->value,
             'time_format' => TimeFormat::TwentyFourHour->value,
             'first_day_of_week' => 1,
             'credential_expiring_soon_days' => 14,
             'incident_acknowledgment_minutes' => 60,
             'staffing_needed_urgency_hours' => 36,
+            'confirm_official_name_change' => '1',
+            'official_name_change_reason' => 'Initial agency profile setup',
         ], $overrides);
     }
 
@@ -57,14 +68,16 @@ class OrganizationSettingsTest extends TestCase
 
         $settings = OrganizationSetting::query()->firstOrFail();
         $this->assertSame('Lakeside Supports', $settings->organization_name);
-        $this->assertSame('Pacific/Auckland', $settings->timezone);
+        $this->assertSame('Lakeside', $settings->display_name);
+        $this->assertSame('12 Harbor Rd', $settings->address_line_1);
+        $this->assertSame('America/New_York', $settings->timezone);
         $this->assertSame(DateFormat::Iso, $settings->date_format);
         $this->assertSame(TimeFormat::TwentyFourHour, $settings->time_format);
         $this->assertSame(1, $settings->first_day_of_week);
         $this->assertSame(14, $settings->credential_expiring_soon_days);
         $this->assertSame(36, $settings->staffing_needed_urgency_hours);
         $this->assertSame(36, app(SettingsService::class)->staffingNeededUrgencyHours());
-        $this->assertSame('Pacific/Auckland', app(SettingsService::class)->timezone());
+        $this->assertSame('America/New_York', app(SettingsService::class)->timezone());
     }
 
     public function test_staffing_needed_urgency_hours_is_validated_and_defaults_from_config(): void

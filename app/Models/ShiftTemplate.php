@@ -65,14 +65,14 @@ class ShiftTemplate extends Model
         return (int) $this->startsAtOn($reference)->diffInMinutes($this->endsAtOn($reference));
     }
 
-    public function startsAtOn(CarbonInterface $serviceDate): CarbonInterface
+    public function startsAtOn(CarbonInterface $serviceDate, ?string $timezone = null): CarbonInterface
     {
-        return $this->clockOn($serviceDate, $this->starts_at);
+        return $this->clockOn($serviceDate, $this->starts_at, $timezone);
     }
 
-    public function endsAtOn(CarbonInterface $serviceDate): CarbonInterface
+    public function endsAtOn(CarbonInterface $serviceDate, ?string $timezone = null): CarbonInterface
     {
-        $end = $this->clockOn($serviceDate, $this->ends_at);
+        $end = $this->clockOn($serviceDate, $this->ends_at, $timezone);
 
         if ($this->spansOvernight()) {
             return $end->addDay();
@@ -98,9 +98,9 @@ class ShiftTemplate extends Model
         return $this->hasMany(ScheduledVisit::class);
     }
 
-    private function clockOn(CarbonInterface $serviceDate, string $time): CarbonInterface
+    private function clockOn(CarbonInterface $serviceDate, string $time, ?string $timezone = null): CarbonInterface
     {
-        return app(SettingsService::class)->at($serviceDate->toDateString(), $time);
+        return app(SettingsService::class)->at($serviceDate->toDateString(), $time, $timezone);
     }
 
     private function normalizedTime(string $time): string

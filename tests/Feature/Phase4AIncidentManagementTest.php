@@ -277,6 +277,7 @@ class Phase4AIncidentManagementTest extends TestCase
                 'incident_acknowledgment_minutes' => 90,
                 'staffing_needed_urgency_hours' => 24,
             ])
+            ->assertSessionHasNoErrors()
             ->assertRedirect();
 
         $this->assertSame(90, (int) OrganizationSetting::query()->value('incident_acknowledgment_minutes'));

@@ -138,6 +138,8 @@ class OrganizationContextTest extends TestCase
             'credential_expiring_soon_days' => 30,
             'incident_acknowledgment_minutes' => 60,
             'staffing_needed_urgency_hours' => 24,
+            'confirm_official_name_change' => '1',
+            'official_name_change_reason' => 'Agency identity alignment',
         ];
 
         $this->actingAs($admin)
