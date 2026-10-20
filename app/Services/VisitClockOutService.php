@@ -211,6 +211,9 @@ class VisitClockOutService
         // MDM 03: a pending Client/DSP archive completes automatically once the active visit ends.
         app(ArchivePendingService::class)->onVisitCompleted($completed);
 
+        // MDM 03 §10 — apply deferred temporary-coverage removals after the Active Visit ends.
+        app(TemporarySupervisorCoverageService::class)->applyDeferredRemovalsAfterVisit($completed);
+
         return $completed;
     }
 

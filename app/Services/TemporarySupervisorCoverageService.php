@@ -5,11 +5,13 @@ namespace App\Services;
 use App\Enums\JobType;
 use App\Enums\TemporarySupervisorCoverageAuditAction;
 use App\Enums\TemporarySupervisorCoverageMode;
+use App\Enums\VisitStatus;
 use App\Models\Client;
 use App\Models\Employee;
 use App\Models\TemporarySupervisorCoverage;
 use App\Models\TemporarySupervisorCoverageAudit;
 use App\Models\User;
+use App\Models\Visit;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +20,7 @@ use Illuminate\Validation\ValidationException;
 /**
  * MDM 03 §10 / MASTER §4.4 — Admin temporary Supervisor coverage.
  * Does not rewrite permanent supervisor_id ownership or grant private-message access.
+ * Redistribution removals that touch Active Visits are deferred; revoke/expire remain immediate.
  */
 class TemporarySupervisorCoverageService
 {
@@ -111,16 +114,39 @@ class TemporarySupervisorCoverageService
             ]);
         }
 
-        [$clientIds, $employeeIds] = $this->resolveScope($mode, $original, [
+        [$intendedClients, $intendedEmployees] = $this->resolveScope($mode, $original, [
             'client_ids' => $payload['client_ids'] ?? $coverage->client_ids,
             'employee_ids' => $payload['employee_ids'] ?? $coverage->employee_ids,
         ]);
 
-        return DB::transaction(function () use ($actor, $coverage, $mode, $clientIds, $employeeIds, $starts, $ends, $payload): TemporarySupervisorCoverage {
+        [$deferredClients, $deferredEmployees] = $this->planDeferredRemovals(
+            $coverage,
+            $original,
+            $mode,
+            $intendedClients,
+            $intendedEmployees,
+        );
+
+        return DB::transaction(function () use (
+            $actor,
+            $coverage,
+            $mode,
+            $intendedClients,
+            $intendedEmployees,
+            $deferredClients,
+            $deferredEmployees,
+            $starts,
+            $ends,
+            $payload,
+        ): TemporarySupervisorCoverage {
+            // Intended scope is stored separately from deferred removals.
+            // Effective auth = intended ∪ deferred until Active Visits finish.
             $coverage->forceFill([
                 'mode' => $mode,
-                'client_ids' => $clientIds,
-                'employee_ids' => $employeeIds,
+                'client_ids' => $intendedClients,
+                'employee_ids' => $intendedEmployees,
+                'deferred_remove_client_ids' => $deferredClients === [] ? null : $deferredClients,
+                'deferred_remove_employee_ids' => $deferredEmployees === [] ? null : $deferredEmployees,
                 'starts_at' => $starts,
                 'ends_at' => $ends,
                 'note' => array_key_exists('note', $payload)
@@ -132,6 +158,8 @@ class TemporarySupervisorCoverageService
                 'mode' => $mode->value,
                 'starts_at' => $starts->toIso8601String(),
                 'ends_at' => $ends->toIso8601String(),
+                'deferred_remove_client_ids' => $deferredClients,
+                'deferred_remove_employee_ids' => $deferredEmployees,
             ]);
 
             $this->forgetCache();
@@ -162,10 +190,13 @@ class TemporarySupervisorCoverageService
         }
 
         return DB::transaction(function () use ($actor, $coverage, $reason): TemporarySupervisorCoverage {
+            // MDM 03 §10 — revoke immediately removes temporary access (not deferred).
             $coverage->forceFill([
                 'revoked_at' => now(),
                 'revoked_by_user_id' => $actor->id,
                 'revoke_reason' => $reason,
+                'deferred_remove_client_ids' => null,
+                'deferred_remove_employee_ids' => null,
             ])->save();
 
             $this->audit($coverage, TemporarySupervisorCoverageAuditAction::Revoked, $actor, $reason);
@@ -174,6 +205,63 @@ class TemporarySupervisorCoverageService
 
             return $coverage->refresh();
         });
+    }
+
+    /**
+     * After an Active Visit ends, drop deferred removals that no longer have an
+     * in-progress Visit. Does not prolong revoked/expired access or invent authority.
+     */
+    public function applyDeferredRemovalsAfterVisit(Visit $visit): int
+    {
+        $clientId = (int) $visit->client_id;
+        $employeeId = (int) $visit->employee_id;
+        $applied = 0;
+
+        $coverages = TemporarySupervisorCoverage::query()
+            ->currentlyActive()
+            ->where(function ($query): void {
+                $query->whereNotNull('deferred_remove_client_ids')
+                    ->orWhereNotNull('deferred_remove_employee_ids');
+            })
+            ->get()
+            ->filter(function (TemporarySupervisorCoverage $coverage) use ($clientId, $employeeId): bool {
+                $clients = array_map('intval', $coverage->deferred_remove_client_ids ?? []);
+                $employees = array_map('intval', $coverage->deferred_remove_employee_ids ?? []);
+
+                return in_array($clientId, $clients, true)
+                    || in_array($employeeId, $employees, true);
+            });
+
+        foreach ($coverages as $coverage) {
+            $priorClients = array_map('intval', $coverage->deferred_remove_client_ids ?? []);
+            $priorEmployees = array_map('intval', $coverage->deferred_remove_employee_ids ?? []);
+
+            $deferredClients = array_values(array_filter(
+                $priorClients,
+                fn (int $id): bool => $this->clientHasActiveVisit($id),
+            ));
+            $deferredEmployees = array_values(array_filter(
+                $priorEmployees,
+                fn (int $id): bool => $this->dspHasActiveVisit($id),
+            ));
+
+            if ($deferredClients === $priorClients && $deferredEmployees === $priorEmployees) {
+                continue;
+            }
+
+            $coverage->forceFill([
+                'deferred_remove_client_ids' => $deferredClients === [] ? null : $deferredClients,
+                'deferred_remove_employee_ids' => $deferredEmployees === [] ? null : $deferredEmployees,
+            ])->save();
+
+            $applied++;
+        }
+
+        if ($applied > 0) {
+            $this->forgetCache();
+        }
+
+        return $applied;
     }
 
     /**
@@ -230,7 +318,11 @@ class TemporarySupervisorCoverageService
                         ->all(),
                 );
             } else {
-                $ids = array_merge($ids, array_map('intval', $coverage->client_ids ?? []));
+                $ids = array_merge(
+                    $ids,
+                    array_map('intval', $coverage->client_ids ?? []),
+                    array_map('intval', $coverage->deferred_remove_client_ids ?? []),
+                );
             }
         }
 
@@ -257,7 +349,11 @@ class TemporarySupervisorCoverageService
                         ->all(),
                 );
             } else {
-                $ids = array_merge($ids, array_map('intval', $coverage->employee_ids ?? []));
+                $ids = array_merge(
+                    $ids,
+                    array_map('intval', $coverage->employee_ids ?? []),
+                    array_map('intval', $coverage->deferred_remove_employee_ids ?? []),
+                );
             }
         }
 
@@ -306,6 +402,8 @@ class TemporarySupervisorCoverageService
             'covering_supervisor_name' => $coverage->coveringSupervisor?->full_name,
             'client_ids' => $coverage->client_ids ?? [],
             'employee_ids' => $coverage->employee_ids ?? [],
+            'deferred_remove_client_ids' => $coverage->deferred_remove_client_ids ?? [],
+            'deferred_remove_employee_ids' => $coverage->deferred_remove_employee_ids ?? [],
             'starts_at' => $this->settings->formatDateTime($coverage->starts_at),
             'ends_at' => $this->settings->formatDateTime($coverage->ends_at),
             'starts_at_input' => $this->settings->datetimeLocalValue($coverage->starts_at),
@@ -406,6 +504,101 @@ class TemporarySupervisorCoverageService
         }
 
         return [$clientIds, $employeeIds];
+    }
+
+    /**
+     * MDM 03 §10 — when redistribution removes a relationship still in an Active Visit,
+     * keep temporary access for that relationship until the visit ends. Unrelated removals
+     * take effect immediately. Distinct from permanent supervisor_id reassignment.
+     *
+     * @param  list<int>|null  $intendedClients
+     * @param  list<int>|null  $intendedEmployees
+     * @return array{0: list<int>, 1: list<int>}
+     */
+    private function planDeferredRemovals(
+        TemporarySupervisorCoverage $coverage,
+        Employee $original,
+        TemporarySupervisorCoverageMode $mode,
+        ?array $intendedClients,
+        ?array $intendedEmployees,
+    ): array {
+        if ($mode === TemporarySupervisorCoverageMode::FullCaseload) {
+            return [[], []];
+        }
+
+        $previousClients = $this->previousEffectiveClientIds($coverage, $original);
+        $previousEmployees = $this->previousEffectiveEmployeeIds($coverage, $original);
+        $nextClients = array_map('intval', $intendedClients ?? []);
+        $nextEmployees = array_map('intval', $intendedEmployees ?? []);
+
+        $removedClients = array_values(array_diff($previousClients, $nextClients));
+        $removedEmployees = array_values(array_diff($previousEmployees, $nextEmployees));
+
+        $deferredClients = array_values(array_filter(
+            $removedClients,
+            fn (int $id): bool => $this->clientHasActiveVisit($id),
+        ));
+        $deferredEmployees = array_values(array_filter(
+            $removedEmployees,
+            fn (int $id): bool => $this->dspHasActiveVisit($id),
+        ));
+
+        return [$deferredClients, $deferredEmployees];
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function previousEffectiveClientIds(TemporarySupervisorCoverage $coverage, Employee $original): array
+    {
+        if ($coverage->mode === TemporarySupervisorCoverageMode::FullCaseload) {
+            return Client::query()
+                ->where('supervisor_id', $original->id)
+                ->pluck('id')
+                ->map(fn ($id): int => (int) $id)
+                ->all();
+        }
+
+        return array_values(array_unique(array_merge(
+            array_map('intval', $coverage->client_ids ?? []),
+            array_map('intval', $coverage->deferred_remove_client_ids ?? []),
+        )));
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function previousEffectiveEmployeeIds(TemporarySupervisorCoverage $coverage, Employee $original): array
+    {
+        if ($coverage->mode === TemporarySupervisorCoverageMode::FullCaseload) {
+            return Employee::query()
+                ->where('supervisor_id', $original->id)
+                ->where('job_type', JobType::Dsp)
+                ->pluck('id')
+                ->map(fn ($id): int => (int) $id)
+                ->all();
+        }
+
+        return array_values(array_unique(array_merge(
+            array_map('intval', $coverage->employee_ids ?? []),
+            array_map('intval', $coverage->deferred_remove_employee_ids ?? []),
+        )));
+    }
+
+    private function clientHasActiveVisit(int $clientId): bool
+    {
+        return Visit::query()
+            ->where('client_id', $clientId)
+            ->where('status', VisitStatus::InProgress)
+            ->exists();
+    }
+
+    private function dspHasActiveVisit(int $employeeId): bool
+    {
+        return Visit::query()
+            ->where('employee_id', $employeeId)
+            ->where('status', VisitStatus::InProgress)
+            ->exists();
     }
 
     /**

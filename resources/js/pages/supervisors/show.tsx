@@ -30,6 +30,10 @@ type TemporaryCoverageRow = {
     is_active: boolean;
     covering_supervisor_id: number;
     covering_supervisor_name: string | null;
+    client_ids?: number[];
+    employee_ids?: number[];
+    deferred_remove_client_ids?: number[];
+    deferred_remove_employee_ids?: number[];
     starts_at: string | null;
     ends_at: string | null;
     note: string | null;
@@ -59,6 +63,8 @@ export default function SupervisorsShow({
     const coverageForm = useForm({
         covering_supervisor_id: '',
         mode: 'full_caseload',
+        client_ids: [] as number[],
+        employee_ids: [] as number[],
         starts_at: '',
         ends_at: '',
         note: '',
@@ -66,6 +72,19 @@ export default function SupervisorsShow({
     const revokeForm = useForm({
         revoke_reason: '',
     });
+    const toggleCoverageId = (
+        field: 'client_ids' | 'employee_ids',
+        id: number,
+        checked: boolean,
+    ) => {
+        const current = coverageForm.data[field];
+        coverageForm.setData(
+            field,
+            checked
+                ? [...current, id]
+                : current.filter((value) => value !== id),
+        );
+    };
     return (
         <>
             <Head title={supervisor.name} />
@@ -192,6 +211,14 @@ export default function SupervisorsShow({
                                         covering_supervisor_id: Number(
                                             data.covering_supervisor_id,
                                         ),
+                                        client_ids:
+                                            data.mode === 'selective'
+                                                ? data.client_ids
+                                                : [],
+                                        employee_ids:
+                                            data.mode === 'selective'
+                                                ? data.employee_ids
+                                                : [],
                                     }));
                                     coverageForm.post(
                                         storeTemporaryCoverage.url(
@@ -236,6 +263,27 @@ export default function SupervisorsShow({
                                                 .covering_supervisor_id
                                         }
                                     />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="coverage_mode">Mode</Label>
+                                    <select
+                                        id="coverage_mode"
+                                        className={controlClassName}
+                                        value={coverageForm.data.mode}
+                                        onChange={(e) =>
+                                            coverageForm.setData(
+                                                'mode',
+                                                e.target.value,
+                                            )
+                                        }
+                                    >
+                                        <option value="full_caseload">
+                                            Full caseload
+                                        </option>
+                                        <option value="selective">
+                                            Selective
+                                        </option>
+                                    </select>
                                 </div>
                                 <div className="space-y-1">
                                     <Label htmlFor="coverage_starts_at">
@@ -295,12 +343,131 @@ export default function SupervisorsShow({
                                         }
                                     />
                                 </div>
+                                {coverageForm.data.mode === 'selective' &&
+                                    responsibilities && (
+                                        <div className="space-y-3 xl:col-span-5">
+                                            <div className="grid gap-3 md:grid-cols-2">
+                                                <fieldset className="space-y-2">
+                                                    <legend className="text-sm font-medium">
+                                                        Clients
+                                                    </legend>
+                                                    {responsibilities.clients
+                                                        .length === 0 ? (
+                                                        <p className="text-muted-foreground text-xs">
+                                                            No clients on this
+                                                            caseload.
+                                                        </p>
+                                                    ) : (
+                                                        <ul className="max-h-40 space-y-1 overflow-y-auto text-sm">
+                                                            {responsibilities.clients.map(
+                                                                (client) => (
+                                                                    <li
+                                                                        key={
+                                                                            client.id
+                                                                        }
+                                                                    >
+                                                                        <label className="flex items-center gap-2">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={coverageForm.data.client_ids.includes(
+                                                                                    client.id,
+                                                                                )}
+                                                                                onChange={(
+                                                                                    e,
+                                                                                ) =>
+                                                                                    toggleCoverageId(
+                                                                                        'client_ids',
+                                                                                        client.id,
+                                                                                        e
+                                                                                            .target
+                                                                                            .checked,
+                                                                                    )
+                                                                                }
+                                                                            />
+                                                                            <span>
+                                                                                {
+                                                                                    client.name
+                                                                                }
+                                                                            </span>
+                                                                        </label>
+                                                                    </li>
+                                                                ),
+                                                            )}
+                                                        </ul>
+                                                    )}
+                                                    <InputError
+                                                        message={
+                                                            coverageForm.errors
+                                                                .client_ids
+                                                        }
+                                                    />
+                                                </fieldset>
+                                                <fieldset className="space-y-2">
+                                                    <legend className="text-sm font-medium">
+                                                        DSPs
+                                                    </legend>
+                                                    {responsibilities.dsps
+                                                        .length === 0 ? (
+                                                        <p className="text-muted-foreground text-xs">
+                                                            No DSPs reporting to
+                                                            this Supervisor.
+                                                        </p>
+                                                    ) : (
+                                                        <ul className="max-h-40 space-y-1 overflow-y-auto text-sm">
+                                                            {responsibilities.dsps.map(
+                                                                (dsp) => (
+                                                                    <li
+                                                                        key={
+                                                                            dsp.id
+                                                                        }
+                                                                    >
+                                                                        <label className="flex items-center gap-2">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={coverageForm.data.employee_ids.includes(
+                                                                                    dsp.id,
+                                                                                )}
+                                                                                onChange={(
+                                                                                    e,
+                                                                                ) =>
+                                                                                    toggleCoverageId(
+                                                                                        'employee_ids',
+                                                                                        dsp.id,
+                                                                                        e
+                                                                                            .target
+                                                                                            .checked,
+                                                                                    )
+                                                                                }
+                                                                            />
+                                                                            <span>
+                                                                                {
+                                                                                    dsp.name
+                                                                                }
+                                                                            </span>
+                                                                        </label>
+                                                                    </li>
+                                                                ),
+                                                            )}
+                                                        </ul>
+                                                    )}
+                                                    <InputError
+                                                        message={
+                                                            coverageForm.errors
+                                                                .employee_ids
+                                                        }
+                                                    />
+                                                </fieldset>
+                                            </div>
+                                        </div>
+                                    )}
                                 <div className="xl:col-span-5">
                                     <Button
                                         type="submit"
                                         disabled={coverageForm.processing}
                                     >
-                                        Grant full caseload coverage
+                                        {coverageForm.data.mode === 'selective'
+                                            ? 'Grant selective coverage'
+                                            : 'Grant full caseload coverage'}
                                     </Button>
                                 </div>
                             </form>
@@ -324,6 +491,33 @@ export default function SupervisorsShow({
                                             <p className="text-muted-foreground text-xs">
                                                 {row.starts_at} → {row.ends_at}
                                             </p>
+                                            {row.mode === 'selective' ? (
+                                                <p className="text-muted-foreground text-xs">
+                                                    {(row.client_ids?.length ??
+                                                        0) +
+                                                        (row
+                                                            .deferred_remove_client_ids
+                                                            ?.length ??
+                                                            0)}{' '}
+                                                    clients ·{' '}
+                                                    {(row.employee_ids
+                                                        ?.length ?? 0) +
+                                                        (row
+                                                            .deferred_remove_employee_ids
+                                                            ?.length ??
+                                                            0)}{' '}
+                                                    DSPs
+                                                    {(row
+                                                        .deferred_remove_client_ids
+                                                        ?.length ?? 0) +
+                                                        (row
+                                                            .deferred_remove_employee_ids
+                                                            ?.length ?? 0) >
+                                                    0
+                                                        ? ' (includes deferred active-visit removals)'
+                                                        : ''}
+                                                </p>
+                                            ) : null}
                                             {row.is_active ? (
                                                 <form
                                                     className="mt-2 flex flex-wrap items-end gap-2"

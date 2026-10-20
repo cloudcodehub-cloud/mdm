@@ -120,6 +120,9 @@ class VisitAdministrativeCloseService
 
         app(ArchivePendingService::class)->onVisitCompleted($completed);
 
+        // MDM 03 §10 — apply deferred temporary-coverage removals after the Active Visit ends.
+        app(TemporarySupervisorCoverageService::class)->applyDeferredRemovalsAfterVisit($completed);
+
         return $completed;
     }
 }

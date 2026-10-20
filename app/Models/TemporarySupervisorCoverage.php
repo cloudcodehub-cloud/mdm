@@ -16,6 +16,8 @@ use Illuminate\Support\Carbon;
  * @property TemporarySupervisorCoverageMode $mode
  * @property list<int>|null $client_ids
  * @property list<int>|null $employee_ids
+ * @property list<int>|null $deferred_remove_client_ids
+ * @property list<int>|null $deferred_remove_employee_ids
  * @property Carbon $starts_at
  * @property Carbon $ends_at
  * @property Carbon|null $revoked_at
@@ -32,6 +34,8 @@ class TemporarySupervisorCoverage extends Model
         'mode',
         'client_ids',
         'employee_ids',
+        'deferred_remove_client_ids',
+        'deferred_remove_employee_ids',
         'starts_at',
         'ends_at',
         'revoked_at',
@@ -50,6 +54,8 @@ class TemporarySupervisorCoverage extends Model
             'mode' => TemporarySupervisorCoverageMode::class,
             'client_ids' => 'array',
             'employee_ids' => 'array',
+            'deferred_remove_client_ids' => 'array',
+            'deferred_remove_employee_ids' => 'array',
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
             'revoked_at' => 'datetime',
