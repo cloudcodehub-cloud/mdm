@@ -14,4 +14,5 @@ enum InAppNotificationType: string
     case Incident = 'incident';
     case StaffingUrgency = 'staffing_urgency';
     case MaterialCorrection = 'material_correction';
+    case SupportTicket = 'support_ticket';
 }

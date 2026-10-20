@@ -16,3 +16,4 @@ Schedule::command('mdm:finalize-archive-pending')->everyFiveMinutes();
 Schedule::command('mdm:dispatch-care-plan-review-warnings')->dailyAt('06:15');
 Schedule::command('mdm:dispatch-compliance-expiration-reminders')->dailyAt('06:30');
 Schedule::command('mdm:dispatch-compliance-staffing-sync')->dailyAt('06:35');
+Schedule::command('mdm:close-expired-support-tickets')->dailyAt('06:40');

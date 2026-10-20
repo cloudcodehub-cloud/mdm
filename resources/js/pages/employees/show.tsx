@@ -18,6 +18,7 @@ import { dashboard } from '@/routes';
 import {
     edit,
     index as employeesIndex,
+    itTechAccess,
     show,
     status,
 } from '@/routes/employees';
@@ -83,6 +84,7 @@ export default function EmployeesShow({
         view_sensitive: boolean;
         override_compliance: boolean;
         verify_compliance: boolean;
+        manage_it_tech?: boolean;
         submit_compliance_evidence: boolean;
     };
 }) {
@@ -251,7 +253,9 @@ export default function EmployeesShow({
                     onChange={setTab}
                 />
 
-                {tab === 'profile' && <ProfileTab employee={employee} />}
+                {tab === 'profile' && (
+                    <ProfileTab employee={employee} canManageItTech={can.manage_it_tech} />
+                )}
                 {tab === 'lifecycle' && can.manage_lifecycle && (
                     <LifecycleHistoryPanel
                         employee={employee}
@@ -500,7 +504,13 @@ export default function EmployeesShow({
     );
 }
 
-function ProfileTab({ employee }: { employee: EmployeeDetail }) {
+function ProfileTab({
+    employee,
+    canManageItTech = false,
+}: {
+    employee: EmployeeDetail;
+    canManageItTech?: boolean;
+}) {
     return (
         <div className="grid gap-4 lg:grid-cols-2">
             <Panel title="Contact">
@@ -535,8 +545,34 @@ function ProfileTab({ employee }: { employee: EmployeeDetail }) {
                                 : 'No login account'
                         }
                     />
+                    <Item
+                        label="IT/Tech access"
+                        value={employee.it_tech_access ? 'Granted' : 'Not granted'}
+                    />
                     <Item label="Notes" value={employee.notes} />
                 </dl>
+                {canManageItTech && employee.has_login ? (
+                    <Form
+                        {...itTechAccess.form(employee.id)}
+                        className="mt-4"
+                        options={{ preserveScroll: true }}
+                    >
+                        <input
+                            type="hidden"
+                            name="enabled"
+                            value={employee.it_tech_access ? '0' : '1'}
+                        />
+                        <Button type="submit" variant="secondary" size="sm">
+                            {employee.it_tech_access
+                                ? 'Remove IT/Tech access'
+                                : 'Grant IT/Tech access'}
+                        </Button>
+                        <p className="text-muted-foreground mt-2 text-xs">
+                            Restricted Support Ticket scope only. Does not grant
+                            Admin, Supervisor, Client, Visit, or HR access.
+                        </p>
+                    </Form>
+                ) : null}
             </Panel>
             <Panel title="Emergency contact" className="lg:col-span-2">
                 <dl className="grid gap-3 text-sm md:grid-cols-3">

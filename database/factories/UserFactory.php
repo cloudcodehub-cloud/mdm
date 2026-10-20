@@ -82,4 +82,11 @@ class UserFactory extends Factory
             'role' => Role::Dsp,
         ]);
     }
+
+    public function withItTechAccess(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'it_tech_access' => true,
+        ]);
+    }
 }

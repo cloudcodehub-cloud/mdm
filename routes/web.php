@@ -3,9 +3,6 @@
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AttendanceCorrectionController;
-use App\Http\Controllers\MissedVisitReclassificationController;
-use App\Http\Controllers\PayrollPeriodController;
-use App\Http\Controllers\TemporarySupervisorCoverageController;
 use App\Http\Controllers\AvailabilityRequestController;
 use App\Http\Controllers\CarePlanController;
 use App\Http\Controllers\CareServiceController;
@@ -27,20 +24,26 @@ use App\Http\Controllers\DspComplianceController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\EmployeeProfileChangeController;
 use App\Http\Controllers\IncidentController;
+use App\Http\Controllers\ItTechAccessController;
 use App\Http\Controllers\MessageController;
+use App\Http\Controllers\MissedVisitReclassificationController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrganizationLogoController;
+use App\Http\Controllers\PayrollPeriodController;
 use App\Http\Controllers\ProfilePhotoController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ScheduledVisitController;
 use App\Http\Controllers\SupervisorController;
 use App\Http\Controllers\SupervisorOperationsController;
-use App\Http\Controllers\VisitClockInController;
+use App\Http\Controllers\SupportTicketAttachmentController;
+use App\Http\Controllers\SupportTicketController;
+use App\Http\Controllers\TemporarySupervisorCoverageController;
 use App\Http\Controllers\VisitAdministrativeCloseController;
+use App\Http\Controllers\VisitClockInController;
 use App\Http\Controllers\VisitClockOutController;
 use App\Http\Controllers\VisitController;
-use App\Http\Controllers\VisitHandoffController;
 use App\Http\Controllers\VisitExceptionController;
+use App\Http\Controllers\VisitHandoffController;
 use App\Http\Controllers\VisitSafetyCheckController;
 use App\Http\Controllers\VisitSafetyInstructionController;
 use App\Http\Controllers\VisitTaskController;
@@ -296,6 +299,31 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('announcements/{announcement}', [AnnouncementController::class, 'update'])->name('announcements.update');
     Route::post('announcements/{announcement}/read', [AnnouncementController::class, 'markRead'])
         ->name('announcements.read');
+
+    Route::get('support-tickets', [SupportTicketController::class, 'index'])->name('support-tickets.index');
+    Route::get('support-tickets/create', [SupportTicketController::class, 'create'])->name('support-tickets.create');
+    Route::post('support-tickets', [SupportTicketController::class, 'store'])->name('support-tickets.store');
+    Route::get('support-tickets/{support_ticket}', [SupportTicketController::class, 'show'])->name('support-tickets.show');
+    Route::post('support-tickets/{support_ticket}/claim', [SupportTicketController::class, 'claim'])
+        ->name('support-tickets.claim');
+    Route::post('support-tickets/{support_ticket}/reply', [SupportTicketController::class, 'reply'])
+        ->name('support-tickets.reply');
+    Route::post('support-tickets/{support_ticket}/resolve', [SupportTicketController::class, 'resolve'])
+        ->name('support-tickets.resolve');
+    Route::post('support-tickets/{support_ticket}/reopen', [SupportTicketController::class, 'reopen'])
+        ->name('support-tickets.reopen');
+    Route::post('support-tickets/{support_ticket}/cancel', [SupportTicketController::class, 'cancel'])
+        ->name('support-tickets.cancel');
+    Route::post('support-tickets/{support_ticket}/reassign', [SupportTicketController::class, 'reassign'])
+        ->name('support-tickets.reassign');
+    Route::post('support-tickets/{support_ticket}/takeover', [SupportTicketController::class, 'takeover'])
+        ->name('support-tickets.takeover');
+    Route::post('support-tickets/{support_ticket}/duplicate', [SupportTicketController::class, 'markDuplicate'])
+        ->name('support-tickets.duplicate');
+    Route::get('support-ticket-attachments/{support_ticket_attachment}', [SupportTicketAttachmentController::class, 'show'])
+        ->name('support-ticket-attachments.show');
+    Route::patch('employees/{employee}/it-tech-access', [ItTechAccessController::class, 'update'])
+        ->name('employees.it-tech-access');
 
     Route::get('inbox/activity', [NotificationController::class, 'activity'])->name('inbox.activity');
     Route::post('notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');

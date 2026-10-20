@@ -164,6 +164,7 @@ class EmployeeController extends Controller
                 'view_sensitive' => $includeSensitive,
                 'override_compliance' => $canOverrideCompliance,
                 'verify_compliance' => $user?->isAdmin() ?? false,
+                'manage_it_tech' => ($user?->isAdmin() ?? false) && $employee->user_id !== null,
                 'submit_compliance_evidence' => ($user?->isAdmin() ?? false)
                     || ($user?->isDsp() && $user->employee?->is($employee)),
             ],

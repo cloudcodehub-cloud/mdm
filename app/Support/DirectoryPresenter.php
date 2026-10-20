@@ -124,6 +124,7 @@ final class DirectoryPresenter
             'user_id' => $employee->user_id,
             'login_email' => $employee->user?->email,
             'login_role' => $employee->user?->role->value,
+            'it_tech_access' => (bool) ($employee->user?->it_tech_access ?? false),
             'educations' => $employee->relationLoaded('educations')
                 ? self::educations($employee)
                 : [],

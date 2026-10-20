@@ -7,6 +7,7 @@ import {
     Clock3,
     HeartHandshake,
     LayoutDashboard,
+    LifeBuoy,
     ListChecks,
     MessageSquare,
     ShieldCheck,
@@ -23,6 +24,7 @@ import { index as incidents } from '@/routes/incidents';
 import { index as operations } from '@/routes/operations';
 import { index as reports } from '@/routes/reports';
 import { index as scheduledVisits } from '@/routes/scheduled-visits';
+import { index as supportTickets } from '@/routes/support-tickets';
 import { index as supervisors } from '@/routes/supervisors';
 import type { AppRole } from '@/types/auth';
 import type { NavItem } from '@/types';
@@ -114,6 +116,12 @@ export const mainNavigation: RoleNavItem[] = [
         title: 'Messages',
         href: messages(),
         icon: MessageSquare,
+        roles: ['ADMIN', 'SUPERVISOR', 'DSP'],
+    },
+    {
+        title: 'Support Tickets',
+        href: supportTickets(),
+        icon: LifeBuoy,
         roles: ['ADMIN', 'SUPERVISOR', 'DSP'],
     },
 ];

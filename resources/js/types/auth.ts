@@ -5,6 +5,7 @@ export type User = {
     name: string;
     email: string;
     role: AppRole;
+    it_tech_access?: boolean;
     appearance?: 'system' | 'light' | 'dark';
     avatar?: string;
     email_verified_at: string | null;

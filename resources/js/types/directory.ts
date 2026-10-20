@@ -178,6 +178,7 @@ export type EmployeeDetail = EmployeeSummary & {
     user_id: number | null;
     login_email: string | null;
     login_role: string | null;
+    it_tech_access?: boolean;
 };
 
 export type CredentialRecord = {

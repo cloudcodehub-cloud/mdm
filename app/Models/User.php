@@ -27,6 +27,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property string $name
  * @property string $email
  * @property Role $role
+ * @property bool $it_tech_access
  * @property Appearance $appearance
  * @property Carbon|null $email_verified_at
  * @property string $password
@@ -43,7 +44,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  *
  * @method static Builder<static> activeForMessaging()
  */
-#[Fillable(['name', 'email', 'password', 'role', 'appearance'])]
+#[Fillable(['name', 'email', 'password', 'role', 'appearance', 'it_tech_access'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements PasskeyUser
 {
@@ -63,6 +64,7 @@ class User extends Authenticatable implements PasskeyUser
             'two_factor_confirmed_at' => 'datetime',
             'role' => Role::class,
             'appearance' => Appearance::class,
+            'it_tech_access' => 'boolean',
         ];
     }
 
@@ -118,6 +120,14 @@ class User extends Authenticatable implements PasskeyUser
     public function isDsp(): bool
     {
         return $this->hasRole(Role::Dsp);
+    }
+
+    /**
+     * Restricted MDM 12 IT/Tech Support scope — not a care-operations role.
+     */
+    public function hasItTechAccess(): bool
+    {
+        return (bool) $this->it_tech_access;
     }
 
     /**
