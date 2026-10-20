@@ -10,7 +10,11 @@ export type MessagingUser = {
 
 export type ConversationSummary = {
     id: number;
+    type: 'direct' | 'group';
+    name: string;
     other_user: MessagingUser | null;
+    participant_count?: number;
+    is_active_participant?: boolean;
     latest_message: string | null;
     latest_at: string | null;
     unread_count: number;
@@ -18,18 +22,35 @@ export type ConversationSummary = {
 
 export type ConversationDetail = {
     id: number;
+    type: 'direct' | 'group';
+    name: string;
     other_user: MessagingUser | null;
+    participants?: MessagingUser[];
+    created_by_user_id?: number | null;
+    can_manage?: boolean;
+    is_active_participant?: boolean;
+    admin_review?: boolean;
     first_unread_id?: number | null;
+};
+
+export type ChatAttachment = {
+    id: number;
+    original_name: string;
+    mime_type: string | null;
+    size_bytes: number;
 };
 
 export type ChatMessage = {
     id: number;
     body: string;
-    sender_id: number;
+    message_type?: 'user' | 'system';
+    is_system?: boolean;
+    sender_id: number | null;
     sender_name: string;
     is_mine?: boolean;
     created_at: string | null;
     created_on?: string | null;
+    attachments?: ChatAttachment[];
 };
 
 export type AnnouncementRecord = {
@@ -55,7 +76,11 @@ export type InboxNotification = {
         | 'availability'
         | 'availability_override'
         | 'staffing_urgency'
-        | 'profile';
+        | 'profile'
+        | 'support_ticket'
+        | 'compliance'
+        | 'incident'
+        | 'material_correction';
     title: string;
     body: string;
     url: string | null;

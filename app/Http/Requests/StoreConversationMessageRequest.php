@@ -22,7 +22,8 @@ class StoreConversationMessageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'body' => ['required', 'string', 'max:5000'],
+            'body' => ['nullable', 'string', 'max:5000', 'required_without:attachment'],
+            'attachment' => ['nullable', 'file', 'max:10240', 'mimes:jpg,jpeg,png,gif,webp,pdf,txt,doc,docx', 'required_without:body'],
             'care_context_client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'care_context_visit_id' => ['nullable', 'integer', 'exists:visits,id'],
             'care_context_task_title' => ['nullable', 'string', 'max:255'],

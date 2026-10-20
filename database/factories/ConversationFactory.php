@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\ConversationType;
 use App\Models\Conversation;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -18,6 +19,9 @@ class ConversationFactory extends Factory
     {
         return [
             'organization_id' => null,
+            'type' => ConversationType::Direct,
+            'name' => null,
+            'created_by_user_id' => null,
             'participant_key' => fake()->unique()->uuid(),
         ];
     }

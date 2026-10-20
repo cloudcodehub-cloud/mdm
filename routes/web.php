@@ -16,6 +16,7 @@ use App\Http\Controllers\ComplianceController;
 use App\Http\Controllers\ComplianceEvidenceController;
 use App\Http\Controllers\ComplianceRequirementController;
 use App\Http\Controllers\ComplianceTemporaryExceptionController;
+use App\Http\Controllers\ConversationAttachmentController;
 use App\Http\Controllers\CriticalAlertController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
@@ -289,10 +290,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('reports/{report}', [ReportController::class, 'show'])->name('reports.show');
     Route::get('messages', [MessageController::class, 'index'])->name('messages.index');
     Route::post('messages/conversations', [MessageController::class, 'store'])->name('conversations.store');
+    Route::post('messages/groups', [MessageController::class, 'storeGroup'])->name('conversations.groups.store');
     Route::get('messages/with/{user}', [MessageController::class, 'preview'])->name('messages.preview');
+    Route::get('messages/admin-review', [MessageController::class, 'reviewIndex'])->name('messages.admin-review');
+    Route::post('messages/{conversation}/admin-review', [MessageController::class, 'review'])
+        ->name('messages.admin-review.store');
     Route::get('messages/{conversation}', [MessageController::class, 'show'])->name('messages.show');
     Route::post('messages/{conversation}/messages', [MessageController::class, 'storeMessage'])
         ->name('conversations.messages.store');
+    Route::patch('messages/{conversation}/name', [MessageController::class, 'renameGroup'])
+        ->name('conversations.rename');
+    Route::post('messages/{conversation}/participants', [MessageController::class, 'addParticipants'])
+        ->name('conversations.participants.store');
+    Route::delete('messages/{conversation}/participants/{user}', [MessageController::class, 'removeParticipant'])
+        ->name('conversations.participants.destroy');
+    Route::post('messages/{conversation}/leave', [MessageController::class, 'leave'])
+        ->name('conversations.leave');
+    Route::get('conversation-attachments/{conversation_message_attachment}', [ConversationAttachmentController::class, 'show'])
+        ->name('conversation-attachments.show');
 
     Route::get('announcements', [AnnouncementController::class, 'index'])->name('announcements.index');
     Route::post('announcements', [AnnouncementController::class, 'store'])->name('announcements.store');

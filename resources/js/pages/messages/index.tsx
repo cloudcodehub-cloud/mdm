@@ -1,4 +1,4 @@
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -20,6 +20,7 @@ import { index as announcementsIndex } from '@/routes/announcements';
 import { index as messagesIndex, show as messagesShow } from '@/routes/messages';
 import { store as storeConversation } from '@/routes/conversations';
 import { store as storeMessage } from '@/routes/conversations/messages';
+import { show as attachmentShow } from '@/routes/conversation-attachments';
 import { cn } from '@/lib/utils';
 import { useInitials } from '@/hooks/use-initials';
 import type {
@@ -34,6 +35,7 @@ export default function MessagesIndex({
     conversation,
     messages,
     recipients,
+    privacy_notice,
     can,
 }: {
     conversations: ConversationSummary[];
@@ -41,9 +43,11 @@ export default function MessagesIndex({
     messages: ChatMessage[];
     recipients: MessagingUser[];
     filters: { search: string };
-    can: { announce: boolean };
+    privacy_notice: string;
+    can: { announce: boolean; admin_review: boolean; create_group: boolean };
 }) {
     const [composerOpen, setComposerOpen] = useState(false);
+    const [groupOpen, setGroupOpen] = useState(false);
 
     return (
         <>
@@ -55,25 +59,45 @@ export default function MessagesIndex({
                             Messages
                         </h1>
                         <p className="text-muted-foreground text-sm">
-                            One-to-one internal chat for active MDM users.
+                            Direct and private group messaging for active MDM
+                            users.
                         </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                         <Button variant="secondary" asChild>
                             <Link href={announcementsIndex()}>
                                 Announcements
                             </Link>
                         </Button>
+                        {can.admin_review ? (
+                            <Button variant="secondary" asChild>
+                                <Link href="/messages/admin-review">
+                                    Exceptional review
+                                </Link>
+                            </Button>
+                        ) : null}
+                        {can.create_group ? (
+                            <Button
+                                variant="secondary"
+                                onClick={() => setGroupOpen(true)}
+                            >
+                                New group
+                            </Button>
+                        ) : null}
                         <Button onClick={() => setComposerOpen(true)}>
                             New conversation
                         </Button>
                     </div>
                 </div>
 
+                <div className="border-border/60 bg-muted/30 rounded-lg border px-3 py-2 text-xs leading-relaxed">
+                    {privacy_notice}
+                </div>
+
                 <div className="grid min-h-[28rem] gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
                     <Panel title="Conversations">
                         {conversations.length === 0 ? (
-                            <EmptyState message="No conversations yet. Start one when you need to reach a coworker." />
+                            <EmptyState message="No conversations yet. Start a direct message or private group." />
                         ) : (
                             <ul className="space-y-1">
                                 {conversations.map((item) => {
@@ -103,9 +127,12 @@ export default function MessagesIndex({
                                                                 : 'font-medium',
                                                         )}
                                                     >
-                                                        {item.other_user
-                                                            ?.name ??
-                                                            'Unknown user'}
+                                                        {item.name}
+                                                        {item.type === 'group' ? (
+                                                            <span className="text-muted-foreground ml-1 text-[11px] font-normal">
+                                                                · group
+                                                            </span>
+                                                        ) : null}
                                                     </p>
                                                     <div className="flex shrink-0 items-center gap-1.5">
                                                         {item.latest_at && (
@@ -138,19 +165,23 @@ export default function MessagesIndex({
                     <section className="surface-panel flex min-h-[28rem] flex-col overflow-hidden p-0">
                         <div className="border-b px-4 py-3">
                             <h2 className="text-sm font-semibold tracking-tight">
-                                {conversation?.other_user?.name ??
-                                    'Select a conversation'}
+                                {conversation?.name ?? 'Select a conversation'}
                             </h2>
                             <p className="text-muted-foreground text-xs">
-                                {conversation?.other_user
-                                    ? conversation.other_user.role
-                                    : 'Choose someone from the list or start a new conversation.'}
+                                {conversation?.admin_review
+                                    ? 'Exceptional Admin review mode'
+                                    : conversation?.type === 'group'
+                                      ? `${conversation.participants?.length ?? 0} participants`
+                                      : conversation?.other_user
+                                        ? conversation.other_user.role
+                                        : 'Choose someone from the list or start a new conversation.'}
                             </p>
                         </div>
                         {conversation ? (
                             <Thread
                                 conversation={conversation}
                                 messages={messages}
+                                recipients={recipients}
                             />
                         ) : (
                             <div className="p-4">
@@ -166,6 +197,11 @@ export default function MessagesIndex({
                 onOpenChange={setComposerOpen}
                 recipients={recipients}
             />
+            <NewGroupDialog
+                open={groupOpen}
+                onOpenChange={setGroupOpen}
+                recipients={recipients}
+            />
         </>
     );
 }
@@ -173,14 +209,22 @@ export default function MessagesIndex({
 function Thread({
     conversation,
     messages,
+    recipients,
 }: {
     conversation: ConversationDetail;
     messages: ChatMessage[];
+    recipients: MessagingUser[];
 }) {
-    const form = useForm({ body: '' });
+    const form = useForm<{ body: string; attachment: File | null }>({
+        body: '',
+        attachment: null,
+    });
     const currentUserId = usePage().props.auth.user.id;
     const getInitials = useInitials();
     const firstUnreadId = conversation.first_unread_id ?? null;
+    const canReply = Boolean(
+        conversation.is_active_participant && !conversation.admin_review,
+    );
 
     const items = useMemo(() => {
         const result: Array<
@@ -218,6 +262,24 @@ function Thread({
 
     return (
         <div className="flex min-h-0 flex-1 flex-col">
+            {conversation.type === 'group' && conversation.can_manage ? (
+                <GroupManageBar conversation={conversation} recipients={recipients} />
+            ) : null}
+            {conversation.type === 'group' &&
+            conversation.is_active_participant &&
+            !conversation.admin_review ? (
+                <div className="border-b px-4 py-2">
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() =>
+                            router.post(`/messages/${conversation.id}/leave`)
+                        }
+                    >
+                        Leave group
+                    </Button>
+                </div>
+            ) : null}
             <div className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
                 {messages.length === 0 ? (
                     <EmptyState message="No messages in this conversation yet." />
@@ -243,6 +305,17 @@ function Thread({
                                     <span className="bg-primary/30 h-px flex-1" />
                                     New messages
                                     <span className="bg-primary/30 h-px flex-1" />
+                                </p>
+                            );
+                        }
+
+                        if (item.message.is_system) {
+                            return (
+                                <p
+                                    key={item.message.id}
+                                    className="text-muted-foreground py-1 text-center text-xs"
+                                >
+                                    {item.message.body}
                                 </p>
                             );
                         }
@@ -284,6 +357,22 @@ function Thread({
                                     <p className="whitespace-pre-wrap">
                                         {item.message.body}
                                     </p>
+                                    {(item.message.attachments ?? []).map(
+                                        (file) => (
+                                            <a
+                                                key={file.id}
+                                                href={attachmentShow.url(file.id)}
+                                                className={cn(
+                                                    'mt-1 block text-xs underline',
+                                                    mine
+                                                        ? 'text-primary-foreground/90'
+                                                        : 'text-foreground',
+                                                )}
+                                            >
+                                                {file.original_name}
+                                            </a>
+                                        ),
+                                    )}
                                     {item.message.created_at && (
                                         <p
                                             className={cn(
@@ -302,43 +391,127 @@ function Thread({
                     })
                 )}
             </div>
+            {canReply ? (
+                <form
+                    className="sticky bottom-0 space-y-2 border-t bg-card/90 px-4 py-3 backdrop-blur-md"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        form.post(storeMessage.url(conversation.id), {
+                            forceFormData: true,
+                            preserveScroll: true,
+                            onSuccess: () => {
+                                form.reset('body');
+                                form.setData('attachment', null);
+                            },
+                        });
+                    }}
+                >
+                    <textarea
+                        name="body"
+                        rows={3}
+                        value={form.data.body}
+                        onChange={(event) =>
+                            form.setData('body', event.target.value)
+                        }
+                        className={cn(
+                            controlClassName,
+                            'h-auto min-h-16 py-2 md:min-h-20',
+                        )}
+                        placeholder="Write a reply"
+                    />
+                    <Input
+                        type="file"
+                        onChange={(event) =>
+                            form.setData(
+                                'attachment',
+                                event.target.files?.[0] ?? null,
+                            )
+                        }
+                    />
+                    <InputError message={form.errors.body} />
+                    <InputError message={form.errors.attachment} />
+                    <Button
+                        type="submit"
+                        className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                        disabled={form.processing}
+                    >
+                        Send
+                    </Button>
+                </form>
+            ) : (
+                <div className="border-t px-4 py-3">
+                    <p className="text-muted-foreground text-xs">
+                        {conversation.admin_review
+                            ? 'Review access is read-only.'
+                            : 'You are no longer an active participant and cannot send new messages.'}
+                    </p>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function GroupManageBar({
+    conversation,
+    recipients,
+}: {
+    conversation: ConversationDetail;
+    recipients: MessagingUser[];
+}) {
+    const rename = useForm({ name: conversation.name });
+    const add = useForm({ participant_ids: [] as string[] });
+
+    return (
+        <div className="space-y-2 border-b px-4 py-3">
             <form
-                className="sticky bottom-0 space-y-2 border-t bg-card/90 px-4 py-3 backdrop-blur-md"
+                className="flex flex-wrap gap-2"
                 onSubmit={(event) => {
                     event.preventDefault();
-                    form.post(storeMessage.url(conversation.id), {
+                    rename.patch(`/messages/${conversation.id}/name`, {
                         preserveScroll: true,
-                        onSuccess: () => form.reset('body'),
                     });
                 }}
             >
-                <textarea
-                    name="body"
-                    rows={3}
-                    value={form.data.body}
-                    onChange={(event) => form.setData('body', event.target.value)}
-                    className={cn(
-                        controlClassName,
-                        'h-auto min-h-16 py-2 md:min-h-20',
-                    )}
-                    placeholder="Write a reply"
-                    disabled={!conversation.other_user?.can_message}
+                <Input
+                    value={rename.data.name}
+                    onChange={(event) => rename.setData('name', event.target.value)}
+                    className="max-w-xs"
                 />
-                <InputError message={form.errors.body} />
-                {!conversation.other_user?.can_message && (
-                    <p className="text-muted-foreground text-xs">
-                        This account is inactive and cannot receive messages.
-                    </p>
-                )}
-                <Button
-                    type="submit"
-                    className="min-h-11 w-full sm:min-h-9 sm:w-auto"
-                    disabled={
-                        form.processing ||
-                        !conversation.other_user?.can_message
+                <Button type="submit" size="sm" variant="secondary">
+                    Rename
+                </Button>
+            </form>
+            <form
+                className="flex flex-wrap gap-2"
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    add.post(`/messages/${conversation.id}/participants`, {
+                        preserveScroll: true,
+                        onSuccess: () => add.setData('participant_ids', []),
+                    });
+                }}
+            >
+                <select
+                    multiple
+                    className={cn(controlClassName, 'h-24 max-w-xs')}
+                    value={add.data.participant_ids}
+                    onChange={(event) =>
+                        add.setData(
+                            'participant_ids',
+                            Array.from(event.target.selectedOptions).map(
+                                (option) => option.value,
+                            ),
+                        )
                     }
                 >
-                    Send
+                    {recipients.map((user) => (
+                        <option key={user.id} value={user.id}>
+                            {user.name}
+                        </option>
+                    ))}
+                </select>
+                <Button type="submit" size="sm" variant="secondary">
+                    Add participants
                 </Button>
             </form>
         </div>
@@ -354,9 +527,14 @@ function NewConversationDialog({
     onOpenChange: (open: boolean) => void;
     recipients: MessagingUser[];
 }) {
-    const form = useForm({
+    const form = useForm<{
+        user_id: string;
+        body: string;
+        attachment: File | null;
+    }>({
         user_id: '',
         body: '',
+        attachment: null,
     });
     const [query, setQuery] = useState('');
 
@@ -389,6 +567,7 @@ function NewConversationDialog({
                     onSubmit={(event) => {
                         event.preventDefault();
                         form.post(storeConversation.url(), {
+                            forceFormData: true,
                             onSuccess: () => {
                                 form.reset();
                                 onOpenChange(false);
@@ -432,11 +611,117 @@ function NewConversationDialog({
                             }
                             className={cn(controlClassName, 'h-auto min-h-20 py-2')}
                         />
+                        <Input
+                            type="file"
+                            onChange={(event) =>
+                                form.setData(
+                                    'attachment',
+                                    event.target.files?.[0] ?? null,
+                                )
+                            }
+                        />
                         <InputError message={form.errors.body} />
                     </div>
                     <DialogFooter>
                         <Button type="submit" disabled={form.processing}>
                             Send
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function NewGroupDialog({
+    open,
+    onOpenChange,
+    recipients,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    recipients: MessagingUser[];
+}) {
+    const form = useForm<{
+        name: string;
+        participant_ids: string[];
+        body: string;
+    }>({
+        name: '',
+        participant_ids: [],
+        body: '',
+    });
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>New private group</DialogTitle>
+                    <DialogDescription>
+                        Create a named private group with selected participants.
+                        New members can see existing history.
+                    </DialogDescription>
+                </DialogHeader>
+                <form
+                    className="space-y-3"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        form.post('/messages/groups', {
+                            onSuccess: () => {
+                                form.reset();
+                                onOpenChange(false);
+                            },
+                        });
+                    }}
+                >
+                    <div className="space-y-2">
+                        <Label>Group name</Label>
+                        <Input
+                            value={form.data.name}
+                            onChange={(event) =>
+                                form.setData('name', event.target.value)
+                            }
+                            required
+                        />
+                        <InputError message={form.errors.name} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Participants</Label>
+                        <select
+                            multiple
+                            className={cn(controlClassName, 'h-36')}
+                            value={form.data.participant_ids}
+                            onChange={(event) =>
+                                form.setData(
+                                    'participant_ids',
+                                    Array.from(event.target.selectedOptions).map(
+                                        (option) => option.value,
+                                    ),
+                                )
+                            }
+                        >
+                            {recipients.map((user) => (
+                                <option key={user.id} value={user.id}>
+                                    {user.name} ({user.role})
+                                </option>
+                            ))}
+                        </select>
+                        <InputError message={form.errors.participant_ids} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Optional first message</Label>
+                        <textarea
+                            rows={3}
+                            value={form.data.body}
+                            onChange={(event) =>
+                                form.setData('body', event.target.value)
+                            }
+                            className={cn(controlClassName, 'h-auto min-h-16 py-2')}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button type="submit" disabled={form.processing}>
+                            Create group
                         </Button>
                     </DialogFooter>
                 </form>

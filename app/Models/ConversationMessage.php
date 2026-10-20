@@ -2,25 +2,30 @@
 
 namespace App\Models;
 
+use App\Enums\ConversationMessageType;
 use Database\Factories\ConversationMessageFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
  * @property int $conversation_id
- * @property int $sender_id
+ * @property int|null $sender_id
+ * @property ConversationMessageType $message_type
  * @property string $body
  * @property array<string, mixed>|null $care_context
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Conversation $conversation
- * @property-read User $sender
+ * @property-read User|null $sender
+ * @property-read Collection<int, ConversationMessageAttachment> $attachments
  */
-#[Fillable(['conversation_id', 'sender_id', 'body', 'care_context'])]
+#[Fillable(['conversation_id', 'sender_id', 'message_type', 'body', 'care_context'])]
 class ConversationMessage extends Model
 {
     /** @use HasFactory<ConversationMessageFactory> */
@@ -33,6 +38,7 @@ class ConversationMessage extends Model
     {
         return [
             'care_context' => 'array',
+            'message_type' => ConversationMessageType::class,
         ];
     }
 
@@ -50,5 +56,18 @@ class ConversationMessage extends Model
     public function sender(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sender_id');
+    }
+
+    /**
+     * @return HasMany<ConversationMessageAttachment, $this>
+     */
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(ConversationMessageAttachment::class);
+    }
+
+    public function isSystem(): bool
+    {
+        return $this->message_type === ConversationMessageType::System;
     }
 }
