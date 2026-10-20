@@ -543,13 +543,20 @@ class ScheduledVisit extends Model
         }
 
         if ($user->isSupervisor()) {
+            $coverage = app(\App\Services\TemporarySupervisorCoverageService::class);
             $dspIds = Employee::query()
                 ->where('supervisor_id', $employee->id)
                 ->where('job_type', JobType::Dsp)
-                ->pluck('id');
+                ->pluck('id')
+                ->merge($coverage->coveredDspIds($user))
+                ->unique()
+                ->values();
             $clientIds = Client::query()
                 ->where('supervisor_id', $employee->id)
-                ->pluck('id');
+                ->pluck('id')
+                ->merge($coverage->coveredClientIds($user))
+                ->unique()
+                ->values();
 
             return $query->where(function (Builder $builder) use ($employee, $dspIds, $clientIds): void {
                 $builder->where('supervisor_id', $employee->id)

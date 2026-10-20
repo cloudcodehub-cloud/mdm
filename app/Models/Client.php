@@ -270,7 +270,16 @@ class Client extends Model
         }
 
         if ($user->isSupervisor() && $user->employee) {
-            return $query->where('supervisor_id', $user->employee->id);
+            $coveredClientIds = app(\App\Services\TemporarySupervisorCoverageService::class)
+                ->coveredClientIds($user);
+
+            return $query->where(function (Builder $builder) use ($user, $coveredClientIds): void {
+                $builder->where('supervisor_id', $user->employee->id);
+
+                if ($coveredClientIds !== []) {
+                    $builder->orWhereIn('id', $coveredClientIds);
+                }
+            });
         }
 
         if ($user->isDsp() && $user->employee) {

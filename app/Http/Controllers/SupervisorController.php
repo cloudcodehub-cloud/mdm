@@ -11,6 +11,7 @@ use App\Http\Requests\RevokeSupervisorRequest;
 use App\Models\Employee;
 use App\Services\SupervisorDirectoryService;
 use App\Services\SupervisorManagementService;
+use App\Services\TemporarySupervisorCoverageService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -117,6 +118,7 @@ class SupervisorController extends Controller
         Employee $employee,
         SupervisorDirectoryService $directory,
         SupervisorManagementService $management,
+        TemporarySupervisorCoverageService $coverages,
     ): Response {
         $this->authorize('viewSupervisorDirectory', Employee::class);
         abort_unless($employee->job_type === JobType::Supervisor, 404);
@@ -132,6 +134,7 @@ class SupervisorController extends Controller
             'responsibilities' => $canManage ? $management->responsibilities($employee) : null,
             'replacements' => $canManage ? $management->replacementOptions($employee) : [],
             'role_change_history' => $canManage ? ($employee->role_change_history ?? []) : [],
+            'temporary_coverages' => $canManage ? $coverages->serializeForSupervisor($employee) : [],
             'can' => [
                 'manage' => $canManage,
             ],

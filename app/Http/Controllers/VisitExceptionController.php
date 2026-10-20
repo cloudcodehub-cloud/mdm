@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\VisitExceptionStatus;
 use App\Enums\VisitExceptionType;
 use App\Http\Requests\FollowUpVisitExceptionRequest;
+use App\Http\Requests\ReopenVisitExceptionRequest;
 use App\Http\Requests\ResolveVisitExceptionRequest;
 use App\Http\Requests\ReviewVisitExceptionRequest;
 use App\Models\VisitException;
@@ -74,6 +75,8 @@ class VisitExceptionController extends Controller
             'visitTask',
             'reviewedBy',
             'resolvedBy',
+            'originalResolvedBy',
+            'reopenedBy',
         ]);
 
         $user = $request->user();
@@ -84,6 +87,7 @@ class VisitExceptionController extends Controller
                 'review' => $user?->can('review', $visitException) ?? false,
                 'resolve' => $user?->can('resolve', $visitException) ?? false,
                 'follow_up' => $user?->can('followUp', $visitException) ?? false,
+                'reopen' => $user?->can('reopen', $visitException) ?? false,
             ],
         ]);
     }
@@ -122,5 +126,23 @@ class VisitExceptionController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Follow-up noted.')]);
 
         return back();
+    }
+
+    public function reopen(
+        ReopenVisitExceptionRequest $request,
+        VisitException $visitException,
+        VisitExceptionService $exceptions,
+    ): RedirectResponse {
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+
+        $exceptions->reopen($visitException, $user, $request->payload());
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __('Exception reopened for a new review cycle. Original resolution history is preserved.'),
+        ]);
+
+        return redirect()->route('visit-exceptions.show', $visitException);
     }
 }

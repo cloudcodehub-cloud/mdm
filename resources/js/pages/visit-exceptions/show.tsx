@@ -18,6 +18,7 @@ import { dashboard } from '@/routes';
 import { index as operationsIndex } from '@/routes/operations';
 import {
     index as exceptionsIndex,
+    reopen as reopenException,
     resolve,
     review,
     show as showException,
@@ -30,13 +31,21 @@ export default function VisitExceptionsShow({
     can,
 }: {
     exception: VisitExceptionRecord;
-    can: { review: boolean; resolve: boolean; follow_up?: boolean };
+    can: {
+        review: boolean;
+        resolve: boolean;
+        follow_up?: boolean;
+        reopen?: boolean;
+    };
 }) {
     const reviewForm = useForm({
         review_notes: exception.review_notes ?? '',
     });
     const resolveForm = useForm({
         resolution_notes: exception.resolution_notes ?? '',
+    });
+    const reopenForm = useForm({
+        reopen_reason: '',
     });
 
     return (
@@ -139,6 +148,39 @@ export default function VisitExceptionsShow({
                                 </span>
                             </p>
                         )}
+                        {exception.original_resolved_at_label ? (
+                            <p className="mt-3 text-sm">
+                                <span className="text-muted-foreground text-xs">
+                                    Original resolution preserved
+                                </span>
+                                <span className="block">
+                                    {exception.original_resolved_by_name ??
+                                        'Resolver'}{' '}
+                                    · {exception.original_resolved_at_label}
+                                </span>
+                                {exception.original_resolution_notes ? (
+                                    <span className="mt-1 block whitespace-pre-wrap">
+                                        {exception.original_resolution_notes}
+                                    </span>
+                                ) : null}
+                            </p>
+                        ) : null}
+                        {exception.reopened_at_label ? (
+                            <p className="mt-3 text-sm">
+                                <span className="text-muted-foreground text-xs">
+                                    Reopened
+                                </span>
+                                <span className="block">
+                                    {exception.reopened_by_name ?? 'Admin'} ·{' '}
+                                    {exception.reopened_at_label}
+                                </span>
+                                {exception.reopen_reason ? (
+                                    <span className="mt-1 block whitespace-pre-wrap">
+                                        {exception.reopen_reason}
+                                    </span>
+                                ) : null}
+                            </p>
+                        ) : null}
                     </RecordSection>
                     {can.follow_up && (
                         <RecordSection
@@ -234,6 +276,60 @@ export default function VisitExceptionsShow({
                                     disabled={resolveForm.processing}
                                 >
                                     Resolve exception
+                                </Button>
+                            </form>
+                        </RecordSection>
+                    )}
+                    {can.reopen && (
+                        <RecordSection
+                            title="Admin reopen"
+                            className="lg:col-span-12"
+                        >
+                            <p className="text-muted-foreground mb-3 text-sm">
+                                Reopening starts a new review cycle and returns
+                                operational visibility. Original resolution,
+                                Visit EVV, and finalized payroll are not
+                                rewritten.
+                            </p>
+                            <form
+                                className="space-y-3"
+                                onSubmit={(event) => {
+                                    event.preventDefault();
+                                    reopenForm.post(
+                                        reopenException.url(exception.id),
+                                        { preserveScroll: true },
+                                    );
+                                }}
+                            >
+                                <div className="grid gap-2">
+                                    <Label htmlFor="reopen_reason">
+                                        Reason for reopen
+                                    </Label>
+                                    <textarea
+                                        id="reopen_reason"
+                                        rows={3}
+                                        value={reopenForm.data.reopen_reason}
+                                        onChange={(event) =>
+                                            reopenForm.setData(
+                                                'reopen_reason',
+                                                event.target.value,
+                                            )
+                                        }
+                                        className="border-input flex min-h-16 w-full rounded-md border bg-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                                        required
+                                    />
+                                    <InputError
+                                        message={
+                                            reopenForm.errors.reopen_reason
+                                        }
+                                    />
+                                </div>
+                                <Button
+                                    type="submit"
+                                    variant="secondary"
+                                    disabled={reopenForm.processing}
+                                >
+                                    Reopen exception
                                 </Button>
                             </form>
                         </RecordSection>

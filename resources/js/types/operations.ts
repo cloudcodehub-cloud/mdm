@@ -76,6 +76,12 @@ export type VisitExceptionRecord = {
     resolved_at_label: string | null;
     reviewed_by_name: string | null;
     resolved_by_name: string | null;
+    original_resolved_at_label?: string | null;
+    original_resolved_by_name?: string | null;
+    original_resolution_notes?: string | null;
+    reopened_at_label?: string | null;
+    reopened_by_name?: string | null;
+    reopen_reason?: string | null;
     status_history: Array<{
         status: string;
         at: string;

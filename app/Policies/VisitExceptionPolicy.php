@@ -38,6 +38,14 @@ class VisitExceptionPolicy
         return $this->manage($user, $exception) && ! $exception->isResolved();
     }
 
+    /**
+     * MDM 03 §8 — Admin-only reopen of resolved exceptions.
+     */
+    public function reopen(User $user, VisitException $exception): bool
+    {
+        return $user->isAdmin() && $exception->isResolved();
+    }
+
     public function create(User $user): bool
     {
         return false;

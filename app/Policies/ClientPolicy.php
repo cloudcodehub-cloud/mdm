@@ -19,7 +19,12 @@ class ClientPolicy
         }
 
         if ($user->isSupervisor() && $user->employee) {
-            return $client->supervisor_id === $user->employee->id;
+            if ($client->supervisor_id === $user->employee->id) {
+                return true;
+            }
+
+            return app(\App\Services\TemporarySupervisorCoverageService::class)
+                ->coversClient($user, $client);
         }
 
         if ($user->isDsp() && $user->employee) {
@@ -67,7 +72,7 @@ class ClientPolicy
         }
 
         if ($user->isSupervisor() && $user->employee) {
-            return $client->supervisor_id === $user->employee->id;
+            return $this->view($user, $client);
         }
 
         return false;
@@ -80,7 +85,7 @@ class ClientPolicy
         }
 
         if ($user->isSupervisor() && $user->employee) {
-            return $client->supervisor_id === $user->employee->id;
+            return $this->view($user, $client);
         }
 
         return false;

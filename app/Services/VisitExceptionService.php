@@ -119,6 +119,56 @@ class VisitExceptionService
     }
 
     /**
+     * MDM 03 §8 — Admin reopen of a resolved Visit Exception.
+     * Preserves original resolution; does not reopen the Visit, EVV, or payroll.
+     *
+     * @param  array{reopen_reason: string}  $payload
+     */
+    public function reopen(VisitException $exception, User $user, array $payload): VisitException
+    {
+        if (! $user->isAdmin()) {
+            abort(403);
+        }
+
+        if (! $exception->isResolved()) {
+            throw ValidationException::withMessages([
+                'exception' => 'Only a resolved Visit Exception may be reopened.',
+            ]);
+        }
+
+        $reason = trim((string) ($payload['reopen_reason'] ?? ''));
+
+        if ($reason === '') {
+            throw ValidationException::withMessages([
+                'reopen_reason' => 'A reopen reason is required.',
+            ]);
+        }
+
+        $now = now();
+
+        $exception->forceFill([
+            'original_resolved_at' => $exception->original_resolved_at ?? $exception->resolved_at,
+            'original_resolved_by_user_id' => $exception->original_resolved_by_user_id ?? $exception->resolved_by_user_id,
+            'original_resolution_notes' => $exception->original_resolution_notes ?? $exception->resolution_notes,
+            'status' => VisitExceptionStatus::Open,
+            'resolved_by_user_id' => null,
+            'resolved_at' => null,
+            'resolution_notes' => null,
+            'reopened_at' => $now,
+            'reopened_by_user_id' => $user->id,
+            'reopen_reason' => $reason,
+            'status_history' => $this->appendHistory(
+                $exception,
+                VisitExceptionStatus::Open,
+                $user,
+                'Reopened: '.$reason,
+            ),
+        ])->save();
+
+        return $exception->refresh();
+    }
+
+    /**
      * @return list<array<string, mixed>>
      */
     private function appendHistory(

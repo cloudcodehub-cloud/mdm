@@ -1028,6 +1028,16 @@ final class DirectoryPresenter
             'resolved_at_label' => $exception->resolved_at === null ? null : $settings->formatTime($exception->resolved_at),
             'reviewed_by_name' => $exception->reviewedBy?->name,
             'resolved_by_name' => $exception->resolvedBy?->name,
+            'original_resolved_at_label' => $exception->original_resolved_at === null
+                ? null
+                : $settings->formatDateTime($exception->original_resolved_at),
+            'original_resolved_by_name' => $exception->originalResolvedBy?->name,
+            'original_resolution_notes' => $exception->original_resolution_notes,
+            'reopened_at_label' => $exception->reopened_at === null
+                ? null
+                : $settings->formatDateTime($exception->reopened_at),
+            'reopened_by_name' => $exception->reopenedBy?->name,
+            'reopen_reason' => $exception->reopen_reason,
             'status_history' => $exception->status_history ?? [],
             'created_at' => $exception->created_at?->toIso8601String(),
             'reviewed_at' => $exception->reviewed_at?->toIso8601String(),

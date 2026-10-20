@@ -27,6 +27,12 @@ use Illuminate\Support\Carbon;
  * @property int|null $resolved_by_user_id
  * @property Carbon|null $resolved_at
  * @property string|null $resolution_notes
+ * @property Carbon|null $original_resolved_at
+ * @property int|null $original_resolved_by_user_id
+ * @property string|null $original_resolution_notes
+ * @property Carbon|null $reopened_at
+ * @property int|null $reopened_by_user_id
+ * @property string|null $reopen_reason
  * @property list<array<string, mixed>>|null $status_history
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -35,6 +41,8 @@ use Illuminate\Support\Carbon;
  * @property-read VisitSafetyCheck|null $visitSafetyCheck
  * @property-read User|null $reviewedBy
  * @property-read User|null $resolvedBy
+ * @property-read User|null $originalResolvedBy
+ * @property-read User|null $reopenedBy
  *
  * @method static Builder<static> visibleTo(User $user)
  * @method static Builder<static> open()
@@ -54,6 +62,12 @@ use Illuminate\Support\Carbon;
     'resolved_by_user_id',
     'resolved_at',
     'resolution_notes',
+    'original_resolved_at',
+    'original_resolved_by_user_id',
+    'original_resolution_notes',
+    'reopened_at',
+    'reopened_by_user_id',
+    'reopen_reason',
     'status_history',
 ])]
 class VisitException extends Model
@@ -72,6 +86,8 @@ class VisitException extends Model
             'context' => 'array',
             'reviewed_at' => 'datetime',
             'resolved_at' => 'datetime',
+            'original_resolved_at' => 'datetime',
+            'reopened_at' => 'datetime',
             'status_history' => 'array',
         ];
     }
@@ -114,6 +130,22 @@ class VisitException extends Model
     public function resolvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'resolved_by_user_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function originalResolvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'original_resolved_by_user_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function reopenedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reopened_by_user_id');
     }
 
     public function isOpen(): bool

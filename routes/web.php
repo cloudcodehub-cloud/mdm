@@ -5,6 +5,7 @@ use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AttendanceCorrectionController;
 use App\Http\Controllers\MissedVisitReclassificationController;
 use App\Http\Controllers\PayrollPeriodController;
+use App\Http\Controllers\TemporarySupervisorCoverageController;
 use App\Http\Controllers\AvailabilityRequestController;
 use App\Http\Controllers\CarePlanController;
 use App\Http\Controllers\CareServiceController;
@@ -214,6 +215,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('visit-exceptions/{visit_exception}/review', [VisitExceptionController::class, 'review'])->name('visit-exceptions.review');
     Route::patch('visit-exceptions/{visit_exception}/resolve', [VisitExceptionController::class, 'resolve'])->name('visit-exceptions.resolve');
     Route::patch('visit-exceptions/{visit_exception}/follow-up', [VisitExceptionController::class, 'followUp'])->name('visit-exceptions.follow-up');
+    Route::post('visit-exceptions/{visit_exception}/reopen', [VisitExceptionController::class, 'reopen'])->name('visit-exceptions.reopen');
 
     Route::get('supervisors', [SupervisorController::class, 'index'])->name('supervisors.index');
     Route::get('supervisors/create', [SupervisorController::class, 'create'])->name('supervisors.create');
@@ -222,6 +224,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('supervisors/{employee}/team', [SupervisorController::class, 'reassignTeam'])->name('supervisors.team');
     Route::post('supervisors/{employee}/caseload', [SupervisorController::class, 'reassignCaseload'])->name('supervisors.caseload');
     Route::post('supervisors/{employee}/revoke', [SupervisorController::class, 'revoke'])->name('supervisors.revoke');
+    Route::post('supervisors/{employee}/temporary-coverages', [TemporarySupervisorCoverageController::class, 'store'])
+        ->name('supervisors.temporary-coverages.store');
+    Route::patch('temporary-supervisor-coverages/{temporary_supervisor_coverage}', [TemporarySupervisorCoverageController::class, 'update'])
+        ->name('temporary-supervisor-coverages.update');
+    Route::post('temporary-supervisor-coverages/{temporary_supervisor_coverage}/revoke', [TemporarySupervisorCoverageController::class, 'revoke'])
+        ->name('temporary-supervisor-coverages.revoke');
     Route::get('attendance', [AttendanceController::class, 'index'])->name('attendance.index');
     Route::get('attendance/{scheduled_visit}', [AttendanceController::class, 'show'])->name('attendance.show');
     Route::post('attendance/{scheduled_visit}/corrections', [AttendanceCorrectionController::class, 'store'])

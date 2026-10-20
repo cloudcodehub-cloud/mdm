@@ -1,5 +1,6 @@
-import { Head, Link } from '@inertiajs/react';
-import { StatusBadge } from '@/components/mdm/directory';
+import { Head, Link, useForm } from '@inertiajs/react';
+import InputError from '@/components/input-error';
+import { StatusBadge, controlClassName } from '@/components/mdm/directory';
 import { BackLink } from '@/components/mdm/back-link';
 import { IdentityHeader } from '@/components/mdm/identity-header';
 import { ProfilePhoto } from '@/components/mdm/profile-photo';
@@ -7,9 +8,12 @@ import { OperationsBoardView } from '@/components/mdm/operations-board';
 import { SupervisorManagement } from '@/components/mdm/supervisor-management';
 import { Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { dashboard } from '@/routes';
 import { show as showEmployee } from '@/routes/employees';
 import { index as supervisorsIndex, show } from '@/routes/supervisors';
+import { store as storeTemporaryCoverage } from '@/routes/supervisors/temporary-coverages';
+import { revoke as revokeTemporaryCoverage } from '@/routes/temporary-supervisor-coverages';
 import type {
     EmployeeDetail,
     OptionItem,
@@ -18,12 +22,27 @@ import type {
 } from '@/types/directory';
 import type { OperationsBoard } from '@/types/operations';
 
+type TemporaryCoverageRow = {
+    id: number;
+    mode: string;
+    mode_label: string;
+    status_label: string;
+    is_active: boolean;
+    covering_supervisor_id: number;
+    covering_supervisor_name: string | null;
+    starts_at: string | null;
+    ends_at: string | null;
+    note: string | null;
+    revoke_reason: string | null;
+};
+
 export default function SupervisorsShow({
     supervisor,
     operations,
     responsibilities,
     replacements,
     role_change_history,
+    temporary_coverages = [],
     can,
 }: {
     supervisor: EmployeeDetail & {
@@ -34,8 +53,19 @@ export default function SupervisorsShow({
     responsibilities: SupervisorResponsibilities | null;
     replacements: OptionItem[];
     role_change_history: SupervisorRoleEvent[];
+    temporary_coverages?: TemporaryCoverageRow[];
     can: { manage: boolean };
 }) {
+    const coverageForm = useForm({
+        covering_supervisor_id: '',
+        mode: 'full_caseload',
+        starts_at: '',
+        ends_at: '',
+        note: '',
+    });
+    const revokeForm = useForm({
+        revoke_reason: '',
+    });
     return (
         <>
             <Head title={supervisor.name} />
@@ -146,6 +176,205 @@ export default function SupervisorsShow({
                         history={role_change_history}
                     />
                 )}
+
+                {can.manage ? (
+                    <div className="px-4 md:px-6">
+                        <Panel
+                            title="Temporary Supervisor coverage"
+                            description="Admin-controlled, time-bounded coverage. Permanent caseload ownership and private-message access are unchanged. Expired coverage cannot be backdated."
+                        >
+                            <form
+                                className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5"
+                                onSubmit={(event) => {
+                                    event.preventDefault();
+                                    coverageForm.transform((data) => ({
+                                        ...data,
+                                        covering_supervisor_id: Number(
+                                            data.covering_supervisor_id,
+                                        ),
+                                    }));
+                                    coverageForm.post(
+                                        storeTemporaryCoverage.url(
+                                            supervisor.id,
+                                        ),
+                                        { preserveScroll: true },
+                                    );
+                                }}
+                            >
+                                <div className="space-y-1">
+                                    <Label htmlFor="covering_supervisor_id">
+                                        Covering Supervisor
+                                    </Label>
+                                    <select
+                                        id="covering_supervisor_id"
+                                        className={controlClassName}
+                                        value={
+                                            coverageForm.data
+                                                .covering_supervisor_id
+                                        }
+                                        onChange={(e) =>
+                                            coverageForm.setData(
+                                                'covering_supervisor_id',
+                                                e.target.value,
+                                            )
+                                        }
+                                        required
+                                    >
+                                        <option value="">Select…</option>
+                                        {replacements.map((option) => (
+                                            <option
+                                                key={option.id}
+                                                value={option.id}
+                                            >
+                                                {option.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <InputError
+                                        message={
+                                            coverageForm.errors
+                                                .covering_supervisor_id
+                                        }
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="coverage_starts_at">
+                                        Starts
+                                    </Label>
+                                    <input
+                                        id="coverage_starts_at"
+                                        type="datetime-local"
+                                        className={controlClassName}
+                                        value={coverageForm.data.starts_at}
+                                        onChange={(e) =>
+                                            coverageForm.setData(
+                                                'starts_at',
+                                                e.target.value,
+                                            )
+                                        }
+                                        required
+                                    />
+                                    <InputError
+                                        message={coverageForm.errors.starts_at}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="coverage_ends_at">
+                                        Ends
+                                    </Label>
+                                    <input
+                                        id="coverage_ends_at"
+                                        type="datetime-local"
+                                        className={controlClassName}
+                                        value={coverageForm.data.ends_at}
+                                        onChange={(e) =>
+                                            coverageForm.setData(
+                                                'ends_at',
+                                                e.target.value,
+                                            )
+                                        }
+                                        required
+                                    />
+                                    <InputError
+                                        message={coverageForm.errors.ends_at}
+                                    />
+                                </div>
+                                <div className="space-y-1 xl:col-span-2">
+                                    <Label htmlFor="coverage_note">
+                                        Note (optional)
+                                    </Label>
+                                    <input
+                                        id="coverage_note"
+                                        className={controlClassName}
+                                        value={coverageForm.data.note}
+                                        onChange={(e) =>
+                                            coverageForm.setData(
+                                                'note',
+                                                e.target.value,
+                                            )
+                                        }
+                                    />
+                                </div>
+                                <div className="xl:col-span-5">
+                                    <Button
+                                        type="submit"
+                                        disabled={coverageForm.processing}
+                                    >
+                                        Grant full caseload coverage
+                                    </Button>
+                                </div>
+                            </form>
+
+                            {temporary_coverages.length === 0 ? (
+                                <p className="text-muted-foreground text-sm">
+                                    No temporary coverage grants yet.
+                                </p>
+                            ) : (
+                                <ul className="space-y-3 text-sm">
+                                    {temporary_coverages.map((row) => (
+                                        <li
+                                            key={row.id}
+                                            className="border-border rounded-md border p-3"
+                                        >
+                                            <p className="font-medium">
+                                                {row.covering_supervisor_name} ·{' '}
+                                                {row.mode_label} ·{' '}
+                                                {row.status_label}
+                                            </p>
+                                            <p className="text-muted-foreground text-xs">
+                                                {row.starts_at} → {row.ends_at}
+                                            </p>
+                                            {row.is_active ? (
+                                                <form
+                                                    className="mt-2 flex flex-wrap items-end gap-2"
+                                                    onSubmit={(event) => {
+                                                        event.preventDefault();
+                                                        revokeForm.post(
+                                                            revokeTemporaryCoverage.url(
+                                                                row.id,
+                                                            ),
+                                                            {
+                                                                preserveScroll: true,
+                                                            },
+                                                        );
+                                                    }}
+                                                >
+                                                    <input
+                                                        className={
+                                                            controlClassName
+                                                        }
+                                                        placeholder="Revoke reason"
+                                                        value={
+                                                            revokeForm.data
+                                                                .revoke_reason
+                                                        }
+                                                        onChange={(e) =>
+                                                            revokeForm.setData(
+                                                                'revoke_reason',
+                                                                e.target.value,
+                                                            )
+                                                        }
+                                                        required
+                                                    />
+                                                    <Button
+                                                        type="submit"
+                                                        variant="secondary"
+                                                        size="sm"
+                                                        disabled={
+                                                            revokeForm.processing
+                                                        }
+                                                    >
+                                                        Revoke now
+                                                    </Button>
+                                                </form>
+                                            ) : null}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </Panel>
+                    </div>
+                ) : null}
 
                 <OperationsBoardView
                     operations={operations}

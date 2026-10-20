@@ -535,9 +535,16 @@ class Employee extends Model
         }
 
         if ($user->isSupervisor() && $user->employee) {
-            return $query->where(function (Builder $builder) use ($user): void {
+            $coveredDspIds = app(\App\Services\TemporarySupervisorCoverageService::class)
+                ->coveredDspIds($user);
+
+            return $query->where(function (Builder $builder) use ($user, $coveredDspIds): void {
                 $builder->where('supervisor_id', $user->employee->id)
                     ->orWhere('id', $user->employee->id);
+
+                if ($coveredDspIds !== []) {
+                    $builder->orWhereIn('id', $coveredDspIds);
+                }
             });
         }
 

@@ -38,7 +38,12 @@ class EmployeePolicy
         }
 
         if ($user->isSupervisor() && $user->employee) {
-            return $employee->supervisor_id === $user->employee->id;
+            if ($employee->supervisor_id === $user->employee->id) {
+                return true;
+            }
+
+            return app(\App\Services\TemporarySupervisorCoverageService::class)
+                ->coversDsp($user, $employee);
         }
 
         return false;
@@ -76,7 +81,12 @@ class EmployeePolicy
         }
 
         if ($user->isSupervisor() && $user->employee) {
-            return $employee->supervisor_id === $user->employee->id;
+            if ($employee->supervisor_id === $user->employee->id) {
+                return true;
+            }
+
+            return app(\App\Services\TemporarySupervisorCoverageService::class)
+                ->coversDsp($user, $employee);
         }
 
         return false;
