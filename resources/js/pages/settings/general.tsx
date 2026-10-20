@@ -62,6 +62,20 @@ type Props = {
         proposed_today: string;
         note: string;
     };
+    scheduleMigrationPreview: {
+        target_timezone: string;
+        target_timezone_label: string;
+        eligible_count: number;
+        migratable_count: number;
+        conflict_count: number;
+        note: string;
+        conflicts: Array<{
+            id: number;
+            service_date: string;
+            conflict_reason?: string | null;
+            local_starts_at?: string;
+        }>;
+    };
     settingChangeHistory: SettingChange[];
     timezoneOptions: Option[];
     dateFormatOptions: Option[];
@@ -73,6 +87,7 @@ export default function General({
     settings,
     pendingTimezoneChange,
     timezoneImpactPreview,
+    scheduleMigrationPreview,
     settingChangeHistory,
     timezoneOptions,
     dateFormatOptions,
@@ -447,6 +462,11 @@ export default function General({
                                         current TZ: {timezoneImpactPreview.current_today}.
                                     </p>
                                     <p>{timezoneImpactPreview.note}</p>
+                                    <p>
+                                        Changing Agency timezone does not migrate
+                                        schedules. Use the controlled migration action
+                                        below when local service-time intent must move.
+                                    </p>
                                 </div>
                             </section>
 
@@ -647,6 +667,109 @@ export default function General({
                                     Save
                                 </Button>
                             </div>
+                        </>
+                    )}
+                </Form>
+
+                <Form
+                    {...GeneralSettingsController.migrateSchedules.form()}
+                    options={{ preserveScroll: true }}
+                    className="space-y-4 border-border border-t pt-6"
+                >
+                    {({ processing, errors }) => (
+                        <>
+                            <Heading
+                                variant="small"
+                                title="Controlled schedule timezone migration"
+                                description="Separate Admin action. Preserves local service-time intent, recalculates UTC via IANA/DST, and never rewrites completed Visits, EVV, attendance, or assignment history."
+                            />
+
+                            <input
+                                type="hidden"
+                                name="target_timezone"
+                                value={scheduleMigrationPreview.target_timezone}
+                            />
+
+                            <div className="text-muted-foreground space-y-1 text-sm">
+                                <p>
+                                    Target:{' '}
+                                    <span className="text-foreground font-medium">
+                                        {scheduleMigrationPreview.target_timezone_label}
+                                    </span>{' '}
+                                    ({scheduleMigrationPreview.target_timezone})
+                                </p>
+                                <p>
+                                    Eligible {scheduleMigrationPreview.eligible_count} ·
+                                    Migratable {scheduleMigrationPreview.migratable_count} ·
+                                    DST conflicts skipped{' '}
+                                    {scheduleMigrationPreview.conflict_count}
+                                </p>
+                                <p className="text-xs">{scheduleMigrationPreview.note}</p>
+                            </div>
+
+                            {scheduleMigrationPreview.conflicts.length > 0 ? (
+                                <ul className="text-muted-foreground space-y-1 text-xs">
+                                    {scheduleMigrationPreview.conflicts
+                                        .slice(0, 10)
+                                        .map((row) => (
+                                            <li key={row.id}>
+                                                Visit #{row.id} on {row.service_date}{' '}
+                                                {row.local_starts_at ?? ''} —{' '}
+                                                {row.conflict_reason}
+                                            </li>
+                                        ))}
+                                </ul>
+                            ) : null}
+
+                            <Field
+                                label="Migration effective date/time (optional)"
+                                htmlFor="migration_effective_at"
+                                error={errors.migration_effective_at}
+                            >
+                                <Input
+                                    id="migration_effective_at"
+                                    name="migration_effective_at"
+                                    type="datetime-local"
+                                />
+                            </Field>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="schedule_migration_reason">
+                                    Reason for Change
+                                </Label>
+                                <Input
+                                    id="schedule_migration_reason"
+                                    name="schedule_migration_reason"
+                                    required
+                                    placeholder="Required for schedule migration"
+                                />
+                                <InputError
+                                    message={errors.schedule_migration_reason}
+                                />
+                            </div>
+
+                            <label className="text-muted-foreground flex items-center gap-2 text-sm">
+                                <input
+                                    type="checkbox"
+                                    name="confirm_schedule_migration"
+                                    value="1"
+                                    required
+                                />
+                                I confirm this controlled schedule timezone migration
+                            </label>
+                            <InputError
+                                message={errors.confirm_schedule_migration}
+                            />
+
+                            <Button
+                                disabled={
+                                    processing ||
+                                    scheduleMigrationPreview.migratable_count < 1
+                                }
+                                type="submit"
+                            >
+                                Migrate future schedules
+                            </Button>
                         </>
                     )}
                 </Form>

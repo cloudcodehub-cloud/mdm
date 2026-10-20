@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\MigrateScheduleTimezoneRequest;
 use App\Http\Requests\Settings\UpdateOrganizationSettingsRequest;
+use App\Services\ScheduleTimezoneMigrationService;
 use App\Services\SettingsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Carbon;
@@ -12,13 +14,17 @@ use Inertia\Response;
 
 class GeneralSettingsController extends Controller
 {
-    public function __construct(private SettingsService $settings) {}
+    public function __construct(
+        private SettingsService $settings,
+        private ScheduleTimezoneMigrationService $scheduleMigration,
+    ) {}
 
     public function edit(): Response
     {
         $this->authorize('update', $this->settings->current());
 
         $current = $this->settings->current();
+        $timezone = $this->settings->timezone();
 
         return Inertia::render('settings/general', [
             'settings' => [
@@ -33,8 +39,8 @@ class GeneralSettingsController extends Controller
                 'main_phone' => $current->main_phone,
                 'main_email' => $current->main_email,
                 'website' => $current->website,
-                'timezone' => $this->settings->timezone(),
-                'timezone_label' => $this->settings->timezoneLabel($this->settings->timezone()),
+                'timezone' => $timezone,
+                'timezone_label' => $this->settings->timezoneLabel($timezone),
                 'date_format' => $current->date_format->value,
                 'time_format' => $current->time_format->value,
                 'first_day_of_week' => $current->first_day_of_week,
@@ -45,13 +51,49 @@ class GeneralSettingsController extends Controller
                 'has_logo' => filled($current->logo_path),
             ],
             'pendingTimezoneChange' => $this->settings->pendingTimezoneChangePayload(),
-            'timezoneImpactPreview' => $this->settings->timezoneChangeImpactPreview($this->settings->timezone()),
+            'timezoneImpactPreview' => $this->settings->timezoneChangeImpactPreview($timezone),
+            'scheduleMigrationPreview' => $this->scheduleMigration->preview($timezone),
             'settingChangeHistory' => $this->settings->recentSettingChanges(25),
             'timezoneOptions' => $this->settings->timezoneOptions(),
             'dateFormatOptions' => $this->settings->dateFormatOptions(),
             'timeFormatOptions' => $this->settings->timeFormatOptions(),
             'firstDayOfWeekOptions' => $this->settings->firstDayOfWeekOptions(),
         ]);
+    }
+
+    public function migrateSchedules(MigrateScheduleTimezoneRequest $request): RedirectResponse
+    {
+        $actor = $request->user();
+        abort_unless($actor !== null, 403);
+
+        $effectiveAt = filled($request->input('migration_effective_at'))
+            ? Carbon::parse(
+                str_replace('T', ' ', (string) $request->input('migration_effective_at')),
+                $this->settings->timezone(),
+            )->utc()->toImmutable()
+            : $this->settings->now();
+
+        $result = $this->scheduleMigration->migrate(
+            $actor,
+            (string) $request->validated('target_timezone'),
+            (string) $request->validated('schedule_migration_reason'),
+            $request->boolean('confirm_schedule_migration'),
+            $effectiveAt,
+        );
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => __(
+                'Migrated :count future schedule(s) to :timezone. :conflicts conflict(s) left unchanged.',
+                [
+                    'count' => $result['migrated_count'],
+                    'timezone' => $result['target_timezone'],
+                    'conflicts' => $result['skipped_conflict_count'],
+                ],
+            ),
+        ]);
+
+        return to_route('settings.general.edit');
     }
 
     public function update(UpdateOrganizationSettingsRequest $request): RedirectResponse

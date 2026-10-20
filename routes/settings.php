@@ -19,6 +19,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('settings/general', [GeneralSettingsController::class, 'edit'])->name('settings.general.edit');
     Route::patch('settings/general', [GeneralSettingsController::class, 'update'])->name('settings.general.update');
+    Route::post('settings/general/migrate-schedules', [GeneralSettingsController::class, 'migrateSchedules'])
+        ->name('settings.general.migrate-schedules');
 
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('profile.update');
