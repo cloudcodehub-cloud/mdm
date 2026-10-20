@@ -3,6 +3,8 @@
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AttendanceCorrectionController;
+use App\Http\Controllers\MissedVisitReclassificationController;
+use App\Http\Controllers\PayrollPeriodController;
 use App\Http\Controllers\AvailabilityRequestController;
 use App\Http\Controllers\CarePlanController;
 use App\Http\Controllers\CareServiceController;
@@ -41,6 +43,7 @@ use App\Http\Controllers\VisitExceptionController;
 use App\Http\Controllers\VisitSafetyCheckController;
 use App\Http\Controllers\VisitSafetyInstructionController;
 use App\Http\Controllers\VisitTaskController;
+use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -227,6 +230,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('attendance.corrections.approve');
     Route::patch('attendance/corrections/{attendance_correction}/reject', [AttendanceCorrectionController::class, 'reject'])
         ->name('attendance.corrections.reject');
+    Route::post('attendance/{scheduled_visit}/reclassify-missed-cancelled', [MissedVisitReclassificationController::class, 'store'])
+        ->name('attendance.reclassify-missed-cancelled');
+    Route::post('payroll-periods/finalize', [PayrollPeriodController::class, 'finalize'])
+        ->middleware(RequirePassword::class)
+        ->name('payroll-periods.finalize');
+    Route::post('payroll-periods/{payroll_period}/reopen', [PayrollPeriodController::class, 'reopen'])
+        ->middleware(RequirePassword::class)
+        ->name('payroll-periods.reopen');
+    Route::post('payroll-periods/{payroll_period}/re-finalize', [PayrollPeriodController::class, 'reFinalize'])
+        ->middleware(RequirePassword::class)
+        ->name('payroll-periods.re-finalize');
     Route::get('compliance', ComplianceController::class)->name('compliance.index');
     Route::get('compliance/requirements', [ComplianceRequirementController::class, 'index'])
         ->name('compliance.requirements.index');

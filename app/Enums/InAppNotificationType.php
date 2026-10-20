@@ -13,4 +13,5 @@ enum InAppNotificationType: string
     case Compliance = 'compliance';
     case Incident = 'incident';
     case StaffingUrgency = 'staffing_urgency';
+    case MaterialCorrection = 'material_correction';
 }

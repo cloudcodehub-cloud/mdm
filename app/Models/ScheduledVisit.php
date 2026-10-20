@@ -363,6 +363,14 @@ class ScheduledVisit extends Model
         return $this->hasMany(AttendanceCorrection::class)->orderByDesc('id');
     }
 
+    /**
+     * @return HasMany<VisitOutcomeReclassification, $this>
+     */
+    public function outcomeReclassifications(): HasMany
+    {
+        return $this->hasMany(VisitOutcomeReclassification::class)->orderByDesc('id');
+    }
+
     public function usesShiftTemplate(): bool
     {
         return $this->shift_template_id !== null;

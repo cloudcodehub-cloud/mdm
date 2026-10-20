@@ -33,3 +33,47 @@ export type ReportTotals = {
     worked_hours: string;
     employee_count: number;
 };
+
+export type PayrollFinalizationAudit = {
+    id: number;
+    action: string;
+    action_label: string;
+    actor_name: string | null;
+    reason: string | null;
+    created_at: string | null;
+};
+
+export type PayrollFinalizationRecord = {
+    id: number;
+    period_start: string;
+    period_end: string;
+    scope: string;
+    scope_label: string;
+    status: string;
+    status_label: string;
+    export_ready: boolean;
+    finalized_at: string | null;
+    finalized_by_name: string | null;
+    finalize_note: string | null;
+    reopened_at: string | null;
+    reopened_by_name: string | null;
+    reopen_reason: string | null;
+    audits: PayrollFinalizationAudit[];
+};
+
+export type PayrollFinalizationState = {
+    available: boolean;
+    message: string | null;
+    scope?: string;
+    scope_label?: string;
+    period_start?: string;
+    period_end?: string;
+    employee_id?: number | null;
+    record: PayrollFinalizationRecord | null;
+    export_ready?: boolean;
+    can: {
+        finalize: boolean;
+        reopen: boolean;
+        re_finalize: boolean;
+    };
+};

@@ -1,16 +1,23 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import { Form, Head, Link, useForm } from '@inertiajs/react';
 import { Pagination, StatusBadge, controlClassName } from '@/components/mdm/directory';
 import { PrintPdfAction } from '@/components/mdm/print-pdf-action';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { dashboard } from '@/routes';
 import {
     download,
     index as reportsIndex,
     show as showReport,
 } from '@/routes/reports';
+import {
+    finalize as finalizePayroll,
+    reFinalize as reFinalizePayroll,
+    reopen as reopenPayroll,
+} from '@/routes/payroll-periods';
 import type { OptionItem, Paginated } from '@/types/directory';
 import type {
+    PayrollFinalizationState,
     ReportColumn,
     ReportFilterVisibility,
     ReportFilters,
@@ -33,6 +40,7 @@ export default function ReportShow({
     timezone,
     can,
     hours_pdf_url = null,
+    payroll_finalization = null,
 }: {
     report: ReportSummary;
     columns: ReportColumn[];
@@ -47,6 +55,7 @@ export default function ReportShow({
     timezone: string;
     can: { export: boolean; hours_pdf?: boolean };
     hours_pdf_url?: string | null;
+    payroll_finalization?: PayrollFinalizationState | null;
 }) {
     const exportUrl = download.url(report.key, {
         query: {
@@ -226,6 +235,13 @@ export default function ReportShow({
                     </Panel>
                 )}
 
+                {payroll_finalization ? (
+                    <PayrollFinalizationPanel
+                        state={payroll_finalization}
+                        filters={filters}
+                    />
+                ) : null}
+
                 <Panel title={report.title}>
                     {rows.data.length === 0 ? (
                         <EmptyState message="No records match these filters." />
@@ -286,6 +302,249 @@ export default function ReportShow({
                 </Panel>
             </div>
         </>
+    );
+}
+
+function PayrollFinalizationPanel({
+    state,
+    filters,
+}: {
+    state: PayrollFinalizationState;
+    filters: ReportFilters;
+}) {
+    const finalizeForm = useForm({
+        period_start: state.period_start ?? filters.from,
+        period_end: state.period_end ?? filters.to,
+        scope: state.scope ?? (filters.employee_id ? 'employee' : 'period'),
+        employee_id: filters.employee_id || '',
+        finalize_note: '',
+        confirm: false,
+    });
+    const reopenForm = useForm({
+        reopen_reason: '',
+        confirm: false,
+    });
+    const reFinalizeForm = useForm({
+        finalize_note: '',
+        confirm: false,
+    });
+
+    const record = state.record;
+
+    return (
+        <Panel
+            title="Payroll finalization"
+            description="MDM 03 §§14–15 — finalize locks payroll-sensitive corrections for this scope. Admin reopen requires confirmation and re-authentication; re-finalization restores export readiness. Original EVV history is preserved."
+        >
+            {!state.available ? (
+                <p className="text-muted-foreground text-sm">{state.message}</p>
+            ) : (
+                <div className="space-y-4 text-sm">
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        <p>
+                            <span className="text-muted-foreground">Scope:</span>{' '}
+                            {state.scope_label}
+                        </p>
+                        <p>
+                            <span className="text-muted-foreground">Status:</span>{' '}
+                            {record?.status_label ?? 'Not finalized'}
+                        </p>
+                        <p>
+                            <span className="text-muted-foreground">Period:</span>{' '}
+                            {state.period_start} – {state.period_end}
+                        </p>
+                        <p>
+                            <span className="text-muted-foreground">
+                                Export ready:
+                            </span>{' '}
+                            {record?.export_ready ? 'Yes' : 'No'}
+                        </p>
+                    </div>
+
+                    {record?.audits?.length ? (
+                        <ul className="text-muted-foreground space-y-1 text-xs">
+                            {record.audits.slice(0, 5).map((audit) => (
+                                <li key={audit.id}>
+                                    {audit.action_label}
+                                    {audit.actor_name
+                                        ? ` · ${audit.actor_name}`
+                                        : ''}
+                                    {audit.created_at
+                                        ? ` · ${audit.created_at}`
+                                        : ''}
+                                    {audit.reason ? ` — ${audit.reason}` : ''}
+                                </li>
+                            ))}
+                        </ul>
+                    ) : null}
+
+                    {state.can.finalize && !record ? (
+                        <form
+                            className="space-y-3 border-t pt-3"
+                            onSubmit={(event) => {
+                                event.preventDefault();
+                                finalizeForm.transform((data) => ({
+                                    ...data,
+                                    employee_id: data.employee_id
+                                        ? Number(data.employee_id)
+                                        : null,
+                                    confirm: Boolean(data.confirm),
+                                }));
+                                finalizeForm.post(finalizePayroll.url(), {
+                                    preserveScroll: true,
+                                });
+                            }}
+                        >
+                            <Label htmlFor="finalize_note">Note (optional)</Label>
+                            <textarea
+                                id="finalize_note"
+                                className={controlClassName}
+                                value={finalizeForm.data.finalize_note}
+                                onChange={(e) =>
+                                    finalizeForm.setData(
+                                        'finalize_note',
+                                        e.target.value,
+                                    )
+                                }
+                            />
+                            <label className="flex items-center gap-2 text-sm">
+                                <input
+                                    type="checkbox"
+                                    checked={finalizeForm.data.confirm}
+                                    onChange={(e) =>
+                                        finalizeForm.setData(
+                                            'confirm',
+                                            e.target.checked,
+                                        )
+                                    }
+                                />
+                                Confirm finalize and lock this payroll scope
+                            </label>
+                            {finalizeForm.errors.confirm ? (
+                                <p className="text-destructive text-xs">
+                                    {finalizeForm.errors.confirm}
+                                </p>
+                            ) : null}
+                            <Button
+                                type="submit"
+                                disabled={finalizeForm.processing}
+                            >
+                                Finalize payroll
+                            </Button>
+                        </form>
+                    ) : null}
+
+                    {state.can.reopen && record ? (
+                        <form
+                            className="space-y-3 border-t pt-3"
+                            onSubmit={(event) => {
+                                event.preventDefault();
+                                reopenForm.transform((data) => ({
+                                    ...data,
+                                    confirm: Boolean(data.confirm),
+                                }));
+                                reopenForm.post(reopenPayroll.url(record.id), {
+                                    preserveScroll: true,
+                                });
+                            }}
+                        >
+                            <Label htmlFor="reopen_reason">
+                                Reason for reopen
+                            </Label>
+                            <textarea
+                                id="reopen_reason"
+                                className={controlClassName}
+                                value={reopenForm.data.reopen_reason}
+                                onChange={(e) =>
+                                    reopenForm.setData(
+                                        'reopen_reason',
+                                        e.target.value,
+                                    )
+                                }
+                                required
+                            />
+                            {reopenForm.errors.reopen_reason ? (
+                                <p className="text-destructive text-xs">
+                                    {reopenForm.errors.reopen_reason}
+                                </p>
+                            ) : null}
+                            <label className="flex items-center gap-2 text-sm">
+                                <input
+                                    type="checkbox"
+                                    checked={reopenForm.data.confirm}
+                                    onChange={(e) =>
+                                        reopenForm.setData(
+                                            'confirm',
+                                            e.target.checked,
+                                        )
+                                    }
+                                />
+                                Confirm Admin reopen (requires password
+                                confirmation)
+                            </label>
+                            <Button
+                                type="submit"
+                                variant="secondary"
+                                disabled={reopenForm.processing}
+                            >
+                                Reopen for correction
+                            </Button>
+                        </form>
+                    ) : null}
+
+                    {state.can.re_finalize && record ? (
+                        <form
+                            className="space-y-3 border-t pt-3"
+                            onSubmit={(event) => {
+                                event.preventDefault();
+                                reFinalizeForm.transform((data) => ({
+                                    ...data,
+                                    confirm: Boolean(data.confirm),
+                                }));
+                                reFinalizeForm.post(
+                                    reFinalizePayroll.url(record.id),
+                                    { preserveScroll: true },
+                                );
+                            }}
+                        >
+                            <Label htmlFor="refinalize_note">
+                                Re-finalize note (optional)
+                            </Label>
+                            <textarea
+                                id="refinalize_note"
+                                className={controlClassName}
+                                value={reFinalizeForm.data.finalize_note}
+                                onChange={(e) =>
+                                    reFinalizeForm.setData(
+                                        'finalize_note',
+                                        e.target.value,
+                                    )
+                                }
+                            />
+                            <label className="flex items-center gap-2 text-sm">
+                                <input
+                                    type="checkbox"
+                                    checked={reFinalizeForm.data.confirm}
+                                    onChange={(e) =>
+                                        reFinalizeForm.setData(
+                                            'confirm',
+                                            e.target.checked,
+                                        )
+                                    }
+                                />
+                                Confirm re-finalize after corrections
+                            </label>
+                            <Button
+                                type="submit"
+                                disabled={reFinalizeForm.processing}
+                            >
+                                Re-finalize payroll
+                            </Button>
+                        </form>
+                    ) : null}
+                </div>
+            )}
+        </Panel>
     );
 }
 

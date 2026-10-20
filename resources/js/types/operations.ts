@@ -140,6 +140,17 @@ export type OperationsBoard = {
         awaiting_acknowledgment: IncidentListItem[];
         overdue_for_acknowledgment: IncidentListItem[];
     };
+    material_corrections?: Array<{
+        key: string;
+        kind: string;
+        kind_label: string;
+        service_date: string | null;
+        client_name: string | null;
+        employee_name: string | null;
+        actor_name: string | null;
+        occurred_at: string | null;
+        url: string | null;
+    }>;
     exceptions: {
         open: VisitExceptionRecord[];
         high_priority_open: VisitExceptionRecord[];

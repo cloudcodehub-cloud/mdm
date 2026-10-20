@@ -301,6 +301,49 @@ export function OperationsBoardView({
                         empty="No open extended-visit or escalation exceptions."
                     />
                 </Panel>
+                {operations.material_corrections !== undefined ? (
+                    <Panel
+                        title="Material reconstruction / correction attention"
+                        description="Admin visibility for material EVV reconstructions and Missed → Cancelled reclassifications. Approval authority is unchanged."
+                        className="lg:col-span-12"
+                    >
+                        {operations.material_corrections.length === 0 ? (
+                            <EmptyState
+                                compact
+                                message="No recent material reconstruction or reclassification events."
+                            />
+                        ) : (
+                            <ul className="space-y-2 text-sm">
+                                {operations.material_corrections.map((item) => (
+                                    <li key={item.key}>
+                                        {item.url ? (
+                                            <Link
+                                                href={item.url}
+                                                className="hover:text-foreground font-medium"
+                                            >
+                                                {item.kind_label}
+                                            </Link>
+                                        ) : (
+                                            <span className="font-medium">
+                                                {item.kind_label}
+                                            </span>
+                                        )}
+                                        <p className="text-muted-foreground text-xs">
+                                            {[
+                                                item.client_name,
+                                                item.employee_name,
+                                                item.service_date,
+                                                item.occurred_at,
+                                            ]
+                                                .filter(Boolean)
+                                                .join(' · ')}
+                                        </p>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </Panel>
+                ) : null}
                 <Panel
                     title="Incidents awaiting acknowledgment"
                     description="Submitted Incidents needing management acknowledgment (not resolution)."

@@ -30,6 +30,8 @@ class AttendanceCorrectionService
         private VisitNoteHistoryService $noteHistory,
         private CarePlanRevisionService $carePlanRevisions,
         private VisitTaskGenerator $tasks,
+        private PayrollFinalizationService $payroll,
+        private MaterialCorrectionAttentionService $materialAttention,
     ) {}
 
     /**
@@ -46,6 +48,8 @@ class AttendanceCorrectionService
                 'status' => 'A correction request is already pending for this attendance record.',
             ]);
         }
+
+        $this->assertPayrollAllowsCorrection($scheduledVisit, $data);
 
         $isReconstruction = filter_var($data['is_evv_reconstruction'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $visit = $this->resolveTargetVisit($scheduledVisit, $data['visit_id'] ?? null);
@@ -198,6 +202,7 @@ class AttendanceCorrectionService
     {
         $this->assertPending($correction);
         $correction->loadMissing(['visit', 'scheduledVisit.employee', 'scheduledVisit.client']);
+        $this->assertPayrollAllowsApproval($correction);
         $visit = $correction->visit;
 
         $effectiveStart = $correction->requested_clocked_in_at ?? $visit?->clocked_in_at;
@@ -281,6 +286,7 @@ class AttendanceCorrectionService
 
         $this->applyVisitSideEffects($correction, $visit, $user);
         $this->applyTaskCorrections($correction);
+        $this->materialAttention->notifyMaterialCorrection($correction->fresh());
     }
 
     /**
@@ -606,6 +612,40 @@ class AttendanceCorrectionService
                 'status' => 'Only pending correction requests can be reviewed.',
             ]);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function assertPayrollAllowsCorrection(ScheduledVisit $scheduledVisit, array $data): void
+    {
+        $affectsPayroll = filter_var($data['is_evv_reconstruction'] ?? false, FILTER_VALIDATE_BOOLEAN)
+            || filled($data['requested_clocked_in_at'] ?? null)
+            || filled($data['requested_clocked_out_at'] ?? null)
+            || (is_array($data['task_corrections'] ?? null) && $data['task_corrections'] !== []);
+
+        if (! $affectsPayroll) {
+            return;
+        }
+
+        $this->payroll->assertNotLockedForCorrection($scheduledVisit);
+    }
+
+    private function assertPayrollAllowsApproval(AttendanceCorrection $correction): void
+    {
+        $fields = $correction->proposed_fields ?? [];
+        $affectsPayroll = $correction->is_evv_reconstruction
+            || $correction->requestsTimeChange()
+            || in_array('times', $fields, true)
+            || in_array('tasks', $fields, true)
+            || in_array('evv_reconstruction', $fields, true);
+
+        if (! $affectsPayroll) {
+            return;
+        }
+
+        $correction->loadMissing('scheduledVisit');
+        $this->payroll->assertNotLockedForCorrection($correction->scheduledVisit);
     }
 
     private function normalizeNote(?string $note): ?string

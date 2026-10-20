@@ -14,7 +14,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { dashboard } from '@/routes';
-import { index as attendanceIndex, show } from '@/routes/attendance';
+import {
+    index as attendanceIndex,
+    reclassifyMissedCancelled,
+    show,
+} from '@/routes/attendance';
 import {
     approve as approveCorrection,
     reject as rejectCorrection,
@@ -41,6 +45,11 @@ export default function AttendanceShow({
     can: { request_correction: boolean; review_corrections: boolean };
     documents?: { completed_visit?: string | null };
 }) {
+    const reclassifyForm = useForm({
+        reason: '',
+        evidence_note: '',
+    });
+
     const correctionForm = useForm({
         visit_id: record.visit_id ?? '',
         requested_clocked_in_at: record.clock_in_input ?? '',
@@ -143,6 +152,110 @@ export default function AttendanceShow({
                             <ContextGroup label="DSP">{record.employee.name}</ContextGroup>
                         </ContextStrip>
                     </RecordSection>
+
+                    {record.payroll_locked ? (
+                        <RecordSection
+                            title="Finalized payroll lock"
+                            className="lg:col-span-12"
+                        >
+                            <p className="text-sm">
+                                {record.payroll_lock_label ??
+                                    'This attendance record is in a finalized payroll period.'}{' '}
+                                Hour-changing corrections and Missed
+                                reconstructions require Admin payroll reopen
+                                first. Original EVV history remains unchanged.
+                            </p>
+                        </RecordSection>
+                    ) : null}
+
+                    {record.missed_to_cancelled ? (
+                        <RecordSection
+                            title="Missed → Cancelled history"
+                            className="lg:col-span-12"
+                        >
+                            <p className="text-sm">
+                                Reclassified by{' '}
+                                {record.missed_to_cancelled
+                                    .reclassified_by_name ?? 'staff'}{' '}
+                                on {record.missed_to_cancelled.reclassified_at}.
+                                Reason: {record.missed_to_cancelled.reason}. No
+                                worked hours were manufactured; original Missed
+                                history is preserved on this audit record.
+                            </p>
+                        </RecordSection>
+                    ) : null}
+
+                    {record.can_reclassify_missed_cancelled ? (
+                        <RecordSection
+                            title="Reclassify Missed → Cancelled"
+                            className="lg:col-span-5"
+                        >
+                            <p className="text-muted-foreground mb-3 text-sm">
+                                Verified retrospective cancellation removes
+                                Missed/No-Show from effective attendance.
+                                Original Missed history stays on the
+                                reclassification audit. Admin is notified.
+                            </p>
+                            <form
+                                className="space-y-3"
+                                onSubmit={(event) => {
+                                    event.preventDefault();
+                                    reclassifyForm.post(
+                                        reclassifyMissedCancelled.url(
+                                            record.id,
+                                        ),
+                                        { preserveScroll: true },
+                                    );
+                                }}
+                            >
+                                <div className="space-y-1">
+                                    <Label htmlFor="reclassify_reason">
+                                        Verified cancellation reason
+                                    </Label>
+                                    <textarea
+                                        id="reclassify_reason"
+                                        className="border-input flex min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                                        value={reclassifyForm.data.reason}
+                                        onChange={(e) =>
+                                            reclassifyForm.setData(
+                                                'reason',
+                                                e.target.value,
+                                            )
+                                        }
+                                        required
+                                    />
+                                    <InputError
+                                        message={reclassifyForm.errors.reason}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="reclassify_evidence">
+                                        Evidence note (optional)
+                                    </Label>
+                                    <textarea
+                                        id="reclassify_evidence"
+                                        className="border-input flex min-h-16 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                                        value={
+                                            reclassifyForm.data.evidence_note
+                                        }
+                                        onChange={(e) =>
+                                            reclassifyForm.setData(
+                                                'evidence_note',
+                                                e.target.value,
+                                            )
+                                        }
+                                    />
+                                </div>
+                                <Button
+                                    type="submit"
+                                    variant="secondary"
+                                    disabled={reclassifyForm.processing}
+                                >
+                                    Reclassify to Cancelled
+                                </Button>
+                            </form>
+                        </RecordSection>
+                    ) : null}
 
                     {can.request_correction && (
                         <RecordSection title="Attendance correction" className="lg:col-span-5">

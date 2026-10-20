@@ -31,6 +31,7 @@ class SupervisorOperationsService
         private IncidentService $incidents,
         private AvailabilityOverrideService $availabilityOverrides,
         private StaffingUrgencyService $staffingUrgency,
+        private MaterialCorrectionAttentionService $materialCorrections,
     ) {}
 
     private const STAFFING_QUEUE_LIMIT = 10;
@@ -205,7 +206,7 @@ class SupervisorOperationsService
 
         $unacknowledgedOverrides = $this->availabilityOverrides->unacknowledgedNearTerm($scheduledQuery, 200);
 
-        return [
+        $board = [
             'today' => $today,
             'timezone' => $this->settings->timezone(),
             'timezone_label' => $this->settings->timezoneLabel($this->settings->timezone()),
@@ -296,6 +297,12 @@ class SupervisorOperationsService
                 'open_escalations' => DirectoryPresenter::visitExceptions($this->exceptionsOfType($openExceptions, VisitExceptionType::OpenVisitEscalation)),
             ],
         ];
+
+        if ($viewer !== null && $viewer->isAdmin()) {
+            $board['material_corrections'] = $this->materialCorrections->operationsRows($viewer);
+        }
+
+        return $board;
     }
 
     /**

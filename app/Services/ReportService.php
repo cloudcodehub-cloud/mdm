@@ -27,6 +27,7 @@ class ReportService
         private AttendanceService $attendance,
         private AttendanceStatusService $statuses,
         private ComplianceService $compliance,
+        private PayrollFinalizationService $payroll,
     ) {}
 
     /**
@@ -71,13 +72,39 @@ class ReportService
             'timezone' => $this->settings->timezone(),
             'can' => [
                 'export' => $type === ReportType::PayrollHours
-                    ? $user->can('exportPayroll', OperationalReport::class)
+                    ? ($user->can('exportPayroll', OperationalReport::class)
+                        && $this->payrollExportAllowed($user, $filters))
                     : $user->can('export', OperationalReport::class),
                 'hours_pdf' => $user->can('viewAny', OperationalReport::class)
                     && in_array($type, [ReportType::EmployeeAttendance, ReportType::PayrollHours], true),
             ],
             'hours_pdf_url' => $this->hoursPdfUrl($type, $filters),
+            'payroll_finalization' => $type === ReportType::PayrollHours
+                ? $this->payroll->serializeForReport($user, $filters)
+                : null,
         ];
+    }
+
+    /**
+     * MDM 03 §15 — reopened periods are excluded from export readiness.
+     * Unfinalized ranges still allow Admin hours CSV (Phase 3D-2); finalized marks export-ready.
+     *
+     * @param  array{from: string, to: string, employee_id: string, client_id: string, supervisor_id: string, status: string}  $filters
+     */
+    private function payrollExportAllowed(User $user, array $filters): bool
+    {
+        if (! $user->isAdmin()) {
+            return false;
+        }
+
+        $state = $this->payroll->serializeForReport($user, $filters);
+        $record = $state['record'] ?? null;
+
+        if (! is_array($record)) {
+            return true;
+        }
+
+        return ($record['status'] ?? null) !== 'reopened_for_correction';
     }
 
     /**
@@ -85,6 +112,10 @@ class ReportService
      */
     public function download(User $user, ReportType $type, array $filters): StreamedResponse
     {
+        if ($type === ReportType::PayrollHours && ! $this->payrollExportAllowed($user, $filters)) {
+            abort(403, 'This pay period is reopened for correction and is excluded from payroll export readiness.');
+        }
+
         $built = $this->build($user, $type, $filters);
         $from = $filters['from'] !== '' ? $filters['from'] : 'all';
         $to = $filters['to'] !== '' ? $filters['to'] : 'all';

@@ -104,6 +104,16 @@ export type AttendanceRecord = {
     handover_note?: string | null;
     can_request_correction: boolean;
     can_reconstruct_missed?: boolean;
+    can_reclassify_missed_cancelled?: boolean;
+    payroll_locked?: boolean;
+    payroll_lock_label?: string | null;
+    missed_to_cancelled?: {
+        id: number;
+        reason: string;
+        evidence_note: string | null;
+        reclassified_by_name: string | null;
+        reclassified_at: string | null;
+    } | null;
     pending_correction_id: number | null;
     pending_overlap_conflict?: boolean;
     corrections?: AttendanceCorrectionRecord[];

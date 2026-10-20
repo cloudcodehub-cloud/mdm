@@ -18,6 +18,7 @@ class AttendanceService
     public function __construct(
         private SettingsService $settings,
         private AttendanceStatusService $statuses,
+        private PayrollFinalizationService $payroll,
     ) {}
 
     /**
@@ -219,13 +220,19 @@ class AttendanceService
      */
     public function serialize(ScheduledVisit $scheduledVisit, User $user, bool $detailed = false): array
     {
-        $scheduledVisit->loadMissing(['visits.employee', 'attendanceCorrections']);
+        $scheduledVisit->loadMissing(['visits.employee', 'attendanceCorrections', 'outcomeReclassifications.reclassifiedBy']);
         $status = $this->statuses->statusFor($scheduledVisit);
         $visit = $scheduledVisit->activeVisit() ?? $scheduledVisit->visit;
         $effective = $this->statuses->effectiveTimes($scheduledVisit);
         $pending = $this->statuses->pendingCorrection($scheduledVisit);
         $approved = $this->statuses->approvedAdjustment($scheduledVisit);
         $worked = $this->statuses->workedMinutes($scheduledVisit);
+        $payrollLock = $this->payroll->lockingPeriodFor($scheduledVisit);
+        $missedToCancelled = $scheduledVisit->outcomeReclassifications
+            ->filter(fn ($row): bool => $row->from_outcome === AttendanceStatus::Missed->value
+                && $row->to_outcome === ScheduledVisitStatus::Cancelled->value)
+            ->sortByDesc(fn ($row): int => $row->reclassified_at?->getTimestamp() ?? 0)
+            ->first();
 
         $row = [
             'id' => $scheduledVisit->id,
@@ -233,8 +240,8 @@ class AttendanceService
             'service_date' => $scheduledVisit->service_date->toDateString(),
             'service_type' => $scheduledVisit->service_type,
             'employee' => [
-                'id' => $scheduledVisit->employee->id,
-                'name' => $scheduledVisit->employee->full_name,
+                'id' => $scheduledVisit->employee?->id,
+                'name' => $scheduledVisit->employee?->full_name ?? 'Unassigned',
             ],
             'client' => [
                 'id' => $scheduledVisit->client->id,
@@ -269,7 +276,25 @@ class AttendanceService
                 && $pending === null
                 && $visit === null
                 && $status === AttendanceStatus::Missed
+                && $payrollLock === null
                 && ($user->isAdmin() || $user->isSupervisor()),
+            'can_reclassify_missed_cancelled' => $pending === null
+                && $visit === null
+                && $status === AttendanceStatus::Missed
+                && $payrollLock === null
+                && ($user->isAdmin() || $user->isSupervisor())
+                && $user->can('update', $scheduledVisit),
+            'payroll_locked' => $payrollLock !== null,
+            'payroll_lock_label' => $payrollLock !== null
+                ? 'Finalized payroll '.$payrollLock->period_start->toDateString().'–'.$payrollLock->period_end->toDateString()
+                : null,
+            'missed_to_cancelled' => $missedToCancelled === null ? null : [
+                'id' => $missedToCancelled->id,
+                'reason' => $missedToCancelled->reason,
+                'evidence_note' => $missedToCancelled->evidence_note,
+                'reclassified_by_name' => $missedToCancelled->reclassifiedBy?->name,
+                'reclassified_at' => $this->settings->formatDateTime($missedToCancelled->reclassified_at),
+            ],
             'pending_correction_id' => $pending?->id,
             'pending_overlap_conflict' => (bool) ($pending?->overlap_conflict),
         ];
