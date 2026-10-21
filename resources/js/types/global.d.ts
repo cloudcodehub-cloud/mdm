@@ -1,6 +1,7 @@
 import type { Auth, AgencyWeather, OrganizationSettings } from '@/types/auth';
 import type { DashboardActiveVisit } from '@/types/dashboard';
 import type { InboxActivity } from '@/types/messaging';
+import type { MobileNavState } from '@/types/mobile-navigation';
 
 declare module 'react' {
     interface InputHTMLAttributes<T> {
@@ -15,6 +16,7 @@ declare module '@inertiajs/core' {
             auth: Auth;
             organization: OrganizationSettings;
             sidebarOpen: boolean;
+            mobileNav: MobileNavState | null;
             weather: AgencyWeather;
             demoTools: { enabled: boolean };
             inbox: InboxActivity;

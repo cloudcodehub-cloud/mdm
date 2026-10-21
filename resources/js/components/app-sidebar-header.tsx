@@ -36,7 +36,7 @@ export function AppSidebarHeader({
                     className="size-7 md:hidden"
                     alt="MDM"
                 />
-                <SidebarTrigger className="-ml-1" />
+                <SidebarTrigger className="-ml-1 hidden md:inline-flex" />
                 <div className="min-w-0">
                     <p className="text-muted-foreground hidden text-[11px] tracking-wide uppercase sm:block">
                         {auth.user?.role}

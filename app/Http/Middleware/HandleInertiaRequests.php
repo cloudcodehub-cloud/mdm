@@ -8,6 +8,7 @@ use App\Services\SettingsService;
 use App\Services\VisitClockInService;
 use App\Support\DemoEnvironment;
 use App\Support\DirectoryPresenter;
+use App\Support\MobileNavigation;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -51,6 +52,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'organization' => app(SettingsService::class)->shared(),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'mobileNav' => fn (): ?array => MobileNavigation::sharedFor($user),
             'weather' => function (): array {
                 return app(AgencyWeatherService::class)->shared();
             },

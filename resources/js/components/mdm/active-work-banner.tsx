@@ -58,7 +58,12 @@ export function ActiveWorkBanner() {
                 </div>
             </div>
             {!onVisitPage && (
-                <div className="border-brand-cyan/30 bg-card/95 fixed inset-x-0 bottom-0 z-30 border-t p-3 backdrop-blur-md md:hidden">
+                <div
+                    className="border-brand-cyan/30 bg-card/95 fixed inset-x-0 z-30 border-t p-3 backdrop-blur-md md:hidden"
+                    style={{
+                        bottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))',
+                    }}
+                >
                     <Button className="h-11 w-full" asChild>
                         <Link href={showVisit(visit.id)}>
                             <ActiveVisitPulse />

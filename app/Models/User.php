@@ -29,6 +29,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property Role $role
  * @property bool $it_tech_access
  * @property Appearance $appearance
+ * @property list<string>|null $mobile_nav_shortcuts
  * @property Carbon|null $email_verified_at
  * @property string $password
  * @property string|null $two_factor_secret
@@ -44,7 +45,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  *
  * @method static Builder<static> activeForMessaging()
  */
-#[Fillable(['name', 'email', 'password', 'role', 'appearance', 'it_tech_access'])]
+#[Fillable(['name', 'email', 'password', 'role', 'appearance', 'mobile_nav_shortcuts', 'it_tech_access'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements PasskeyUser
 {
@@ -64,6 +65,7 @@ class User extends Authenticatable implements PasskeyUser
             'two_factor_confirmed_at' => 'datetime',
             'role' => Role::class,
             'appearance' => Appearance::class,
+            'mobile_nav_shortcuts' => 'array',
             'it_tech_access' => 'boolean',
         ];
     }

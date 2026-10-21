@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Settings\AppearanceController;
 use App\Http\Controllers\Settings\GeneralSettingsController;
+use App\Http\Controllers\Settings\MobileNavShortcutsController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use Illuminate\Auth\Middleware\RequirePassword;
@@ -39,6 +40,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('settings/appearance', [AppearanceController::class, 'edit'])->name('appearance.edit');
     Route::patch('settings/appearance', [AppearanceController::class, 'update'])->name('appearance.update');
+
+    Route::patch('settings/mobile-nav-shortcuts', [MobileNavShortcutsController::class, 'update'])
+        ->name('mobile-nav-shortcuts.update');
 });
 
 Route::get('.well-known/passkey-endpoints', function () {

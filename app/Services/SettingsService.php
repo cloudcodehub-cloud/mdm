@@ -17,6 +17,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SettingsService
 {
@@ -497,7 +498,7 @@ class SettingsService
         return $this->logoDataUriForPath($this->current()->horizontal_logo_path);
     }
 
-    public function streamLogo(string $variant = 'primary'): \Symfony\Component\HttpFoundation\StreamedResponse
+    public function streamLogo(string $variant = 'primary'): StreamedResponse
     {
         $path = $variant === 'horizontal'
             ? $this->current()->horizontal_logo_path
@@ -764,6 +765,17 @@ class SettingsService
     public function updateAppearance(User $user, Appearance $appearance): User
     {
         $user->appearance = $appearance;
+        $user->save();
+
+        return $user;
+    }
+
+    /**
+     * @param  list<string>  $shortcuts
+     */
+    public function updateMobileNavShortcuts(User $user, array $shortcuts): User
+    {
+        $user->mobile_nav_shortcuts = $shortcuts;
         $user->save();
 
         return $user;
