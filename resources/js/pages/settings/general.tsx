@@ -3,6 +3,7 @@ import GeneralSettingsController from '@/actions/App/Http/Controllers/Settings/G
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Field, controlClassName } from '@/components/mdm/directory';
+import { TimezoneSearchSelect } from '@/components/mdm/timezone-search-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -96,17 +97,6 @@ export default function General({
     timeFormatOptions,
     firstDayOfWeekOptions,
 }: Props) {
-    const groupedTimezones = timezoneOptions.reduce<Record<string, Option[]>>(
-        (groups, option) => {
-            const group = option.group ?? 'All timezones';
-            groups[group] ??= [];
-            groups[group].push(option);
-
-            return groups;
-        },
-        {},
-    );
-
     return (
         <>
             <Head title="General settings" />
@@ -432,27 +422,16 @@ export default function General({
                                     htmlFor="timezone"
                                     error={errors.timezone}
                                 >
-                                    <select
+                                    <TimezoneSearchSelect
                                         id="timezone"
                                         name="timezone"
                                         defaultValue={settings.timezone}
-                                        className={controlClassName}
-                                    >
-                                        {Object.entries(groupedTimezones).map(
-                                            ([group, options]) => (
-                                                <optgroup key={group} label={group}>
-                                                    {options.map((option) => (
-                                                        <option
-                                                            key={String(option.value)}
-                                                            value={option.value}
-                                                        >
-                                                            {option.label}
-                                                        </option>
-                                                    ))}
-                                                </optgroup>
-                                            ),
-                                        )}
-                                    </select>
+                                        options={timezoneOptions.map((option) => ({
+                                            value: String(option.value),
+                                            label: option.label,
+                                            group: option.group,
+                                        }))}
+                                    />
                                 </Field>
 
                                 <Field
