@@ -12,6 +12,7 @@ enum ReportType: string
     case Compliance = 'compliance';
     case Exceptions = 'exceptions';
     case PayrollHours = 'payroll-hours';
+    case StaffingScheduleCoverage = 'staffing-schedule-coverage';
 
     public function title(): string
     {
@@ -24,6 +25,7 @@ enum ReportType: string
             self::Compliance => 'Compliance',
             self::Exceptions => 'Exceptions',
             self::PayrollHours => 'Payroll Hours',
+            self::StaffingScheduleCoverage => 'Staffing / Schedule Coverage',
         };
     }
 
@@ -38,6 +40,7 @@ enum ReportType: string
             self::Compliance => 'Workforce credential and training compliance status.',
             self::Exceptions => 'Visit exceptions on the permitted caseload.',
             self::PayrollHours => 'Hours-only payroll totals from completed visits and effective attendance.',
+            self::StaffingScheduleCoverage => 'Staffing Needed gaps, assigned coverage, and operational schedule status from MDM 04 scheduling records.',
         };
     }
 

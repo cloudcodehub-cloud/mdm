@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\AttendanceStatus;
 use App\Enums\ComplianceDateStatus;
 use App\Enums\ReportType;
+use App\Enums\ScheduledVisitStatus;
 use App\Enums\VisitExceptionStatus;
 use App\Enums\VisitStatus;
 use App\Enums\VisitTaskStatus;
@@ -164,6 +165,157 @@ class ReportService
             ReportType::Compliance => $this->compliance($user, $filters),
             ReportType::Exceptions => $this->exceptions($user, $filters),
             ReportType::PayrollHours => $this->payrollHours($user, $filters),
+            ReportType::StaffingScheduleCoverage => $this->staffingScheduleCoverage($user, $filters),
+        };
+    }
+
+    /**
+     * MDM 10 Decision 10-07 §O — Staffing / Schedule Coverage from MDM 04 records.
+     *
+     * @param  array{from: string, to: string, employee_id: string, client_id: string, supervisor_id: string, status: string}  $filters
+     * @return array{columns: list<array{key: string, label: string}>, rows: list<array<string, mixed>>, summary: null}
+     */
+    private function staffingScheduleCoverage(User $user, array $filters): array
+    {
+        $from = $filters['from'] !== '' ? $filters['from'] : $this->settings->today();
+        $to = $filters['to'] !== '' ? $filters['to'] : $from;
+        $coverageFilter = $filters['status'];
+
+        $visits = ScheduledVisit::query()
+            ->visibleTo($user)
+            ->with([
+                'client:id,first_name,last_name',
+                'employee:id,first_name,last_name,supervisor_id',
+                'employee.supervisor:id,first_name,last_name',
+                'releasedEmployee:id,first_name,last_name',
+                'supervisor:id,first_name,last_name',
+            ])
+            ->whereDate('service_date', '>=', $from)
+            ->whereDate('service_date', '<=', $to)
+            ->when(
+                $filters['employee_id'] !== '' && ctype_digit($filters['employee_id']),
+                fn (Builder $query) => $query->where(function (Builder $builder) use ($filters): void {
+                    $employeeId = (int) $filters['employee_id'];
+                    $builder->where('employee_id', $employeeId)
+                        ->orWhere('released_employee_id', $employeeId);
+                }),
+            )
+            ->when(
+                $filters['client_id'] !== '' && ctype_digit($filters['client_id']),
+                fn (Builder $query) => $query->where('client_id', (int) $filters['client_id']),
+            )
+            ->when(
+                $user->isAdmin() && $filters['supervisor_id'] !== '' && ctype_digit($filters['supervisor_id']),
+                function (Builder $query) use ($filters): void {
+                    $supervisorId = (int) $filters['supervisor_id'];
+                    $query->where(function (Builder $builder) use ($supervisorId): void {
+                        $builder->where('supervisor_id', $supervisorId)
+                            ->orWhereHas(
+                                'employee',
+                                fn (Builder $employee): Builder => $employee->where('supervisor_id', $supervisorId),
+                            );
+                    });
+                },
+            )
+            ->orderBy('service_date')
+            ->orderBy('starts_at')
+            ->orderBy('id')
+            ->get();
+
+        $rows = [];
+
+        foreach ($visits as $scheduled) {
+            $coverage = $this->coverageClassification($scheduled);
+
+            if ($coverageFilter === 'assigned' && $coverage['key'] !== 'assigned') {
+                continue;
+            }
+            if ($coverageFilter === 'unresolved' && $coverage['key'] !== 'unresolved') {
+                continue;
+            }
+            if ($coverageFilter === 'staffing_needed' && ! $coverage['is_staffing_needed']) {
+                continue;
+            }
+
+            $compliance = $scheduled->complianceStaffingStatus();
+
+            $rows[] = [
+                'service_date' => $scheduled->service_date->toDateString(),
+                'scheduled_time' => DirectoryPresenter::visitTimeLabel($scheduled),
+                'client' => $scheduled->client?->full_name,
+                'employee' => $scheduled->employee?->full_name
+                    ?? ($scheduled->isStaffingNeeded() ? 'Staffing Needed' : 'Unassigned'),
+                'previous_dsp' => $scheduled->releasedEmployee?->full_name,
+                'supervisor' => $this->supervisorName($scheduled),
+                'service_type' => $scheduled->service_type,
+                'schedule_status' => $scheduled->status->value,
+                'schedule_status_label' => $this->scheduleStatusLabel($scheduled->status),
+                'coverage' => $coverage['key'],
+                'coverage_label' => $coverage['label'],
+                'compliance_staffing' => $compliance?->label(),
+                'attention_reason' => $scheduled->attention_reason,
+            ];
+        }
+
+        return [
+            'columns' => [
+                ['key' => 'service_date', 'label' => 'Service Date'],
+                ['key' => 'scheduled_time', 'label' => 'Scheduled'],
+                ['key' => 'client', 'label' => 'Client'],
+                ['key' => 'employee', 'label' => 'Assigned DSP'],
+                ['key' => 'previous_dsp', 'label' => 'Previous DSP'],
+                ['key' => 'supervisor', 'label' => 'Supervisor'],
+                ['key' => 'service_type', 'label' => 'Service'],
+                ['key' => 'schedule_status_label', 'label' => 'Schedule Status'],
+                ['key' => 'coverage_label', 'label' => 'Coverage'],
+                ['key' => 'compliance_staffing', 'label' => 'Compliance Staffing'],
+                ['key' => 'attention_reason', 'label' => 'Attention Reason'],
+            ],
+            'rows' => $rows,
+            'summary' => null,
+        ];
+    }
+
+    /**
+     * @return array{key: string, label: string, is_staffing_needed: bool}
+     */
+    private function coverageClassification(ScheduledVisit $scheduled): array
+    {
+        if ($scheduled->isStaffingNeeded()) {
+            $open = in_array($scheduled->status, [
+                ScheduledVisitStatus::Scheduled,
+                ScheduledVisitStatus::InProgress,
+            ], true);
+
+            if ($open) {
+                return [
+                    'key' => 'unresolved',
+                    'label' => 'Unresolved Staffing Needed',
+                    'is_staffing_needed' => true,
+                ];
+            }
+
+            return [
+                'key' => 'staffing_needed',
+                'label' => 'Staffing Needed',
+                'is_staffing_needed' => true,
+            ];
+        }
+
+        return [
+            'key' => 'assigned',
+            'label' => 'Assigned',
+            'is_staffing_needed' => false,
+        ];
+    }
+
+    private function scheduleStatusLabel(ScheduledVisitStatus $status): string
+    {
+        return match ($status) {
+            ScheduledVisitStatus::Scheduled => 'Scheduled',
+            ScheduledVisitStatus::InProgress => 'In Progress',
+            ScheduledVisitStatus::Cancelled => 'Cancelled',
+            ScheduledVisitStatus::Completed => 'Completed',
         };
     }
 
@@ -683,6 +835,11 @@ class ReportService
             ReportType::CredentialTrainingExpiration, ReportType::Compliance => $this->enumOptions(ComplianceDateStatus::cases()),
             ReportType::Exceptions => $this->enumOptions(VisitExceptionStatus::cases()),
             ReportType::PayrollHours => [],
+            ReportType::StaffingScheduleCoverage => [
+                ['value' => 'unresolved', 'label' => 'Unresolved Staffing Needed'],
+                ['value' => 'staffing_needed', 'label' => 'Staffing Needed'],
+                ['value' => 'assigned', 'label' => 'Assigned'],
+            ],
         };
     }
 
