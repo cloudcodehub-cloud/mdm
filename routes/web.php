@@ -319,6 +319,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('conversations.participants.destroy');
     Route::post('messages/{conversation}/leave', [MessageController::class, 'leave'])
         ->name('conversations.leave');
+    Route::post('messages/{conversation}/archive', [MessageController::class, 'archive'])
+        ->name('conversations.archive');
+    Route::post('messages/{conversation}/restore', [MessageController::class, 'restore'])
+        ->name('conversations.restore');
+    Route::post('messages/{conversation}/mute', [MessageController::class, 'mute'])
+        ->name('conversations.mute');
+    Route::post('messages/{conversation}/unmute', [MessageController::class, 'unmute'])
+        ->name('conversations.unmute');
     Route::get('conversation-attachments/{conversation_message_attachment}', [ConversationAttachmentController::class, 'show'])
         ->name('conversation-attachments.show');
 
@@ -355,7 +363,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('inbox/activity', [NotificationController::class, 'activity'])->name('inbox.activity');
     Route::post('notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::post('notifications/hide-all', [NotificationController::class, 'hideAll'])->name('notifications.hide-all');
     Route::post('notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
+    Route::post('notifications/{notification}/hide', [NotificationController::class, 'hide'])->name('notifications.hide');
 });
 
 require __DIR__.'/settings.php';

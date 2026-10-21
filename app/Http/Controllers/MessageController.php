@@ -30,8 +30,9 @@ class MessageController extends Controller
         $this->authorize('viewAny', Conversation::class);
 
         $search = $request->string('search')->trim()->value();
+        $mailbox = $this->mailbox($request);
 
-        return Inertia::render('messages/index', $this->pageProps($user, null, [], $search));
+        return Inertia::render('messages/index', $this->pageProps($user, null, [], $search, $mailbox));
     }
 
     public function show(Request $request, Conversation $conversation): Response
@@ -51,10 +52,59 @@ class MessageController extends Controller
         }
 
         $search = $request->string('search')->trim()->value();
+        $mailbox = $this->mailbox($request);
         $detail = $this->messaging->serializeConversation($conversation, $user, $adminReview);
         $detail['first_unread_id'] = $firstUnreadId;
 
-        return Inertia::render('messages/index', $this->pageProps($user, $detail, $messages, $search));
+        return Inertia::render('messages/index', $this->pageProps($user, $detail, $messages, $search, $mailbox));
+    }
+
+    public function archive(Request $request, Conversation $conversation): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+        $this->authorize('archive', $conversation);
+
+        $this->messaging->archiveFor($user, $conversation);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Conversation archived.')]);
+
+        return redirect()->route('messages.index');
+    }
+
+    public function restore(Request $request, Conversation $conversation): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+        $this->authorize('archive', $conversation);
+
+        $this->messaging->restoreFor($user, $conversation);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Conversation restored to inbox.')]);
+
+        return redirect()->route('messages.show', $conversation);
+    }
+
+    public function mute(Request $request, Conversation $conversation): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+        $this->authorize('mute', $conversation);
+
+        $this->messaging->muteFor($user, $conversation);
+
+        return back()->with('success', 'Conversation muted.');
+    }
+
+    public function unmute(Request $request, Conversation $conversation): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+        $this->authorize('mute', $conversation);
+
+        $this->messaging->unmuteFor($user, $conversation);
+
+        return back()->with('success', 'Conversation unmuted.');
     }
 
     public function store(StoreConversationRequest $request): RedirectResponse
@@ -214,10 +264,15 @@ class MessageController extends Controller
      * @param  list<array<string, mixed>>  $messages
      * @return array<string, mixed>
      */
-    private function pageProps(User $user, ?array $conversation, array $messages, string $search): array
-    {
+    private function pageProps(
+        User $user,
+        ?array $conversation,
+        array $messages,
+        string $search,
+        string $mailbox = 'inbox',
+    ): array {
         return [
-            'conversations' => $this->messaging->conversationSummaries($user),
+            'conversations' => $this->messaging->conversationSummaries($user, $mailbox),
             'conversation' => $conversation,
             'messages' => $messages,
             'recipients' => $this->messaging->searchableUsers($user, $search !== '' ? $search : null)
@@ -226,6 +281,7 @@ class MessageController extends Controller
                 ->all(),
             'filters' => [
                 'search' => $search,
+                'mailbox' => $mailbox,
             ],
             'privacy_notice' => MessagingService::AGENCY_MESSAGING_NOTICE,
             'can' => [
@@ -234,5 +290,10 @@ class MessageController extends Controller
                 'create_group' => $user->can('create', Conversation::class),
             ],
         ];
+    }
+
+    private function mailbox(Request $request): string
+    {
+        return $request->string('mailbox')->toString() === 'archived' ? 'archived' : 'inbox';
     }
 }

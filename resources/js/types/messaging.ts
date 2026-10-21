@@ -15,6 +15,8 @@ export type ConversationSummary = {
     other_user: MessagingUser | null;
     participant_count?: number;
     is_active_participant?: boolean;
+    is_archived?: boolean;
+    is_muted?: boolean;
     latest_message: string | null;
     latest_at: string | null;
     unread_count: number;
@@ -29,6 +31,8 @@ export type ConversationDetail = {
     created_by_user_id?: number | null;
     can_manage?: boolean;
     is_active_participant?: boolean;
+    is_archived?: boolean;
+    is_muted?: boolean;
     admin_review?: boolean;
     first_unread_id?: number | null;
 };

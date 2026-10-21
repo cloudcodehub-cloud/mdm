@@ -61,8 +61,28 @@ class Conversation extends Model
     public function participants(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'conversation_participants')
-            ->withPivot(['last_read_at', 'joined_at', 'left_at'])
+            ->withPivot(['last_read_at', 'joined_at', 'left_at', 'archived_at', 'muted_at'])
             ->withTimestamps();
+    }
+
+    public function isArchivedFor(User $user): bool
+    {
+        $pivot = $this->participants()
+            ->where('users.id', $user->id)
+            ->whereNull('conversation_participants.left_at')
+            ->first()?->pivot;
+
+        return $pivot !== null && $pivot->archived_at !== null;
+    }
+
+    public function isMutedFor(User $user): bool
+    {
+        $pivot = $this->participants()
+            ->where('users.id', $user->id)
+            ->whereNull('conversation_participants.left_at')
+            ->first()?->pivot;
+
+        return $pivot !== null && $pivot->muted_at !== null;
     }
 
     /**

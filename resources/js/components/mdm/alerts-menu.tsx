@@ -1,10 +1,10 @@
 import { router } from '@inertiajs/react';
-import { Bell } from 'lucide-react';
+import { Bell, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useInboxActivity } from '@/hooks/use-inbox-activity';
 import { Button } from '@/components/ui/button';
-import { read, readAll } from '@/routes/notifications';
+import { hide, hideAll, read, readAll } from '@/routes/notifications';
 import { cn } from '@/lib/utils';
 
 export function AlertsMenu() {
@@ -97,26 +97,46 @@ export function AlertsMenu() {
                         className="surface-frosted fixed z-[80] w-80 overflow-hidden rounded-xl border p-1 shadow-lg"
                         style={{ top: coords.top, right: coords.right }}
                     >
-                        <div className="flex items-center justify-between px-2 py-1.5">
+                        <div className="flex items-center justify-between gap-2 px-2 py-1.5">
                             <p className="text-sm font-medium">Alerts</p>
-                            {unread > 0 && (
-                                <button
-                                    type="button"
-                                    className="text-muted-foreground hover:text-foreground text-xs font-medium"
-                                    onClick={() =>
-                                        router.post(
-                                            readAll.url(),
-                                            {},
-                                            {
-                                                preserveScroll: true,
-                                                onSuccess: () => void refresh(),
-                                            },
-                                        )
-                                    }
-                                >
-                                    Mark all read
-                                </button>
-                            )}
+                            <div className="flex items-center gap-2">
+                                {unread > 0 && (
+                                    <button
+                                        type="button"
+                                        className="text-muted-foreground hover:text-foreground text-xs font-medium"
+                                        onClick={() =>
+                                            router.post(
+                                                readAll.url(),
+                                                {},
+                                                {
+                                                    preserveScroll: true,
+                                                    onSuccess: () => void refresh(),
+                                                },
+                                            )
+                                        }
+                                    >
+                                        Mark all read
+                                    </button>
+                                )}
+                                {notifications.length > 0 && (
+                                    <button
+                                        type="button"
+                                        className="text-muted-foreground hover:text-foreground text-xs font-medium"
+                                        onClick={() =>
+                                            router.post(
+                                                hideAll.url(),
+                                                {},
+                                                {
+                                                    preserveScroll: true,
+                                                    onSuccess: () => void refresh(),
+                                                },
+                                            )
+                                        }
+                                    >
+                                        Clear
+                                    </button>
+                                )}
+                            </div>
                         </div>
                         <div className="max-h-80 overflow-y-auto">
                             {notifications.length === 0 ? (
@@ -125,36 +145,59 @@ export function AlertsMenu() {
                                 </p>
                             ) : (
                                 notifications.map((item) => (
-                                    <button
+                                    <div
                                         key={item.id}
-                                        type="button"
                                         className={cn(
-                                            'hover:bg-muted/50 flex w-full flex-col items-start gap-0.5 rounded-md px-2 py-2 text-left',
+                                            'hover:bg-muted/50 flex w-full items-start gap-1 rounded-md px-1 py-1',
                                             item.read_at === null &&
                                                 'bg-muted/40',
                                         )}
-                                        onClick={() => {
-                                            setOpen(false);
-                                            router.post(read.url(item.id));
-                                        }}
                                     >
-                                        <span className="flex w-full items-center justify-between gap-2">
-                                            <span className="text-sm font-medium">
-                                                {item.title}
+                                        <button
+                                            type="button"
+                                            className="flex min-w-0 flex-1 flex-col items-start gap-0.5 rounded-md px-1 py-1 text-left"
+                                            onClick={() => {
+                                                setOpen(false);
+                                                router.post(read.url(item.id));
+                                            }}
+                                        >
+                                            <span className="flex w-full items-center justify-between gap-2">
+                                                <span className="text-sm font-medium">
+                                                    {item.title}
+                                                </span>
+                                                {item.read_at === null && (
+                                                    <span className="bg-primary size-1.5 shrink-0 rounded-full" />
+                                                )}
                                             </span>
-                                            {item.read_at === null && (
-                                                <span className="bg-primary size-1.5 shrink-0 rounded-full" />
+                                            <span className="text-muted-foreground line-clamp-2 text-xs">
+                                                {item.body}
+                                            </span>
+                                            {item.created_at && (
+                                                <span className="text-muted-foreground text-[11px]">
+                                                    {item.created_at}
+                                                </span>
                                             )}
-                                        </span>
-                                        <span className="text-muted-foreground line-clamp-2 text-xs">
-                                            {item.body}
-                                        </span>
-                                        {item.created_at && (
-                                            <span className="text-muted-foreground text-[11px]">
-                                                {item.created_at}
-                                            </span>
-                                        )}
-                                    </button>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="text-muted-foreground hover:text-foreground mt-1 shrink-0 rounded p-1"
+                                            aria-label="Hide notification"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                router.post(
+                                                    hide.url(item.id),
+                                                    {},
+                                                    {
+                                                        preserveScroll: true,
+                                                        onSuccess: () =>
+                                                            void refresh(),
+                                                    },
+                                                );
+                                            }}
+                                        >
+                                            <X className="size-3.5" />
+                                        </button>
+                                    </div>
                                 ))
                             )}
                         </div>

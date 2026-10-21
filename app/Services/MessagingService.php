@@ -216,12 +216,73 @@ class MessagingService
                 'last_read_at' => now(),
             ]);
 
+            // MDM 09-25 — a new message returns archived threads to the active inbox
+            // for every active participant who had archived it (participant-specific).
+            DB::table('conversation_participants')
+                ->where('conversation_id', $conversation->id)
+                ->whereNull('left_at')
+                ->whereNotNull('archived_at')
+                ->update(['archived_at' => null]);
+
             return $message->load('attachments');
         });
 
         $this->notifyActiveParticipants($conversation, $actor, $message);
 
         return $message;
+    }
+
+    /**
+     * MDM 09-25 — archive/hide from this participant's inbox only.
+     */
+    public function archiveFor(User $user, Conversation $conversation): void
+    {
+        if (! $conversation->hasParticipant($user)) {
+            abort(403);
+        }
+
+        $conversation->participants()->updateExistingPivot($user->id, [
+            'archived_at' => now(),
+        ]);
+    }
+
+    /**
+     * MDM 09-25 — restore from Archived view into the active inbox.
+     */
+    public function restoreFor(User $user, Conversation $conversation): void
+    {
+        if (! $conversation->hasParticipant($user)) {
+            abort(403);
+        }
+
+        $conversation->participants()->updateExistingPivot($user->id, [
+            'archived_at' => null,
+        ]);
+    }
+
+    /**
+     * MDM 09-26 — mute ordinary message attention for this participant only.
+     */
+    public function muteFor(User $user, Conversation $conversation): void
+    {
+        if (! $conversation->hasParticipant($user)) {
+            abort(403);
+        }
+
+        $conversation->participants()->updateExistingPivot($user->id, [
+            'muted_at' => now(),
+        ]);
+    }
+
+    public function unmuteFor(User $user, Conversation $conversation): void
+    {
+        if (! $conversation->hasParticipant($user)) {
+            abort(403);
+        }
+
+        $conversation->participants()->updateExistingPivot($user->id, [
+            'muted_at' => null,
+        ]);
     }
 
     public function addParticipants(User $actor, Conversation $conversation, array $participantIds): Conversation
@@ -455,7 +516,8 @@ class MessagingService
             ->join('conversation_participants as cp', function ($join) use ($user): void {
                 $join->on('cp.conversation_id', '=', 'conversation_messages.conversation_id')
                     ->where('cp.user_id', '=', $user->id)
-                    ->whereNull('cp.left_at');
+                    ->whereNull('cp.left_at')
+                    ->whereNull('cp.archived_at');
             })
             ->where('conversation_messages.sender_id', '!=', $user->id)
             ->where('conversation_messages.message_type', ConversationMessageType::User->value)
@@ -467,13 +529,31 @@ class MessagingService
     }
 
     /**
+     * @param  'inbox'|'archived'  $mailbox
      * @return list<array<string, mixed>>
      */
-    public function conversationSummaries(User $user): array
+    public function conversationSummaries(User $user, string $mailbox = 'inbox'): array
     {
+        $mailbox = $mailbox === 'archived' ? 'archived' : 'inbox';
+
         $conversations = Conversation::query()
             ->visibleTo($user)
             ->with(['participants', 'messages' => fn ($query) => $query->latest('id')->limit(1)])
+            ->whereHas('participants', function ($query) use ($user, $mailbox): void {
+                $query->where('users.id', $user->id);
+
+                if ($mailbox === 'archived') {
+                    // Archive applies only to active memberships.
+                    $query->whereNull('conversation_participants.left_at')
+                        ->whereNotNull('conversation_participants.archived_at');
+                } else {
+                    // Inbox: active non-archived threads, plus former-participant history.
+                    $query->where(function ($inner): void {
+                        $inner->whereNotNull('conversation_participants.left_at')
+                            ->orWhereNull('conversation_participants.archived_at');
+                    });
+                }
+            })
             ->get()
             ->sortByDesc(function (Conversation $conversation): string {
                 $latest = $conversation->messages->first();
@@ -502,6 +582,9 @@ class MessagingService
             $other = $conversation->otherParticipant($user);
             $latest = $conversation->messages->first();
             $active = $conversation->hasParticipant($user);
+            $pivot = $conversation->participants->first(
+                fn (User $participant): bool => $participant->id === $user->id,
+            )?->pivot;
 
             return [
                 'id' => $conversation->id,
@@ -514,6 +597,8 @@ class MessagingService
                     fn (User $participant): bool => $participant->pivot->left_at === null
                 )->count(),
                 'is_active_participant' => $active,
+                'is_archived' => $pivot?->archived_at !== null,
+                'is_muted' => $pivot?->muted_at !== null,
                 'latest_message' => $latest === null ? null : $this->preview($latest->body),
                 'latest_at' => $latest?->created_at !== null
                     ? $this->settings->formatDateTime($latest->created_at)
@@ -548,6 +633,8 @@ class MessagingService
             'created_by_user_id' => $conversation->created_by_user_id,
             'can_manage' => $conversation->canManageMembership($viewer),
             'is_active_participant' => $conversation->hasParticipant($viewer),
+            'is_archived' => $conversation->isArchivedFor($viewer),
+            'is_muted' => $conversation->isMutedFor($viewer),
             'admin_review' => $adminReview,
             'first_unread_id' => $adminReview ? null : $this->firstUnreadMessageId($viewer, $conversation),
         ];
@@ -715,6 +802,11 @@ class MessagingService
             }
 
             if (! $participant->canMessage()) {
+                continue;
+            }
+
+            // MDM 09-26 — mute suppresses ordinary message attention only.
+            if ($participant->pivot->muted_at !== null) {
                 continue;
             }
 

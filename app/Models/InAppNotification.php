@@ -20,11 +20,13 @@ use Illuminate\Support\Carbon;
  * @property string|null $url
  * @property string $source_key
  * @property Carbon|null $read_at
+ * @property Carbon|null $hidden_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read User $user
  *
  * @method static Builder<static> unread()
+ * @method static Builder<static> visible()
  */
 #[Fillable([
     'user_id',
@@ -34,6 +36,7 @@ use Illuminate\Support\Carbon;
     'url',
     'source_key',
     'read_at',
+    'hidden_at',
 ])]
 class InAppNotification extends Model
 {
@@ -48,6 +51,7 @@ class InAppNotification extends Model
         return [
             'type' => InAppNotificationType::class,
             'read_at' => 'datetime',
+            'hidden_at' => 'datetime',
         ];
     }
 
@@ -69,11 +73,32 @@ class InAppNotification extends Model
     }
 
     /**
+     * MDM 09-14 — presentation-only hide from the user's current Notification Center view.
+     */
+    public function hide(): void
+    {
+        if ($this->hidden_at !== null) {
+            return;
+        }
+
+        $this->forceFill(['hidden_at' => now()])->save();
+    }
+
+    /**
      * @param  Builder<static>  $query
      * @return Builder<static>
      */
     public function scopeUnread(Builder $query): Builder
     {
-        return $query->whereNull('read_at');
+        return $query->whereNull('read_at')->whereNull('hidden_at');
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeVisible(Builder $query): Builder
+    {
+        return $query->whereNull('hidden_at');
     }
 }

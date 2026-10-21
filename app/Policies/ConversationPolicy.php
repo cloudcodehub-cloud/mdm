@@ -49,6 +49,16 @@ class ConversationPolicy
         return $conversation->isGroup() && $conversation->hasParticipant($user);
     }
 
+    public function archive(User $user, Conversation $conversation): bool
+    {
+        return $user->canMessage() && $conversation->hasParticipant($user);
+    }
+
+    public function mute(User $user, Conversation $conversation): bool
+    {
+        return $user->canMessage() && $conversation->hasParticipant($user);
+    }
+
     public function review(User $user, Conversation $conversation): bool
     {
         return $user->isAdmin();

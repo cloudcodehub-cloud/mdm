@@ -35,6 +35,7 @@ export default function MessagesIndex({
     conversation,
     messages,
     recipients,
+    filters,
     privacy_notice,
     can,
 }: {
@@ -42,12 +43,13 @@ export default function MessagesIndex({
     conversation: ConversationDetail | null;
     messages: ChatMessage[];
     recipients: MessagingUser[];
-    filters: { search: string };
+    filters: { search: string; mailbox?: 'inbox' | 'archived' };
     privacy_notice: string;
     can: { announce: boolean; admin_review: boolean; create_group: boolean };
 }) {
     const [composerOpen, setComposerOpen] = useState(false);
     const [groupOpen, setGroupOpen] = useState(false);
+    const mailbox = filters.mailbox === 'archived' ? 'archived' : 'inbox';
 
     return (
         <>
@@ -96,8 +98,38 @@ export default function MessagesIndex({
 
                 <div className="grid min-h-[28rem] gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
                     <Panel title="Conversations">
+                        <div className="mb-3 flex gap-1">
+                            <Button
+                                size="sm"
+                                variant={mailbox === 'inbox' ? 'default' : 'secondary'}
+                                asChild
+                            >
+                                <Link href={messagesIndex.url()}>Inbox</Link>
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant={
+                                    mailbox === 'archived' ? 'default' : 'secondary'
+                                }
+                                asChild
+                            >
+                                <Link
+                                    href={messagesIndex.url({
+                                        query: { mailbox: 'archived' },
+                                    })}
+                                >
+                                    Archived
+                                </Link>
+                            </Button>
+                        </div>
                         {conversations.length === 0 ? (
-                            <EmptyState message="No conversations yet. Start a direct message or private group." />
+                            <EmptyState
+                                message={
+                                    mailbox === 'archived'
+                                        ? 'No archived conversations.'
+                                        : 'No conversations yet. Start a direct message or private group.'
+                                }
+                            />
                         ) : (
                             <ul className="space-y-1">
                                 {conversations.map((item) => {
@@ -106,7 +138,12 @@ export default function MessagesIndex({
                                     return (
                                         <li key={item.id}>
                                             <Link
-                                                href={messagesShow(item.id)}
+                                                href={messagesShow.url(item.id, {
+                                                    query:
+                                                        mailbox === 'archived'
+                                                            ? { mailbox: 'archived' }
+                                                            : {},
+                                                })}
                                                 className={cn(
                                                     'block rounded-lg border border-transparent px-2.5 py-2 transition-colors duration-150',
                                                     active
@@ -131,6 +168,11 @@ export default function MessagesIndex({
                                                         {item.type === 'group' ? (
                                                             <span className="text-muted-foreground ml-1 text-[11px] font-normal">
                                                                 · group
+                                                            </span>
+                                                        ) : null}
+                                                        {item.is_muted ? (
+                                                            <span className="text-muted-foreground ml-1 text-[11px] font-normal">
+                                                                · muted
                                                             </span>
                                                         ) : null}
                                                     </p>
@@ -164,18 +206,27 @@ export default function MessagesIndex({
 
                     <section className="surface-panel flex min-h-[28rem] flex-col overflow-hidden p-0">
                         <div className="border-b px-4 py-3">
-                            <h2 className="text-sm font-semibold tracking-tight">
-                                {conversation?.name ?? 'Select a conversation'}
-                            </h2>
-                            <p className="text-muted-foreground text-xs">
-                                {conversation?.admin_review
-                                    ? 'Exceptional Admin review mode'
-                                    : conversation?.type === 'group'
-                                      ? `${conversation.participants?.length ?? 0} participants`
-                                      : conversation?.other_user
-                                        ? conversation.other_user.role
-                                        : 'Choose someone from the list or start a new conversation.'}
-                            </p>
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                                <div>
+                                    <h2 className="text-sm font-semibold tracking-tight">
+                                        {conversation?.name ??
+                                            'Select a conversation'}
+                                    </h2>
+                                    <p className="text-muted-foreground text-xs">
+                                        {conversation?.admin_review
+                                            ? 'Exceptional Admin review mode'
+                                            : conversation?.type === 'group'
+                                              ? `${conversation.participants?.length ?? 0} participants`
+                                              : conversation?.other_user
+                                                ? conversation.other_user.role
+                                                : 'Choose someone from the list or start a new conversation.'}
+                                    </p>
+                                </div>
+                                {conversation?.is_active_participant &&
+                                !conversation.admin_review ? (
+                                    <ConversationControls conversation={conversation} />
+                                ) : null}
+                            </div>
                         </div>
                         {conversation ? (
                             <Thread
@@ -203,6 +254,59 @@ export default function MessagesIndex({
                 recipients={recipients}
             />
         </>
+    );
+}
+
+function ConversationControls({
+    conversation,
+}: {
+    conversation: ConversationDetail;
+}) {
+    return (
+        <div className="flex flex-wrap gap-1.5">
+            {conversation.is_archived ? (
+                <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() =>
+                        router.post(`/messages/${conversation.id}/restore`)
+                    }
+                >
+                    Restore
+                </Button>
+            ) : (
+                <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() =>
+                        router.post(`/messages/${conversation.id}/archive`)
+                    }
+                >
+                    Archive
+                </Button>
+            )}
+            {conversation.is_muted ? (
+                <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() =>
+                        router.post(`/messages/${conversation.id}/unmute`)
+                    }
+                >
+                    Unmute
+                </Button>
+            ) : (
+                <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() =>
+                        router.post(`/messages/${conversation.id}/mute`)
+                    }
+                >
+                    Mute
+                </Button>
+            )}
+        </div>
     );
 }
 

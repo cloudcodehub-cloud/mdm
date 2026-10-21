@@ -73,4 +73,28 @@ class NotificationController extends Controller
 
         return back();
     }
+
+    public function hide(
+        Request $request,
+        InAppNotification $notification,
+        InAppNotificationService $notifications,
+    ): RedirectResponse {
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+        $this->authorize('update', $notification);
+
+        $notifications->hide($notification);
+
+        return back();
+    }
+
+    public function hideAll(Request $request, InAppNotificationService $notifications): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+
+        $notifications->hideAllVisible($user);
+
+        return back();
+    }
 }

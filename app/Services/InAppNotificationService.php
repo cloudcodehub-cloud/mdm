@@ -40,7 +40,8 @@ class InAppNotificationService
     {
         InAppNotification::query()
             ->where('user_id', $user->id)
-            ->unread()
+            ->visible()
+            ->whereNull('read_at')
             ->update(['read_at' => now()]);
     }
 
@@ -49,8 +50,29 @@ class InAppNotificationService
         InAppNotification::query()
             ->where('user_id', $user->id)
             ->where('url', $url)
-            ->unread()
+            ->visible()
+            ->whereNull('read_at')
             ->update(['read_at' => now()]);
+    }
+
+    /**
+     * MDM 09-14 — hide from personal Notification Center only; record remains.
+     */
+    public function hide(InAppNotification $notification): void
+    {
+        $notification->hide();
+    }
+
+    /**
+     * Clear all currently visible personal notifications from the Notification Center view.
+     */
+    public function hideAllVisible(User $user): void
+    {
+        InAppNotification::query()
+            ->where('user_id', $user->id)
+            ->visible()
+            ->whereNull('hidden_at')
+            ->update(['hidden_at' => now()]);
     }
 
     /**
@@ -61,6 +83,7 @@ class InAppNotificationService
         return $this->values(
             InAppNotification::query()
                 ->where('user_id', $user->id)
+                ->visible()
                 ->orderByRaw('case when read_at is null then 0 else 1 end')
                 ->orderByDesc('created_at')
                 ->limit($limit)
