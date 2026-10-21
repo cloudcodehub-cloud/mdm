@@ -1,6 +1,10 @@
 import { Form, Head, Link, useForm } from '@inertiajs/react';
 import { Pagination, StatusBadge, controlClassName } from '@/components/mdm/directory';
 import { PrintPdfAction } from '@/components/mdm/print-pdf-action';
+import {
+    OpsRecordCard,
+    ResponsiveOpsList,
+} from '@/components/mdm/responsive-ops-list';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -71,9 +75,9 @@ export default function ReportShow({
     return (
         <>
             <Head title={report.title} />
-            <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
+            <div className="page-shell">
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+                    <div className="min-w-0">
                         <p className="text-muted-foreground text-sm">
                             <Link
                                 href={reportsIndex()}
@@ -82,19 +86,23 @@ export default function ReportShow({
                                 Reports
                             </Link>
                         </p>
-                        <h1 className="text-xl font-semibold tracking-tight">
+                        <h1 className="text-xl font-semibold tracking-tight break-words">
                             {report.title}
                         </h1>
-                        <p className="text-muted-foreground text-sm">
+                        <p className="text-muted-foreground text-sm break-words">
                             {report.description} Times use {timezone}.
                         </p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
                         {can.hours_pdf && hours_pdf_url && (
                             <PrintPdfAction href={hours_pdf_url} />
                         )}
                         {can.export && (
-                            <Button asChild variant="secondary">
+                            <Button
+                                asChild
+                                variant="secondary"
+                                className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                            >
                                 <a href={exportUrl}>Export CSV</a>
                             </Button>
                         )}
@@ -105,7 +113,7 @@ export default function ReportShow({
                     <Form
                         action={showReport.url(report.key)}
                         method="get"
-                        className="grid gap-3 md:grid-cols-3 xl:grid-cols-7"
+                        className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-7"
                     >
                         {filter_visibility.dates && (
                             <>
@@ -192,10 +200,19 @@ export default function ReportShow({
                                 ))}
                             </select>
                         )}
-                        <Button type="submit" variant="secondary">
+                        <Button
+                            type="submit"
+                            variant="secondary"
+                            className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                        >
                             Apply
                         </Button>
-                        <Button type="button" variant="ghost" asChild>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                            asChild
+                        >
                             <Link href={showReport.url(report.key)}>Reset</Link>
                         </Button>
                     </Form>
@@ -247,55 +264,113 @@ export default function ReportShow({
                         <EmptyState message="No records match these filters." />
                     ) : (
                         <>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm">
-                                    <thead className="text-muted-foreground text-xs uppercase">
-                                        <tr>
-                                            {columns.map((column) => (
-                                                <th
-                                                    key={column.key}
-                                                    className="pb-2 font-medium"
-                                                >
-                                                    {column.label}
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {rows.data.map((row, index) => (
-                                            <tr
-                                                key={index}
-                                                className="border-t"
-                                            >
-                                                {columns.map((column) => (
-                                                    <td
-                                                        key={column.key}
-                                                        className="py-3"
-                                                    >
-                                                        {column.key ===
-                                                            'status_label' &&
-                                                        typeof row.status ===
-                                                            'string' ? (
-                                                            <StatusBadge
-                                                                status={
-                                                                    row.status
-                                                                }
-                                                                label={String(
-                                                                    row.status_label ??
-                                                                        '',
-                                                                )}
-                                                            />
-                                                        ) : (
-                                                            (row[column.key] ??
-                                                                '—')
+                            <ResponsiveOpsList
+                                cards={rows.data.map((row, index) => {
+                                    const primary = columns[0];
+                                    const title = primary
+                                        ? String(
+                                              row[primary.key] ??
+                                                  `Row ${index + 1}`,
+                                          )
+                                        : `Row ${index + 1}`;
+                                    const statusColumn = columns.find(
+                                        (column) =>
+                                            column.key === 'status_label',
+                                    );
+
+                                    return (
+                                        <OpsRecordCard
+                                            key={`card-${index}`}
+                                            title={title}
+                                            status={
+                                                statusColumn &&
+                                                typeof row.status ===
+                                                    'string' ? (
+                                                    <StatusBadge
+                                                        status={row.status}
+                                                        label={String(
+                                                            row.status_label ??
+                                                                '',
                                                         )}
-                                                    </td>
+                                                    />
+                                                ) : undefined
+                                            }
+                                            meta={
+                                                <>
+                                                    {columns
+                                                        .slice(1)
+                                                        .filter(
+                                                            (column) =>
+                                                                column.key !==
+                                                                'status_label',
+                                                        )
+                                                        .map((column) => (
+                                                            <p key={column.key}>
+                                                                {column.label}:{' '}
+                                                                {String(
+                                                                    row[
+                                                                        column
+                                                                            .key
+                                                                    ] ?? '—',
+                                                                )}
+                                                            </p>
+                                                        ))}
+                                                </>
+                                            }
+                                        />
+                                    );
+                                })}
+                                table={
+                                    <table className="w-full min-w-[44rem] text-left text-sm">
+                                        <thead className="text-muted-foreground text-xs uppercase">
+                                            <tr>
+                                                {columns.map((column) => (
+                                                    <th
+                                                        key={column.key}
+                                                        className="pb-2 font-medium"
+                                                    >
+                                                        {column.label}
+                                                    </th>
                                                 ))}
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                        </thead>
+                                        <tbody>
+                                            {rows.data.map((row, index) => (
+                                                <tr
+                                                    key={index}
+                                                    className="border-t"
+                                                >
+                                                    {columns.map((column) => (
+                                                        <td
+                                                            key={column.key}
+                                                            className="py-3"
+                                                        >
+                                                            {column.key ===
+                                                                'status_label' &&
+                                                            typeof row.status ===
+                                                                'string' ? (
+                                                                <StatusBadge
+                                                                    status={
+                                                                        row.status
+                                                                    }
+                                                                    label={String(
+                                                                        row.status_label ??
+                                                                            '',
+                                                                    )}
+                                                                />
+                                                            ) : (
+                                                                (row[
+                                                                    column.key
+                                                                ] ?? '—')
+                                                            )}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                }
+                            />
                             <Pagination meta={rows.meta} links={rows.links} />
                         </>
                     )}

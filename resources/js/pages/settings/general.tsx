@@ -103,7 +103,7 @@ export default function General({
 
             <h1 className="sr-only">General settings</h1>
 
-            <div className="space-y-6">
+            <div className="page-shell space-y-6">
                 <Heading
                     variant="small"
                     title="Agency settings"
@@ -328,6 +328,7 @@ export default function General({
                                         name="logo"
                                         type="file"
                                         accept="image/jpeg,image/png,image/webp"
+                                        className="min-h-11"
                                     />
                                     {settings.has_logo ? (
                                         <label className="text-muted-foreground flex items-center gap-2 text-sm">
@@ -362,6 +363,7 @@ export default function General({
                                         name="horizontal_logo"
                                         type="file"
                                         accept="image/jpeg,image/png,image/webp"
+                                        className="min-h-11"
                                     />
                                     {settings.has_horizontal_logo ? (
                                         <label className="text-muted-foreground flex items-center gap-2 text-sm">
@@ -683,8 +685,12 @@ export default function General({
                                 </section>
                             ) : null}
 
-                            <div className="flex items-center gap-4">
-                                <Button disabled={processing} type="submit">
+                            <div className="sticky-form-actions">
+                                <Button
+                                    disabled={processing}
+                                    type="submit"
+                                    className="min-h-11 w-full sm:w-auto"
+                                >
                                     Save
                                 </Button>
                             </div>
@@ -788,6 +794,7 @@ export default function General({
                                     scheduleMigrationPreview.migratable_count < 1
                                 }
                                 type="submit"
+                                className="min-h-11 w-full sm:w-auto"
                             >
                                 Migrate future schedules
                             </Button>

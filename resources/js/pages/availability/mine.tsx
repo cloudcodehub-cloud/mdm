@@ -94,12 +94,12 @@ export default function MyAvailability({
     return (
         <>
             <Head title="My Availability" />
-            <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
+            <div className="page-shell">
                 <div>
                     <h1 className="text-xl font-semibold tracking-tight">
                         My Availability
                     </h1>
-                    <p className="text-muted-foreground text-sm">
+                    <p className="text-muted-foreground text-sm break-words">
                         Approved hours stay in effect until a supervisor reviews
                         a change. Time off is separate from weekly availability.
                     </p>
@@ -253,7 +253,12 @@ export default function MyAvailability({
                         <Field label="Reason" htmlFor="reason">
                             <Input id="reason" name="reason" />
                         </Field>
-                        <Button type="submit">Submit weekly request</Button>
+                        <Button
+                            type="submit"
+                            className="min-h-11 w-full sm:w-auto"
+                        >
+                            Submit weekly request
+                        </Button>
                     </Form>
                 </Panel>
 
@@ -306,7 +311,12 @@ export default function MyAvailability({
                             <Input id="ex_note" name="reason" />
                         </Field>
                         <div className="md:col-span-2">
-                            <Button type="submit">Submit exception</Button>
+                            <Button
+                                type="submit"
+                                className="min-h-11 w-full sm:w-auto"
+                            >
+                                Submit exception
+                            </Button>
                         </div>
                     </Form>
                     {exceptions.length > 0 && (
@@ -353,7 +363,12 @@ export default function MyAvailability({
                             <Input id="to_reason" name="reason" />
                         </Field>
                         <div className="md:col-span-2">
-                            <Button type="submit">Request time off</Button>
+                            <Button
+                                type="submit"
+                                className="min-h-11 w-full sm:w-auto"
+                            >
+                                Request time off
+                            </Button>
                         </div>
                     </Form>
                     <ul className="mt-4 space-y-1 text-sm">

@@ -84,16 +84,16 @@ export default function SupportTicketsShow({
     return (
         <>
             <Head title={ticket.ticket_number} />
-            <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
+            <div className="page-shell">
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+                    <div className="min-w-0">
                         <BackLink href={ticketsIndex()}>
                             Back to Support Tickets
                         </BackLink>
-                        <h1 className="mt-2 text-xl font-semibold tracking-tight">
+                        <h1 className="mt-2 text-xl font-semibold tracking-tight break-words">
                             {ticket.ticket_number}
                         </h1>
-                        <p className="text-muted-foreground text-sm">
+                        <p className="text-muted-foreground text-sm break-words">
                             {ticket.subject}
                         </p>
                     </div>

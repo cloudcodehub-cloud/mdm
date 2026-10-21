@@ -1,6 +1,10 @@
 import { Form, Head, Link, router } from '@inertiajs/react';
 import { Pagination, StatusBadge, controlClassName } from '@/components/mdm/directory';
 import { ProfilePhoto } from '@/components/mdm/profile-photo';
+import {
+    OpsRecordCard,
+    ResponsiveOpsList,
+} from '@/components/mdm/responsive-ops-list';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,17 +33,20 @@ export default function EmployeesIndex({
         <>
             <Head title="Employees" />
             <div className="page-shell">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+                    <div className="min-w-0">
                         <h1 className="text-xl font-semibold tracking-tight">
                             Employees
                         </h1>
-                        <p className="text-muted-foreground text-sm">
+                        <p className="text-muted-foreground text-sm break-words">
                             Workforce profiles, employment status, and supervisor assignment.
                         </p>
                     </div>
                     {can.create && (
-                        <Button asChild>
+                        <Button
+                            asChild
+                            className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                        >
                             <Link href={create()}>Add Employee</Link>
                         </Button>
                     )}
@@ -79,10 +86,19 @@ export default function EmployeesIndex({
                             <option value="archive_pending">Archive Pending</option>
                             <option value="archived">Archived</option>
                         </select>
-                        <Button type="submit" variant="secondary">
+                        <Button
+                            type="submit"
+                            variant="secondary"
+                            className="min-h-11 w-full sm:w-auto"
+                        >
                             Apply
                         </Button>
-                        <Button type="button" variant="ghost" asChild>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className="min-h-11 w-full sm:w-auto"
+                            asChild
+                        >
                             <Link href={employeesIndex()}>Reset</Link>
                         </Button>
                     </Form>
@@ -93,59 +109,118 @@ export default function EmployeesIndex({
                         <EmptyState message="No employees match these filters." />
                     ) : (
                         <div className="space-y-3">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm">
-                                    <thead className="text-muted-foreground text-xs uppercase">
-                                        <tr>
-                                            <th className="pb-2 font-medium">Employee</th>
-                                            <th className="pb-2 font-medium">Role</th>
-                                            <th className="pb-2 font-medium">Supervisor</th>
-                                            <th className="pb-2 font-medium">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {employees.data.map((employee) => (
-                                            <tr
-                                                key={employee.id}
-                                                className="hover:bg-muted/40 cursor-pointer border-t"
-                                                onClick={() =>
-                                                    router.visit(show.url(employee.id))
+                            <ResponsiveOpsList
+                                cards={employees.data.map((employee) => (
+                                    <OpsRecordCard
+                                        key={`card-${employee.id}`}
+                                        title={employee.name}
+                                        subtitle={`${employee.employee_number}${employee.email ? ` · ${employee.email}` : ''}`}
+                                        status={
+                                            <StatusBadge
+                                                status={employee.employment_status}
+                                                label={
+                                                    employee.employment_status_label
                                                 }
-                                            >
-                                                <td className="py-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <ProfilePhoto
-                                                            name={employee.name}
-                                                            photoUrl={employee.photo_url}
-                                                            initials={employee.initials}
-                                                            size="sm"
-                                                        />
-                                                        <div>
-                                                            <p className="font-medium">{employee.name}</p>
-                                                            <p className="text-muted-foreground text-xs">
-                                                                {employee.employee_number}
-                                                                {employee.email ? ` · ${employee.email}` : ''}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="py-3">
-                                                    {employee.job_title ?? employee.job_type_label}
-                                                </td>
-                                                <td className="py-3">
-                                                    {employee.supervisor_name ?? 'Unassigned'}
-                                                </td>
-                                                <td className="py-3">
-                                                    <StatusBadge
-                                                        status={employee.employment_status}
-                                                        label={employee.employment_status_label}
-                                                    />
-                                                </td>
+                                            />
+                                        }
+                                        meta={
+                                            <>
+                                                <p>
+                                                    {employee.job_title ??
+                                                        employee.job_type_label}
+                                                </p>
+                                                <p>
+                                                    Supervisor:{' '}
+                                                    {employee.supervisor_name ??
+                                                        'Unassigned'}
+                                                </p>
+                                            </>
+                                        }
+                                        onClick={() =>
+                                            router.visit(show.url(employee.id))
+                                        }
+                                    />
+                                ))}
+                                table={
+                                    <table className="w-full min-w-[40rem] text-left text-sm">
+                                        <thead className="text-muted-foreground text-xs uppercase">
+                                            <tr>
+                                                <th className="pb-2 font-medium">
+                                                    Employee
+                                                </th>
+                                                <th className="pb-2 font-medium">
+                                                    Role
+                                                </th>
+                                                <th className="pb-2 font-medium">
+                                                    Supervisor
+                                                </th>
+                                                <th className="pb-2 font-medium">
+                                                    Status
+                                                </th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                        </thead>
+                                        <tbody>
+                                            {employees.data.map((employee) => (
+                                                <tr
+                                                    key={employee.id}
+                                                    className="hover:bg-muted/40 cursor-pointer border-t"
+                                                    onClick={() =>
+                                                        router.visit(
+                                                            show.url(employee.id),
+                                                        )
+                                                    }
+                                                >
+                                                    <td className="py-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <ProfilePhoto
+                                                                name={employee.name}
+                                                                photoUrl={
+                                                                    employee.photo_url
+                                                                }
+                                                                initials={
+                                                                    employee.initials
+                                                                }
+                                                                size="sm"
+                                                            />
+                                                            <div>
+                                                                <p className="font-medium">
+                                                                    {employee.name}
+                                                                </p>
+                                                                <p className="text-muted-foreground text-xs">
+                                                                    {
+                                                                        employee.employee_number
+                                                                    }
+                                                                    {employee.email
+                                                                        ? ` · ${employee.email}`
+                                                                        : ''}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-3">
+                                                        {employee.job_title ??
+                                                            employee.job_type_label}
+                                                    </td>
+                                                    <td className="py-3">
+                                                        {employee.supervisor_name ??
+                                                            'Unassigned'}
+                                                    </td>
+                                                    <td className="py-3">
+                                                        <StatusBadge
+                                                            status={
+                                                                employee.employment_status
+                                                            }
+                                                            label={
+                                                                employee.employment_status_label
+                                                            }
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                }
+                            />
                             <Pagination meta={employees.meta} links={employees.links} />
                         </div>
                     )}

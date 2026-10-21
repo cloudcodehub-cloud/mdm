@@ -15,13 +15,13 @@ export default function SupportTicketsCreate({
     return (
         <>
             <Head title="New support ticket" />
-            <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
+            <div className="page-shell">
                 <div>
                     <BackLink href={ticketsIndex()}>Back to Support Tickets</BackLink>
                     <h1 className="mt-2 text-xl font-semibold tracking-tight">
                         New support ticket
                     </h1>
-                    <p className="text-muted-foreground text-sm">
+                    <p className="text-muted-foreground text-sm break-words">
                         Submit for yourself only. Do not include passwords, OTP
                         codes, recovery codes, API keys, or tokens.
                     </p>
@@ -110,7 +110,11 @@ export default function SupportTicketsCreate({
 
                                 <label className="grid gap-1 text-sm">
                                     <span>Screenshot / file (optional)</span>
-                                    <Input type="file" name="attachment" />
+                                    <Input
+                                        type="file"
+                                        name="attachment"
+                                        className="min-h-11"
+                                    />
                                     {errors.attachment ? (
                                         <span className="text-destructive text-xs">
                                             {errors.attachment}
@@ -119,7 +123,11 @@ export default function SupportTicketsCreate({
                                 </label>
 
                                 <div className="flex gap-2">
-                                    <Button type="submit" disabled={processing}>
+                                    <Button
+                                        type="submit"
+                                        disabled={processing}
+                                        className="min-h-11 w-full sm:w-auto"
+                                    >
                                         Submit ticket
                                     </Button>
                                     <Button asChild variant="secondary">

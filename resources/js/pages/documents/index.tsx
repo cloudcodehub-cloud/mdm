@@ -4,6 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { controlClassName } from '@/components/mdm/directory';
+import {
+    OpsRecordCard,
+    ResponsiveOpsList,
+} from '@/components/mdm/responsive-ops-list';
 import { dashboard } from '@/routes';
 import { index as adminDocuments } from '@/routes/admin/documents';
 
@@ -49,6 +53,40 @@ type Props = {
     };
 };
 
+function DocumentActions({ row }: { row: DocumentRow }) {
+    return (
+        <div className="mt-2 flex flex-col gap-1.5 sm:mt-0">
+            {row.source_url ? (
+                <Link
+                    href={row.source_url}
+                    className="min-h-10 text-sm font-medium hover:underline sm:min-h-0"
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    Source
+                </Link>
+            ) : null}
+            {row.preview_url ? (
+                <Link
+                    href={row.preview_url}
+                    className="min-h-10 text-sm font-medium hover:underline sm:min-h-0"
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    Preview
+                </Link>
+            ) : null}
+            {row.download_url ? (
+                <a
+                    href={row.download_url}
+                    className="min-h-10 text-sm font-medium hover:underline sm:min-h-0"
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    Download
+                </a>
+            ) : null}
+        </div>
+    );
+}
+
 export default function AdminDocumentsIndex({
     documents,
     filters,
@@ -69,12 +107,12 @@ export default function AdminDocumentsIndex({
     return (
         <>
             <Head title="Documents" />
-            <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
+            <div className="page-shell">
                 <div>
                     <h1 className="text-xl font-semibold tracking-tight">
                         Documents
                     </h1>
-                    <p className="text-muted-foreground text-sm">
+                    <p className="text-muted-foreground text-sm break-words">
                         Admin discovery index over source-owned retained and
                         milestone documents. Ownership stays with the source
                         module. No generic uploads.
@@ -83,9 +121,9 @@ export default function AdminDocumentsIndex({
 
                 <form
                     onSubmit={submit}
-                    className="grid gap-3 md:grid-cols-3 lg:grid-cols-6"
+                    className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6"
                 >
-                    <div className="grid gap-1 md:col-span-2">
+                    <div className="grid gap-1 sm:col-span-2">
                         <Label htmlFor="search">Search</Label>
                         <Input
                             id="search"
@@ -93,6 +131,7 @@ export default function AdminDocumentsIndex({
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
                             placeholder="Title, employee, client…"
+                            className="min-h-11"
                         />
                     </div>
                     <div className="grid gap-1">
@@ -150,6 +189,7 @@ export default function AdminDocumentsIndex({
                             name="from"
                             type="date"
                             defaultValue={filters.from}
+                            className="min-h-11"
                         />
                     </div>
                     <div className="grid gap-1">
@@ -159,10 +199,16 @@ export default function AdminDocumentsIndex({
                             name="to"
                             type="date"
                             defaultValue={filters.to}
+                            className="min-h-11"
                         />
                     </div>
-                    <div className="flex items-end">
-                        <Button type="submit">Filter</Button>
+                    <div className="flex items-end sm:col-span-2 lg:col-span-1">
+                        <Button
+                            type="submit"
+                            className="min-h-11 w-full sm:w-auto"
+                        >
+                            Filter
+                        </Button>
                     </div>
                 </form>
 
@@ -170,99 +216,110 @@ export default function AdminDocumentsIndex({
                     {documents.total} document(s)
                 </p>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full min-w-[720px] text-left text-sm">
-                        <thead className="text-muted-foreground border-b text-xs">
-                            <tr>
-                                <th className="py-2 pr-3 font-medium">Document</th>
-                                <th className="py-2 pr-3 font-medium">Category</th>
-                                <th className="py-2 pr-3 font-medium">Origin</th>
-                                <th className="py-2 pr-3 font-medium">Source</th>
-                                <th className="py-2 pr-3 font-medium">Dated</th>
-                                <th className="py-2 font-medium">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {documents.data.length === 0 ? (
-                                <tr>
-                                    <td
-                                        colSpan={6}
-                                        className="text-muted-foreground py-6"
-                                    >
-                                        No indexed documents match these filters.
-                                    </td>
-                                </tr>
-                            ) : (
-                                documents.data.map((row) => (
-                                    <tr
-                                        key={row.key}
-                                        className="border-border border-b align-top"
-                                    >
-                                        <td className="py-3 pr-3">
-                                            <div className="font-medium">
-                                                {row.title}
-                                            </div>
-                                            {row.subtitle ? (
-                                                <div className="text-muted-foreground text-xs">
-                                                    {row.subtitle}
-                                                </div>
-                                            ) : null}
-                                            <div className="text-muted-foreground text-xs">
-                                                {[
-                                                    row.employee_name,
-                                                    row.client_name,
-                                                    row.status,
-                                                ]
-                                                    .filter(Boolean)
-                                                    .join(' · ')}
-                                            </div>
-                                        </td>
-                                        <td className="py-3 pr-3">
-                                            {row.category_label}
-                                        </td>
-                                        <td className="py-3 pr-3">
-                                            {row.origin_label}
-                                        </td>
-                                        <td className="py-3 pr-3">
+                {documents.data.length === 0 ? (
+                    <p className="text-muted-foreground py-6 text-sm">
+                        No indexed documents match these filters.
+                    </p>
+                ) : (
+                    <ResponsiveOpsList
+                        cards={documents.data.map((row) => (
+                            <OpsRecordCard
+                                key={`card-${row.key}`}
+                                title={row.title}
+                                subtitle={row.subtitle ?? undefined}
+                                meta={
+                                    <>
+                                        <p>
+                                            {row.category_label} ·{' '}
+                                            {row.origin_label} ·{' '}
                                             {row.source_area_label}
-                                        </td>
-                                        <td className="py-3 pr-3 whitespace-nowrap">
-                                            {row.dated_at_label}
-                                        </td>
-                                        <td className="py-3">
-                                            <div className="flex flex-col gap-1">
-                                                {row.source_url ? (
-                                                    <Link
-                                                        href={row.source_url}
-                                                        className="hover:underline"
-                                                    >
-                                                        Source
-                                                    </Link>
-                                                ) : null}
-                                                {row.preview_url ? (
-                                                    <Link
-                                                        href={row.preview_url}
-                                                        className="hover:underline"
-                                                    >
-                                                        Preview
-                                                    </Link>
-                                                ) : null}
-                                                {row.download_url ? (
-                                                    <a
-                                                        href={row.download_url}
-                                                        className="hover:underline"
-                                                    >
-                                                        Download
-                                                    </a>
-                                                ) : null}
-                                            </div>
-                                        </td>
+                                        </p>
+                                        <p>{row.dated_at_label}</p>
+                                        <p>
+                                            {[
+                                                row.employee_name,
+                                                row.client_name,
+                                                row.status,
+                                            ]
+                                                .filter(Boolean)
+                                                .join(' · ')}
+                                        </p>
+                                        <DocumentActions row={row} />
+                                    </>
+                                }
+                            />
+                        ))}
+                        table={
+                            <table className="w-full min-w-[44rem] text-left text-sm">
+                                <thead className="text-muted-foreground border-b text-xs">
+                                    <tr>
+                                        <th className="py-2 pr-3 font-medium">
+                                            Document
+                                        </th>
+                                        <th className="py-2 pr-3 font-medium">
+                                            Category
+                                        </th>
+                                        <th className="py-2 pr-3 font-medium">
+                                            Origin
+                                        </th>
+                                        <th className="py-2 pr-3 font-medium">
+                                            Source
+                                        </th>
+                                        <th className="py-2 pr-3 font-medium">
+                                            Dated
+                                        </th>
+                                        <th className="py-2 font-medium">
+                                            Actions
+                                        </th>
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                </thead>
+                                <tbody>
+                                    {documents.data.map((row) => (
+                                        <tr
+                                            key={row.key}
+                                            className="border-border border-b align-top"
+                                        >
+                                            <td className="py-3 pr-3">
+                                                <div className="font-medium break-words">
+                                                    {row.title}
+                                                </div>
+                                                {row.subtitle ? (
+                                                    <div className="text-muted-foreground text-xs break-words">
+                                                        {row.subtitle}
+                                                    </div>
+                                                ) : null}
+                                                <div className="text-muted-foreground text-xs break-words">
+                                                    {[
+                                                        row.employee_name,
+                                                        row.client_name,
+                                                        row.status,
+                                                    ]
+                                                        .filter(Boolean)
+                                                        .join(' · ')}
+                                                </div>
+                                            </td>
+                                            <td className="py-3 pr-3">
+                                                {row.category_label}
+                                            </td>
+                                            <td className="py-3 pr-3">
+                                                {row.origin_label}
+                                            </td>
+                                            <td className="py-3 pr-3">
+                                                {row.source_area_label}
+                                            </td>
+                                            <td className="py-3 pr-3 whitespace-nowrap">
+                                                {row.dated_at_label}
+                                            </td>
+                                            <td className="py-3">
+                                                <DocumentActions row={row} />
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        }
+                    />
+                )}
 
                 {documents.links.length > 3 ? (
                     <div className="flex flex-wrap gap-2 text-sm">

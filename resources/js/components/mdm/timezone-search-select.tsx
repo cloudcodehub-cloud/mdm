@@ -203,7 +203,7 @@ export function TimezoneSearchSelect({
                 id={id}
                 className={cn(
                     controlClassName,
-                    'flex h-auto min-h-9 w-full items-center justify-between gap-2 px-3 py-2 text-left',
+                    'flex h-auto min-h-11 w-full items-center justify-between gap-2 px-3 py-2 text-left',
                 )}
                 aria-haspopup="listbox"
                 aria-expanded={open}
@@ -213,10 +213,10 @@ export function TimezoneSearchSelect({
                 onKeyDown={onTriggerKeyDown}
             >
                 <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">
+                    <span className="block font-medium break-words">
                         {selected?.label ?? 'Select a timezone'}
                     </span>
-                    <span className="text-muted-foreground block truncate text-xs">
+                    <span className="text-muted-foreground block text-xs break-all">
                         {selected?.value ?? 'IANA identifier required'}
                     </span>
                 </span>
@@ -225,7 +225,7 @@ export function TimezoneSearchSelect({
 
             {open ? (
                 <div
-                    className="border-border bg-popover absolute z-40 mt-1 w-full overflow-hidden rounded-md border shadow-md"
+                    className="border-border bg-popover absolute z-40 mt-1 max-h-[min(24rem,70dvh)] w-full overflow-hidden rounded-md border shadow-md"
                     role="presentation"
                 >
                     <div className="border-border flex items-center gap-2 border-b px-2 py-1.5">

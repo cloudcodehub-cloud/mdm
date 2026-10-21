@@ -2,6 +2,10 @@ import { Form, Head } from '@inertiajs/react';
 import { ComplianceEligibilityPanel } from '@/components/mdm/compliance-eligibility-panel';
 import { StatusBadge, controlClassName } from '@/components/mdm/directory';
 import { BackLink } from '@/components/mdm/back-link';
+import {
+    OpsRecordCard,
+    ResponsiveOpsList,
+} from '@/components/mdm/responsive-ops-list';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -114,10 +118,20 @@ export default function MyCompliance({
                             </label>
                             <label className="grid gap-1 text-sm md:col-span-2">
                                 <span className="font-medium">Supporting document</span>
-                                <Input type="file" name="document" accept=".pdf,.jpg,.jpeg,.png,.webp" />
+                                <Input
+                                    type="file"
+                                    name="document"
+                                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                                    className="min-h-11"
+                                />
                             </label>
                             <div className="md:col-span-2">
-                                <Button type="submit">Submit for review</Button>
+                                <Button
+                                    type="submit"
+                                    className="min-h-11 w-full sm:w-auto"
+                                >
+                                    Submit for review
+                                </Button>
                             </div>
                         </Form>
                     </Panel>
@@ -150,10 +164,20 @@ export default function MyCompliance({
                             </label>
                             <label className="grid gap-1 text-sm md:col-span-2">
                                 <span className="font-medium">Supporting document</span>
-                                <Input type="file" name="document" accept=".pdf,.jpg,.jpeg,.png,.webp" />
+                                <Input
+                                    type="file"
+                                    name="document"
+                                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                                    className="min-h-11"
+                                />
                             </label>
                             <div className="md:col-span-2">
-                                <Button type="submit">Submit for review</Button>
+                                <Button
+                                    type="submit"
+                                    className="min-h-11 w-full sm:w-auto"
+                                >
+                                    Submit for review
+                                </Button>
                             </div>
                         </Form>
                     </Panel>
@@ -175,43 +199,71 @@ function EvidenceTable({
     }
 
     return (
-        <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-                <thead className="text-muted-foreground text-xs uppercase">
-                    <tr>
-                        <th className="pb-2 font-medium">Item</th>
-                        <th className="pb-2 font-medium">Status</th>
-                        <th className="pb-2 font-medium">Expires</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y">
-                    {rows.map((row) => (
-                        <tr key={`${row.kind}-${row.id}`}>
-                            <td className="py-2">
-                                <p className="font-medium">{row.title}</p>
-                                <p className="text-muted-foreground text-xs">
-                                    {row.type}
-                                    {row.issuer ? ` · ${row.issuer}` : ''}
+        <ResponsiveOpsList
+            cards={rows.map((row) => (
+                <OpsRecordCard
+                    key={`card-${row.kind}-${row.id}`}
+                    title={row.title}
+                    subtitle={`${row.type}${row.issuer ? ` · ${row.issuer}` : ''}`}
+                    status={
+                        <StatusBadge
+                            status={row.status}
+                            label={row.status_label}
+                        />
+                    }
+                    meta={
+                        <>
+                            <p>Expires: {row.expires_on ?? 'No expiry'}</p>
+                            {row.is_warning ? (
+                                <p>
+                                    Warning only — not a Hard Stop by itself
                                 </p>
-                            </td>
-                            <td className="py-2">
-                                <StatusBadge
-                                    status={row.status}
-                                    label={row.status_label}
-                                />
-                                {row.is_warning && (
-                                    <p className="text-muted-foreground mt-1 text-xs">
-                                        Warning only — not a Hard Stop by itself
-                                    </p>
-                                )}
-                            </td>
-                            <td className="py-2 text-xs">
-                                {row.expires_on ?? 'No expiry'}
-                            </td>
+                            ) : null}
+                        </>
+                    }
+                />
+            ))}
+            table={
+                <table className="w-full min-w-[28rem] text-left text-sm">
+                    <thead className="text-muted-foreground text-xs uppercase">
+                        <tr>
+                            <th className="pb-2 font-medium">Item</th>
+                            <th className="pb-2 font-medium">Status</th>
+                            <th className="pb-2 font-medium">Expires</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
+                    </thead>
+                    <tbody className="divide-y">
+                        {rows.map((row) => (
+                            <tr key={`${row.kind}-${row.id}`}>
+                                <td className="py-2">
+                                    <p className="font-medium break-words">
+                                        {row.title}
+                                    </p>
+                                    <p className="text-muted-foreground text-xs break-words">
+                                        {row.type}
+                                        {row.issuer ? ` · ${row.issuer}` : ''}
+                                    </p>
+                                </td>
+                                <td className="py-2">
+                                    <StatusBadge
+                                        status={row.status}
+                                        label={row.status_label}
+                                    />
+                                    {row.is_warning && (
+                                        <p className="text-muted-foreground mt-1 text-xs">
+                                            Warning only — not a Hard Stop by
+                                            itself
+                                        </p>
+                                    )}
+                                </td>
+                                <td className="py-2 text-xs">
+                                    {row.expires_on ?? 'No expiry'}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            }
+        />
     );
 }

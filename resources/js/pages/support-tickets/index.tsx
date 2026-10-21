@@ -1,5 +1,9 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Pagination, StatusBadge } from '@/components/mdm/directory';
+import {
+    OpsRecordCard,
+    ResponsiveOpsList,
+} from '@/components/mdm/responsive-ops-list';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -69,19 +73,22 @@ export default function SupportTicketsIndex({
     return (
         <>
             <Head title="Support Tickets" />
-            <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
+            <div className="page-shell">
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+                    <div className="min-w-0">
                         <h1 className="text-xl font-semibold tracking-tight">
                             Support Tickets
                         </h1>
-                        <p className="text-muted-foreground text-sm">
+                        <p className="text-muted-foreground text-sm break-words">
                             Internal Agency IT/technical support. Do not enter
                             passwords or authentication secrets.
                         </p>
                     </div>
                     {can.create ? (
-                        <Button asChild>
+                        <Button
+                            asChild
+                            className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                        >
                             <Link href={createTicket()}>New ticket</Link>
                         </Button>
                     ) : null}
@@ -107,11 +114,12 @@ export default function SupportTicketsIndex({
                 ) : null}
 
                 <Panel title="Tickets">
-                    <div className="mb-4 flex flex-wrap gap-2">
+                    <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1">
                         {tabs.map((tab) => (
                             <Button
                                 key={tab.id || 'all'}
                                 size="sm"
+                                className="min-h-10 shrink-0"
                                 variant={
                                     (filters.tab ?? '') === tab.id
                                         ? 'default'
@@ -137,7 +145,7 @@ export default function SupportTicketsIndex({
                     </div>
 
                     <form
-                        className="mb-4 flex flex-wrap gap-2"
+                        className="mb-4 grid gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap"
                         onSubmit={(event) => {
                             event.preventDefault();
                             const form = event.currentTarget;
@@ -167,12 +175,12 @@ export default function SupportTicketsIndex({
                             name="search"
                             defaultValue={filters.search ?? ''}
                             placeholder="Search number, subject, requester"
-                            className="max-w-xs"
+                            className="min-h-11 w-full lg:max-w-xs"
                         />
                         <select
                             name="category"
                             defaultValue={filters.category ?? ''}
-                            className="border-input bg-background h-9 rounded-md border px-2 text-sm"
+                            className="border-input bg-background min-h-11 rounded-md border px-2 text-sm"
                         >
                             <option value="">All categories</option>
                             {categories.map((category) => (
@@ -184,7 +192,7 @@ export default function SupportTicketsIndex({
                         <select
                             name="urgency"
                             defaultValue={filters.urgency ?? ''}
-                            className="border-input bg-background h-9 rounded-md border px-2 text-sm"
+                            className="border-input bg-background min-h-11 rounded-md border px-2 text-sm"
                         >
                             <option value="">All urgency</option>
                             <option value="low">Low</option>
@@ -192,7 +200,12 @@ export default function SupportTicketsIndex({
                             <option value="high">High</option>
                             <option value="critical">Critical</option>
                         </select>
-                        <Button type="submit" size="sm" variant="secondary">
+                        <Button
+                            type="submit"
+                            size="sm"
+                            variant="secondary"
+                            className="min-h-11 w-full sm:w-auto"
+                        >
                             Apply
                         </Button>
                     </form>
@@ -200,55 +213,105 @@ export default function SupportTicketsIndex({
                     {tickets.data.length === 0 ? (
                         <EmptyState message="No support tickets match this view." />
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm">
-                                <thead className="text-muted-foreground text-xs uppercase">
-                                    <tr>
-                                        <th className="pb-2 font-medium">Ticket</th>
-                                        <th className="pb-2 font-medium">Requester</th>
-                                        <th className="pb-2 font-medium">Category</th>
-                                        <th className="pb-2 font-medium">Subject</th>
-                                        <th className="pb-2 font-medium">Urgency</th>
-                                        <th className="pb-2 font-medium">Status</th>
-                                        <th className="pb-2 font-medium">Age</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {tickets.data.map((ticket) => (
-                                        <tr
-                                            key={ticket.id}
-                                            className="hover:bg-muted/40 cursor-pointer border-t"
-                                            onClick={() =>
-                                                router.visit(showTicket.url(ticket.id))
-                                            }
-                                        >
-                                            <td className="py-3 font-medium">
-                                                {ticket.ticket_number}
-                                            </td>
-                                            <td className="py-3">
-                                                {ticket.requester_name}
-                                            </td>
-                                            <td className="py-3">
-                                                {ticket.category_label}
-                                            </td>
-                                            <td className="py-3">{ticket.subject}</td>
-                                            <td className="py-3">
+                        <ResponsiveOpsList
+                            cards={tickets.data.map((ticket) => (
+                                <OpsRecordCard
+                                    key={`card-${ticket.id}`}
+                                    title={ticket.ticket_number}
+                                    subtitle={ticket.subject}
+                                    status={
+                                        <StatusBadge
+                                            status={ticket.status}
+                                            label={ticket.status_label}
+                                        />
+                                    }
+                                    meta={
+                                        <>
+                                            <p>
+                                                {ticket.category_label} ·{' '}
                                                 {ticket.urgency_label}
-                                            </td>
-                                            <td className="py-3">
-                                                <StatusBadge
-                                                    status={ticket.status}
-                                                    label={ticket.status_label}
-                                                />
-                                            </td>
-                                            <td className="py-3">
-                                                {ticket.age_label}
-                                            </td>
+                                            </p>
+                                            <p>
+                                                {ticket.requester_name ?? '—'}
+                                                {ticket.age_label
+                                                    ? ` · ${ticket.age_label}`
+                                                    : ''}
+                                            </p>
+                                        </>
+                                    }
+                                    onClick={() =>
+                                        router.visit(showTicket.url(ticket.id))
+                                    }
+                                />
+                            ))}
+                            table={
+                                <table className="w-full min-w-[44rem] text-left text-sm">
+                                    <thead className="text-muted-foreground text-xs uppercase">
+                                        <tr>
+                                            <th className="pb-2 font-medium">
+                                                Ticket
+                                            </th>
+                                            <th className="pb-2 font-medium">
+                                                Requester
+                                            </th>
+                                            <th className="pb-2 font-medium">
+                                                Category
+                                            </th>
+                                            <th className="pb-2 font-medium">
+                                                Subject
+                                            </th>
+                                            <th className="pb-2 font-medium">
+                                                Urgency
+                                            </th>
+                                            <th className="pb-2 font-medium">
+                                                Status
+                                            </th>
+                                            <th className="pb-2 font-medium">
+                                                Age
+                                            </th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        {tickets.data.map((ticket) => (
+                                            <tr
+                                                key={ticket.id}
+                                                className="hover:bg-muted/40 cursor-pointer border-t"
+                                                onClick={() =>
+                                                    router.visit(
+                                                        showTicket.url(ticket.id),
+                                                    )
+                                                }
+                                            >
+                                                <td className="py-3 font-medium">
+                                                    {ticket.ticket_number}
+                                                </td>
+                                                <td className="py-3">
+                                                    {ticket.requester_name}
+                                                </td>
+                                                <td className="py-3">
+                                                    {ticket.category_label}
+                                                </td>
+                                                <td className="py-3">
+                                                    {ticket.subject}
+                                                </td>
+                                                <td className="py-3">
+                                                    {ticket.urgency_label}
+                                                </td>
+                                                <td className="py-3">
+                                                    <StatusBadge
+                                                        status={ticket.status}
+                                                        label={ticket.status_label}
+                                                    />
+                                                </td>
+                                                <td className="py-3">
+                                                    {ticket.age_label}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            }
+                        />
                     )}
                     <div className="mt-4">
                         <Pagination links={tickets.links} meta={tickets.meta} />

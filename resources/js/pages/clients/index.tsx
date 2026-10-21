@@ -27,17 +27,20 @@ export default function ClientsIndex({
         <>
             <Head title="Clients" />
             <div className="page-shell">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+                    <div className="min-w-0">
                         <h1 className="text-xl font-semibold tracking-tight">
                             Clients
                         </h1>
-                        <p className="text-muted-foreground text-sm">
+                        <p className="text-muted-foreground text-sm break-words">
                             People receiving services, caseload status, and assigned DSPs.
                         </p>
                     </div>
                     {can.create && (
-                        <Button asChild>
+                        <Button
+                            asChild
+                            className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                        >
                             <Link href={create()}>Add Client</Link>
                         </Button>
                     )}

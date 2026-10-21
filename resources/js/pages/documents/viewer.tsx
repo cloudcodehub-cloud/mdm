@@ -23,12 +23,22 @@ export default function DocumentViewer({
         <>
             <Head title={title} />
             <RecordPage wide className="gap-4">
-                <div className="document-toolbar bg-card/90 sticky top-0 z-20 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 backdrop-blur-md">
-                    <Button asChild variant="ghost" size="sm">
+                <div className="document-toolbar bg-card/90 sticky top-0 z-20 flex flex-col gap-2 rounded-xl border px-3 py-2 backdrop-blur-md sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                    <Button
+                        asChild
+                        variant="ghost"
+                        size="sm"
+                        className="min-h-10 w-full justify-start sm:w-auto"
+                    >
                         <Link href={backUrl}>Back to record</Link>
                     </Button>
-                    <div className="flex flex-wrap gap-2">
-                        <Button asChild variant="outline" size="sm">
+                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+                        <Button
+                            asChild
+                            variant="outline"
+                            size="sm"
+                            className="min-h-10 w-full sm:w-auto"
+                        >
                             <a href={downloadUrl}>
                                 <Download aria-hidden />
                                 Download PDF
@@ -38,6 +48,7 @@ export default function DocumentViewer({
                             <Button
                                 type="button"
                                 size="sm"
+                                className="min-h-10 w-full sm:w-auto"
                                 onClick={() => window.print()}
                             >
                                 <Printer aria-hidden />
