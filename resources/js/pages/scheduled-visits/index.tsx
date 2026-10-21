@@ -66,8 +66,8 @@ export default function ScheduledVisitsIndex({
         <>
             <Head title="Visits" />
             <RecordPage>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+                    <div className="min-w-0">
                         <h1 className="text-2xl font-semibold tracking-tight">
                             Visits
                         </h1>
@@ -77,12 +77,19 @@ export default function ScheduledVisitsIndex({
                                 : 'Upcoming work, live visits, and completed visit history.'}
                         </p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        <Button asChild variant="secondary">
+                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+                        <Button
+                            className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                            asChild
+                            variant="secondary"
+                        >
                             <Link href={board_url}>Calendar view</Link>
                         </Button>
                         {can.create && (
-                            <Button asChild>
+                            <Button
+                                className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                                asChild
+                            >
                                 <Link href={create()}>Schedule visit</Link>
                             </Button>
                         )}
@@ -90,7 +97,7 @@ export default function ScheduledVisitsIndex({
                 </div>
 
                 <div
-                    className="flex flex-wrap gap-1"
+                    className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1"
                     role="tablist"
                     aria-label="Visit status"
                 >
@@ -101,7 +108,7 @@ export default function ScheduledVisitsIndex({
                             role="tab"
                             aria-selected={phase === tab.id}
                             className={cn(
-                                'rounded-full px-3 py-1.5 text-sm',
+                                'shrink-0 rounded-full px-3 py-2 text-sm whitespace-nowrap',
                                 phase === tab.id
                                     ? 'bg-primary text-primary-foreground'
                                     : 'text-muted-foreground hover:bg-muted/70',
@@ -233,17 +240,17 @@ function VisitHistoryCard({ visit }: { visit: VisitRecord }) {
             className="surface-panel interactive-surface p-4 text-left"
         >
             <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                    <p className="truncate font-semibold">
+                <div className="min-w-0 flex-1">
+                    <p className="font-semibold break-words">
                         {visit.client_name ?? visit.client?.name}
                     </p>
-                    <p className="text-muted-foreground mt-0.5 text-sm">
+                    <p className="text-muted-foreground mt-0.5 text-sm break-words">
                         {visit.service_type} · {visit.service_date}
                     </p>
                 </div>
                 <StatusBadge status={visit.status} label={visit.status_label} />
             </div>
-            <p className="text-muted-foreground mt-3 text-sm">
+            <p className="text-muted-foreground mt-3 text-sm break-words">
                 {visit.dsp_name}
                 {visit.time_label ? ` · ${visit.time_label}` : ''}
             </p>

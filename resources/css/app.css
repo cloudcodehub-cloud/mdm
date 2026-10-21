@@ -272,15 +272,23 @@
 }
 
 @utility page-shell {
-    @apply mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 p-4 md:gap-6 md:p-6;
+    @apply mx-auto flex w-full min-w-0 max-w-6xl flex-1 flex-col gap-4 p-3 sm:gap-5 sm:p-4 md:gap-6 md:p-6;
 }
 
 @utility page-shell-wide {
-    @apply mx-auto flex w-full max-w-[88rem] flex-1 flex-col gap-5 p-4 md:gap-6 md:p-6;
+    @apply mx-auto flex w-full min-w-0 max-w-[88rem] flex-1 flex-col gap-4 p-3 sm:gap-5 sm:p-4 md:gap-6 md:p-6;
 }
 
 @utility sticky-form-actions {
-    @apply sticky bottom-0 z-10 mt-4 flex justify-end gap-2 border-t border-border/70 bg-card/90 py-3 backdrop-blur-md;
+    @apply sticky z-20 mt-4 flex justify-end gap-2 border-t border-border/70 bg-card/90 py-3 backdrop-blur-md;
+    /* Sit above Phase 10A phone nav; desktop keeps flush bottom stickiness. */
+    bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 768px) {
+    .sticky-form-actions {
+        bottom: 0;
+    }
 }
 
 @utility table-dense {

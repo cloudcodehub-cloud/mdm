@@ -40,7 +40,9 @@ export function IdentityHeader({
                 </div>
             </div>
             {actions ? (
-                <div className="flex flex-wrap gap-2">{actions}</div>
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+                    {actions}
+                </div>
             ) : null}
         </div>
     );

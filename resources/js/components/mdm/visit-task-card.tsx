@@ -87,7 +87,7 @@ export function VisitTaskCard({
                       : 'border-border/70 bg-card/40',
             )}
         >
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                 <div className="flex min-w-0 items-start gap-2">
                     {task.status === 'completed' ? (
                         <CheckCircle2
@@ -105,7 +105,7 @@ export function VisitTaskCard({
                             aria-hidden="true"
                         />
                     )}
-                    <p className="font-medium">{task.title}</p>
+                    <p className="font-medium break-words">{task.title}</p>
                 </div>
                 <StatusBadge status={task.status} label={task.status_label} />
             </div>

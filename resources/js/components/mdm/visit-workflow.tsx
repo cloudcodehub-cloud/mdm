@@ -30,14 +30,14 @@ export function VisitWorkflow({ visit }: { visit: ActiveVisitRecord }) {
     const currentIndex = steps.findIndex((step) => !step.complete);
 
     return (
-        <ol className="flex gap-2 overflow-x-auto pb-1 md:flex-wrap">
+        <ol className="flex flex-wrap gap-2 pb-1">
             {steps.map((step, index) => {
                 const current = currentIndex === index;
                 return (
                     <li
                         key={step.id}
                         className={cn(
-                            'flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium',
+                            'flex min-h-10 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium sm:px-3',
                             step.complete
                                 ? 'border-status-success/30 bg-status-success/10 text-status-success'
                                 : current

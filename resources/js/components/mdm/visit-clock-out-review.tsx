@@ -149,7 +149,10 @@ export function VisitClockOutReview({
 
     if (!open) {
         return (
-            <div className="sticky-form-actions justify-start">
+            <div
+                className="sticky-form-actions justify-start"
+                data-visit-clock-out-sticky
+            >
                 <Button
                     type="button"
                     className="min-h-11 w-full sm:w-auto"
@@ -367,6 +370,7 @@ export function VisitClockOutReview({
                     <Button
                         type="button"
                         variant="secondary"
+                        className="min-h-11 w-full sm:w-auto"
                         onClick={() => setOpen(false)}
                     >
                         Back to visit
@@ -450,13 +454,18 @@ export function VisitClockOutReview({
                             />
                         </div>
                     )}
-                    <div className="flex flex-wrap gap-2">
-                        <Button type="submit" disabled={form.processing}>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                        <Button
+                            type="submit"
+                            className="min-h-11 w-full sm:w-auto"
+                            disabled={form.processing}
+                        >
                             Clock out without GPS
                         </Button>
                         <Button
                             type="button"
                             variant="secondary"
+                            className="min-h-11 w-full sm:w-auto"
                             onClick={() => setNeedsAttestation(false)}
                         >
                             Try GPS again
@@ -470,11 +479,11 @@ export function VisitClockOutReview({
 
 function ReviewItem({ label, value }: { label: string; value: string }) {
     return (
-        <div>
+        <div className="min-w-0">
             <dt className="text-muted-foreground text-xs tracking-wide uppercase">
                 {label}
             </dt>
-            <dd className="mt-0.5 font-medium">{value}</dd>
+            <dd className="mt-0.5 break-words font-medium">{value}</dd>
         </div>
     );
 }

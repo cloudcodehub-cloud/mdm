@@ -55,11 +55,20 @@ export function FilterBar({
                 )}
             >
                 {children}
-                <div className="flex flex-wrap items-center gap-2 sm:col-span-2 xl:col-span-2">
-                    <Button type="submit" variant="secondary">
+                <div className="flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:flex-wrap sm:items-center xl:col-span-2">
+                    <Button
+                        type="submit"
+                        variant="secondary"
+                        className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                    >
                         Apply
                     </Button>
-                    <Button type="button" variant="ghost" asChild>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                        asChild
+                    >
                         <Link href={resetHref}>
                             Reset
                         </Link>

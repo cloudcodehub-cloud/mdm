@@ -73,7 +73,7 @@ export function VisitCriticalSafetyPanel({
                             {canAcknowledge ? (
                                 <Button
                                     type="button"
-                                    className="mt-3"
+                                    className="mt-3 min-h-11 w-full sm:w-auto"
                                     onClick={() =>
                                         router.post(
                                             `/visits/${visitId}/critical-alerts/${alert.id}/acknowledge`,
@@ -115,7 +115,7 @@ export function VisitCriticalSafetyPanel({
                             {canAcknowledge ? (
                                 <Button
                                     type="button"
-                                    className="mt-3"
+                                    className="mt-3 min-h-11 w-full sm:w-auto"
                                     onClick={() =>
                                         router.post(
                                             `/visits/${visitId}/safety-instructions/${instruction.id}/acknowledge`,

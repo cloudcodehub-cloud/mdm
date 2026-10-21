@@ -128,7 +128,7 @@ export function ClockInAction({
                                 Next: {activeVisit.next_task.title}
                             </p>
                         )}
-                        <Button className="mt-4 w-full sm:w-auto" asChild>
+                        <Button className="mt-4 min-h-11 w-full sm:w-auto" asChild>
                             <Link href={showVisit(activeVisit.id)}>
                                 <MapPin className="size-4" />
                                 Continue Visit
@@ -340,7 +340,7 @@ function StartVisitForm({
             <VisitCountdown startsAtIso={visit?.starts_at_iso} />
             {!needsAttestation ? (
                 <Button
-                    className="mt-4 w-full sm:w-auto"
+                    className="mt-4 min-h-11 w-full sm:w-auto"
                     onClick={startVisit}
                     disabled={locating || form.processing}
                 >
@@ -428,13 +428,18 @@ function StartVisitForm({
                             />
                         </div>
                     )}
-                    <div className="flex flex-wrap gap-2">
-                        <Button type="submit" disabled={form.processing}>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                        <Button
+                            type="submit"
+                            className="min-h-11 w-full sm:w-auto"
+                            disabled={form.processing}
+                        >
                             Start without GPS
                         </Button>
                         <Button
                             type="button"
                             variant="secondary"
+                            className="min-h-11 w-full sm:w-auto"
                             onClick={() => setNeedsAttestation(false)}
                         >
                             Try GPS again

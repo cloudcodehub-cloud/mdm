@@ -153,24 +153,26 @@ export function RecordHero({
             )}
         >
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                     {eyebrow ? (
                         <p className="text-primary text-xs font-medium tracking-wide uppercase">
                             {eyebrow}
                         </p>
                     ) : null}
-                    <h2 className="mt-1 text-2xl font-semibold tracking-tight md:text-3xl">
+                    <h2 className="mt-1 text-xl font-semibold tracking-tight break-words sm:text-2xl md:text-3xl">
                         {title}
                     </h2>
                     {subtitle ? (
-                        <p className="text-muted-foreground mt-1 text-sm">
+                        <p className="text-muted-foreground mt-1 text-sm break-words">
                             {subtitle}
                         </p>
                     ) : null}
                     {chips ? <StatusPills>{chips}</StatusPills> : null}
                     {children}
                 </div>
-                {aside}
+                {aside ? (
+                    <div className="min-w-0 shrink-0 lg:max-w-xs">{aside}</div>
+                ) : null}
             </div>
         </section>
     );

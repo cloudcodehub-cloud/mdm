@@ -147,9 +147,9 @@ export default function VisitsShow({
                         </>
                     }
                     actions={
-                        <div className="flex flex-wrap gap-2">
+                        <>
                             {completed ? (
-                                <Button asChild>
+                                <Button className="min-h-11 w-full sm:min-h-9 sm:w-auto" asChild>
                                     <Link href={dashboard()}>
                                         Back to Dashboard
                                     </Link>
@@ -159,7 +159,11 @@ export default function VisitsShow({
                                 visit.exceptions.some(
                                     (row) => row.status !== 'resolved',
                                 ) && (
-                                    <Button asChild variant={completed ? 'secondary' : 'default'}>
+                                    <Button
+                                        className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                                        asChild
+                                        variant={completed ? 'secondary' : 'default'}
+                                    >
                                         <Link
                                             href={showException.url(
                                                 visit.exceptions.find(
@@ -177,7 +181,11 @@ export default function VisitsShow({
                                 <PrintPdfAction href={documents.completed_visit} />
                             ) : undefined}
                             {completed && can?.request_correction ? (
-                                <Button asChild variant="secondary">
+                                <Button
+                                    className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                                    asChild
+                                    variant="secondary"
+                                >
                                     <Link
                                         href={
                                             attendance_url ??
@@ -191,13 +199,17 @@ export default function VisitsShow({
                                 </Button>
                             ) : null}
                             {completed ? (
-                                <Button asChild variant="outline">
+                                <Button
+                                    className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                                    asChild
+                                    variant="outline"
+                                >
                                     <Link href={showScheduled(visit.scheduled_visit.id)}>
                                         View Schedule
                                     </Link>
                                 </Button>
                             ) : null}
-                        </div>
+                        </>
                     }
                 />
 
@@ -336,20 +348,50 @@ function ActiveVisit({
                         </>
                     }
                     aside={
-                        <div className="text-right">
+                        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center lg:flex-col lg:items-end">
                             <VisitElapsedTimer clockedInAt={visit.clocked_in_at} />
-                            <div className="mt-3 flex justify-end">
-                                <ProgressRing
-                                    value={percent}
-                                    label={`${percent}%`}
-                                    detail={`${visit.task_summary.completed} completed · ${visit.task_summary.pending} pending · ${visit.task_summary.skipped} skipped`}
-                                />
-                            </div>
+                            <ProgressRing
+                                value={percent}
+                                label={`${percent}%`}
+                                detail={`${visit.task_summary.completed} completed · ${visit.task_summary.pending} pending · ${visit.task_summary.skipped} skipped`}
+                            />
                         </div>
                     }
                 >
                     <div className="mt-4">
                         <VisitWorkflow visit={visit} />
+                    </div>
+                    <div
+                        className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap"
+                        data-visit-quick-actions
+                    >
+                        {supervisor?.available ? (
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                className="min-h-11 w-full sm:w-auto"
+                                onClick={onContactSupervisor}
+                            >
+                                Contact Supervisor
+                            </Button>
+                        ) : null}
+                        {can?.report_incident ? (
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                className="min-h-11 w-full sm:w-auto"
+                                onClick={() => {
+                                    document
+                                        .getElementById('visit-incident-reporting')
+                                        ?.scrollIntoView({
+                                            behavior: 'smooth',
+                                            block: 'start',
+                                        });
+                                }}
+                            >
+                                Report Incident
+                            </Button>
+                        ) : null}
                     </div>
                     <p className="mt-3 text-sm">
                         {readyToComplete
@@ -376,25 +418,29 @@ function ActiveVisit({
                 canRecord={Boolean(can?.record_safety)}
             />
 
-            <RecordSection
-                title="Incident reporting"
-                description="Report a clinical/service Incident without ending the visit. Drafts stay private until submit."
-                className="lg:col-span-12"
+            <div
+                id="visit-incident-reporting"
+                className="scroll-mt-24 lg:col-span-12"
             >
-                <VisitIncidentPanel
-                    visitId={visit.id}
-                    incidents={
-                        visit.incidents ?? {
-                            draft: null,
-                            submitted: [],
-                            categories: [],
-                            acknowledgment_threshold_minutes: 60,
-                            has_unresolved_draft: false,
+                <RecordSection
+                    title="Incident reporting"
+                    description="Report a clinical/service Incident without ending the visit. Drafts stay private until submit."
+                >
+                    <VisitIncidentPanel
+                        visitId={visit.id}
+                        incidents={
+                            visit.incidents ?? {
+                                draft: null,
+                                submitted: [],
+                                categories: [],
+                                acknowledgment_threshold_minutes: 60,
+                                has_unresolved_draft: false,
+                            }
                         }
-                    }
-                    canReport={Boolean(can?.report_incident)}
-                />
-            </RecordSection>
+                        canReport={Boolean(can?.report_incident)}
+                    />
+                </RecordSection>
+            </div>
 
             <RecordSection
                 title="Care-plan tasks"

@@ -60,6 +60,7 @@ export function VisitSafetyPanel({
                     ) : canRecord ? (
                         <Button
                             type="button"
+                            className="min-h-11 w-full sm:w-auto"
                             onClick={() =>
                                 router.post(
                                     `/visits/${visit.id}/safety-confirmation`,
@@ -173,7 +174,11 @@ function SafetyCheckRow({
                             <InputError message={form.errors.reason} />
                         </div>
                     ) : null}
-                    <Button type="submit" disabled={form.processing}>
+                    <Button
+                        type="submit"
+                        className="min-h-11 w-full sm:w-auto"
+                        disabled={form.processing}
+                    >
                         {check.status === 'missed'
                             ? 'Document missed check'
                             : 'Acknowledge check'}
