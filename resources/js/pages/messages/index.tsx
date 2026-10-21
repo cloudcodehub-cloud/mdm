@@ -50,13 +50,23 @@ export default function MessagesIndex({
     const [composerOpen, setComposerOpen] = useState(false);
     const [groupOpen, setGroupOpen] = useState(false);
     const mailbox = filters.mailbox === 'archived' ? 'archived' : 'inbox';
+    const threadOpen = Boolean(conversation);
+    const mailboxHref =
+        mailbox === 'archived'
+            ? messagesIndex.url({ query: { mailbox: 'archived' } })
+            : messagesIndex.url();
 
     return (
         <>
             <Head title="Messages" />
-            <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
+            <div className="page-shell min-h-0">
+                <div
+                    className={cn(
+                        'flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between',
+                        threadOpen && 'hidden lg:flex',
+                    )}
+                >
+                    <div className="min-w-0">
                         <h1 className="text-xl font-semibold tracking-tight">
                             Messages
                         </h1>
@@ -65,14 +75,22 @@ export default function MessagesIndex({
                             users.
                         </p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        <Button variant="secondary" asChild>
+                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+                        <Button
+                            className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                            variant="secondary"
+                            asChild
+                        >
                             <Link href={announcementsIndex()}>
                                 Announcements
                             </Link>
                         </Button>
                         {can.admin_review ? (
-                            <Button variant="secondary" asChild>
+                            <Button
+                                className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                                variant="secondary"
+                                asChild
+                            >
                                 <Link href="/messages/admin-review">
                                     Exceptional review
                                 </Link>
@@ -80,24 +98,36 @@ export default function MessagesIndex({
                         ) : null}
                         {can.create_group ? (
                             <Button
+                                className="min-h-11 w-full sm:min-h-9 sm:w-auto"
                                 variant="secondary"
                                 onClick={() => setGroupOpen(true)}
                             >
                                 New group
                             </Button>
                         ) : null}
-                        <Button onClick={() => setComposerOpen(true)}>
+                        <Button
+                            className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                            onClick={() => setComposerOpen(true)}
+                        >
                             New conversation
                         </Button>
                     </div>
                 </div>
 
-                <div className="border-border/60 bg-muted/30 rounded-lg border px-3 py-2 text-xs leading-relaxed">
+                <div
+                    className={cn(
+                        'border-border/60 bg-muted/30 rounded-lg border px-3 py-2 text-xs leading-relaxed',
+                        threadOpen && 'hidden lg:block',
+                    )}
+                >
                     {privacy_notice}
                 </div>
 
-                <div className="grid min-h-[28rem] gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
-                    <Panel title="Conversations">
+                <div className="grid min-h-[28rem] min-w-0 gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
+                    <Panel
+                        title="Conversations"
+                        className={cn(threadOpen && 'hidden lg:block')}
+                    >
                         <div className="mb-3 flex gap-1">
                             <Button
                                 size="sm"
@@ -204,15 +234,35 @@ export default function MessagesIndex({
                         )}
                     </Panel>
 
-                    <section className="surface-panel flex min-h-[28rem] flex-col overflow-hidden p-0">
+                    <section
+                        className={cn(
+                            'surface-panel flex min-h-[28rem] min-w-0 flex-col overflow-hidden p-0',
+                            !threadOpen && 'hidden lg:flex',
+                        )}
+                        data-message-thread={threadOpen ? 'open' : 'closed'}
+                    >
                         <div className="border-b px-4 py-3">
-                            <div className="flex flex-wrap items-start justify-between gap-2">
-                                <div>
-                                    <h2 className="text-sm font-semibold tracking-tight">
+                            {threadOpen ? (
+                                <div className="mb-2 lg:hidden">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="-ml-2 min-h-10"
+                                        asChild
+                                    >
+                                        <Link href={mailboxHref}>
+                                            Back to conversations
+                                        </Link>
+                                    </Button>
+                                </div>
+                            ) : null}
+                            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+                                <div className="min-w-0">
+                                    <h2 className="text-sm font-semibold tracking-tight break-words">
                                         {conversation?.name ??
                                             'Select a conversation'}
                                     </h2>
-                                    <p className="text-muted-foreground text-xs">
+                                    <p className="text-muted-foreground text-xs break-words">
                                         {conversation?.admin_review
                                             ? 'Exceptional Admin review mode'
                                             : conversation?.type === 'group'
@@ -224,7 +274,9 @@ export default function MessagesIndex({
                                 </div>
                                 {conversation?.is_active_participant &&
                                 !conversation.admin_review ? (
-                                    <ConversationControls conversation={conversation} />
+                                    <ConversationControls
+                                        conversation={conversation}
+                                    />
                                 ) : null}
                             </div>
                         </div>
@@ -263,11 +315,12 @@ function ConversationControls({
     conversation: ConversationDetail;
 }) {
     return (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex w-full flex-col gap-1.5 sm:w-auto sm:flex-row sm:flex-wrap">
             {conversation.is_archived ? (
                 <Button
                     size="sm"
                     variant="secondary"
+                    className="min-h-10 w-full sm:w-auto"
                     onClick={() =>
                         router.post(`/messages/${conversation.id}/restore`)
                     }
@@ -278,6 +331,7 @@ function ConversationControls({
                 <Button
                     size="sm"
                     variant="secondary"
+                    className="min-h-10 w-full sm:w-auto"
                     onClick={() =>
                         router.post(`/messages/${conversation.id}/archive`)
                     }
@@ -289,6 +343,7 @@ function ConversationControls({
                 <Button
                     size="sm"
                     variant="secondary"
+                    className="min-h-10 w-full sm:w-auto"
                     onClick={() =>
                         router.post(`/messages/${conversation.id}/unmute`)
                     }
@@ -299,6 +354,7 @@ function ConversationControls({
                 <Button
                     size="sm"
                     variant="secondary"
+                    className="min-h-10 w-full sm:w-auto"
                     onClick={() =>
                         router.post(`/messages/${conversation.id}/mute`)
                     }
@@ -376,6 +432,7 @@ function Thread({
                     <Button
                         size="sm"
                         variant="secondary"
+                        className="min-h-10 w-full sm:w-auto"
                         onClick={() =>
                             router.post(`/messages/${conversation.id}/leave`)
                         }
@@ -458,7 +515,7 @@ function Thread({
                                             {item.message.sender_name}
                                         </p>
                                     )}
-                                    <p className="whitespace-pre-wrap">
+                                    <p className="break-words whitespace-pre-wrap">
                                         {item.message.body}
                                     </p>
                                     {(item.message.attachments ?? []).map(
@@ -497,7 +554,8 @@ function Thread({
             </div>
             {canReply ? (
                 <form
-                    className="sticky bottom-0 space-y-2 border-t bg-card/90 px-4 py-3 backdrop-blur-md"
+                    className="sticky z-20 space-y-2 border-t bg-card/90 px-4 py-3 backdrop-blur-md max-md:bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] md:bottom-0"
+                    data-message-composer
                     onSubmit={(event) => {
                         event.preventDefault();
                         form.post(storeMessage.url(conversation.id), {
@@ -525,6 +583,8 @@ function Thread({
                     />
                     <Input
                         type="file"
+                        accept="image/*,.pdf,.doc,.docx,.txt"
+                        className="min-h-11"
                         onChange={(event) =>
                             form.setData(
                                 'attachment',
@@ -568,7 +628,7 @@ function GroupManageBar({
     return (
         <div className="space-y-2 border-b px-4 py-3">
             <form
-                className="flex flex-wrap gap-2"
+                className="flex flex-col gap-2 sm:flex-row sm:flex-wrap"
                 onSubmit={(event) => {
                     event.preventDefault();
                     rename.patch(`/messages/${conversation.id}/name`, {
@@ -579,14 +639,19 @@ function GroupManageBar({
                 <Input
                     value={rename.data.name}
                     onChange={(event) => rename.setData('name', event.target.value)}
-                    className="max-w-xs"
+                    className="w-full sm:max-w-xs"
                 />
-                <Button type="submit" size="sm" variant="secondary">
+                <Button
+                    type="submit"
+                    size="sm"
+                    variant="secondary"
+                    className="min-h-10 w-full sm:w-auto"
+                >
                     Rename
                 </Button>
             </form>
             <form
-                className="flex flex-wrap gap-2"
+                className="flex flex-col gap-2 sm:flex-row sm:flex-wrap"
                 onSubmit={(event) => {
                     event.preventDefault();
                     add.post(`/messages/${conversation.id}/participants`, {
@@ -597,7 +662,7 @@ function GroupManageBar({
             >
                 <select
                     multiple
-                    className={cn(controlClassName, 'h-24 max-w-xs')}
+                    className={cn(controlClassName, 'h-24 w-full sm:max-w-xs')}
                     value={add.data.participant_ids}
                     onChange={(event) =>
                         add.setData(
@@ -614,7 +679,12 @@ function GroupManageBar({
                         </option>
                     ))}
                 </select>
-                <Button type="submit" size="sm" variant="secondary">
+                <Button
+                    type="submit"
+                    size="sm"
+                    variant="secondary"
+                    className="min-h-10 w-full sm:w-auto"
+                >
                     Add participants
                 </Button>
             </form>
@@ -659,7 +729,7 @@ function NewConversationDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>New conversation</DialogTitle>
                     <DialogDescription>
@@ -686,6 +756,7 @@ function NewConversationDialog({
                             value={query}
                             onChange={(event) => setQuery(event.target.value)}
                             placeholder="Search name, email, or role"
+                            className="min-h-11"
                         />
                         <select
                             name="user_id"
@@ -717,6 +788,7 @@ function NewConversationDialog({
                         />
                         <Input
                             type="file"
+                            className="min-h-11"
                             onChange={(event) =>
                                 form.setData(
                                     'attachment',
@@ -726,8 +798,12 @@ function NewConversationDialog({
                         />
                         <InputError message={form.errors.body} />
                     </div>
-                    <DialogFooter>
-                        <Button type="submit" disabled={form.processing}>
+                    <DialogFooter className="flex-col gap-2 sm:flex-row">
+                        <Button
+                            type="submit"
+                            className="min-h-11 w-full sm:w-auto"
+                            disabled={form.processing}
+                        >
                             Send
                         </Button>
                     </DialogFooter>
@@ -758,7 +834,7 @@ function NewGroupDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>New private group</DialogTitle>
                     <DialogDescription>
@@ -785,6 +861,7 @@ function NewGroupDialog({
                             onChange={(event) =>
                                 form.setData('name', event.target.value)
                             }
+                            className="min-h-11"
                             required
                         />
                         <InputError message={form.errors.name} />
@@ -823,8 +900,12 @@ function NewGroupDialog({
                             className={cn(controlClassName, 'h-auto min-h-16 py-2')}
                         />
                     </div>
-                    <DialogFooter>
-                        <Button type="submit" disabled={form.processing}>
+                    <DialogFooter className="flex-col gap-2 sm:flex-row">
+                        <Button
+                            type="submit"
+                            className="min-h-11 w-full sm:w-auto"
+                            disabled={form.processing}
+                        >
                             Create group
                         </Button>
                     </DialogFooter>

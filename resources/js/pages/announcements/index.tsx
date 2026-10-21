@@ -32,7 +32,7 @@ export default function AnnouncementsIndex({
     return (
         <>
             <Head title="Announcements" />
-            <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
+            <div className="page-shell">
                 <div>
                     <h1 className="text-xl font-semibold tracking-tight">
                         Announcements
@@ -46,7 +46,7 @@ export default function AnnouncementsIndex({
                 {can.create && (
                     <Panel title="Publish announcement">
                         <form
-                            className="grid gap-3 md:grid-cols-2"
+                            className="grid gap-3 sm:grid-cols-2"
                             onSubmit={(event) => {
                                 event.preventDefault();
                                 form.post(store.url(), {
@@ -55,7 +55,7 @@ export default function AnnouncementsIndex({
                                 });
                             }}
                         >
-                            <div className="space-y-2 md:col-span-2">
+                            <div className="space-y-2 sm:col-span-2">
                                 <Label htmlFor="title">Title</Label>
                                 <Input
                                     id="title"
@@ -66,7 +66,7 @@ export default function AnnouncementsIndex({
                                 />
                                 <InputError message={form.errors.title} />
                             </div>
-                            <div className="space-y-2 md:col-span-2">
+                            <div className="space-y-2 sm:col-span-2">
                                 <Label htmlFor="body">Message</Label>
                                 <textarea
                                     id="body"
@@ -140,8 +140,12 @@ export default function AnnouncementsIndex({
                                 />
                                 <InputError message={form.errors.expires_at} />
                             </div>
-                            <div className="flex items-end">
-                                <Button type="submit" disabled={form.processing}>
+                            <div className="flex items-end sm:col-span-2">
+                                <Button
+                                    type="submit"
+                                    className="min-h-11 w-full sm:w-auto"
+                                    disabled={form.processing}
+                                >
                                     Publish
                                 </Button>
                             </div>
@@ -153,21 +157,21 @@ export default function AnnouncementsIndex({
                     {announcements.length === 0 ? (
                         <EmptyState message="No announcements are visible to you." />
                     ) : (
-                        <ul className="space-y-4">
+                        <ul className="space-y-3">
                             {announcements.map((item) => (
                                 <li
                                     key={item.id}
                                     className={cn(
-                                        'rounded-md border p-3',
+                                        'rounded-xl border p-3',
                                         !item.is_read && 'bg-muted/30',
                                     )}
                                 >
-                                    <div className="flex flex-wrap items-start justify-between gap-2">
-                                        <div>
-                                            <p className="font-medium">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                        <div className="min-w-0">
+                                            <p className="font-medium break-words">
                                                 {item.title}
                                             </p>
-                                            <p className="text-muted-foreground text-xs">
+                                            <p className="text-muted-foreground text-xs break-words">
                                                 {item.author_name} ·{' '}
                                                 {item.audience_label} ·{' '}
                                                 {item.published_at}
@@ -183,6 +187,7 @@ export default function AnnouncementsIndex({
                                             <Button
                                                 size="sm"
                                                 variant="secondary"
+                                                className="min-h-10 w-full sm:w-auto"
                                                 onClick={() =>
                                                     router.patch(
                                                         update.url(item.id),
@@ -200,7 +205,7 @@ export default function AnnouncementsIndex({
                                             </Button>
                                         )}
                                     </div>
-                                    <p className="mt-2 text-sm whitespace-pre-wrap">
+                                    <p className="mt-2 text-sm break-words whitespace-pre-wrap">
                                         {item.body}
                                     </p>
                                 </li>

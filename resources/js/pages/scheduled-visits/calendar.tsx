@@ -1,5 +1,6 @@
 import { Form, Head, Link, router } from '@inertiajs/react';
 import { controlClassName } from '@/components/mdm/directory';
+import { OpsRecordCard } from '@/components/mdm/responsive-ops-list';
 import { Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -79,11 +80,101 @@ function VisitChip({
                     : 'hover:bg-muted/40 bg-background/70',
             )}
         >
-            <p className="truncate font-medium">{primary}</p>
-            <p className="text-muted-foreground truncate">
+            <p className="font-medium break-words">{primary}</p>
+            <p className="text-muted-foreground break-words">
                 {visit.time_label} · {services}
             </p>
         </button>
+    );
+}
+
+/** MDM 13 §18.7 — phone defaults to agenda/list; richer grids from tablet up. */
+function PhoneAgenda({
+    rows,
+    group,
+}: {
+    rows: CalendarRow[];
+    group: string;
+}) {
+    const visits = rows
+        .flatMap((row) =>
+            row.visits.map((visit) => ({
+                ...visit,
+                row_name: row.name,
+            })),
+        )
+        .sort((a, b) => {
+            const dateCompare = a.service_date.localeCompare(b.service_date);
+            if (dateCompare !== 0) {
+                return dateCompare;
+            }
+
+            return (a.starts_minute ?? 0) - (b.starts_minute ?? 0);
+        });
+
+    if (visits.length === 0) {
+        return (
+            <p className="text-muted-foreground text-sm">
+                No visits in this range.
+            </p>
+        );
+    }
+
+    let lastDate = '';
+
+    return (
+        <ul className="space-y-2" data-schedule-phone-agenda>
+            {visits.map((visit) => {
+                const showDate = visit.service_date !== lastDate;
+                lastDate = visit.service_date;
+                const primary =
+                    group === 'dsp' ? visit.client_name : visit.dsp_name;
+                const secondary =
+                    group === 'dsp' ? visit.dsp_name : visit.client_name;
+                const services =
+                    visit.services && visit.services.length > 0
+                        ? visit.services.map((service) => service.name).join(' · ')
+                        : visit.service_type;
+
+                return (
+                    <li key={`${visit.id}-${visit.service_date}`}>
+                        {showDate ? (
+                            <p className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">
+                                {visit.service_date}
+                            </p>
+                        ) : null}
+                        <div
+                            className={cn(
+                                visit.needs_attention &&
+                                    'rounded-xl border border-warning/50 bg-warning/10',
+                            )}
+                        >
+                            <OpsRecordCard
+                                title={primary}
+                                subtitle={`${visit.time_label} · ${services}`}
+                                status={
+                                    <span className="text-muted-foreground text-xs">
+                                        {visit.status_label}
+                                    </span>
+                                }
+                                meta={
+                                    <>
+                                        {secondary}
+                                        {visit.row_name &&
+                                        visit.row_name !== secondary
+                                            ? ` · ${visit.row_name}`
+                                            : ''}
+                                    </>
+                                }
+                                onClick={() =>
+                                    router.visit(`/scheduled-visits/${visit.id}`)
+                                }
+                            />
+                        </div>
+                    </li>
+                );
+            })}
+        </ul>
     );
 }
 
@@ -390,27 +481,35 @@ export default function ScheduledVisitsCalendar({
         <>
             <Head title="Schedule Board" />
             <div className="page-shell-wide">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+                    <div className="min-w-0">
                         <h1 className="text-xl font-semibold tracking-tight">
                             Schedule Board
                         </h1>
-                        <p className="text-muted-foreground text-sm">
+                        <p className="text-muted-foreground text-sm break-words">
                             {board.start} – {board.end}. Click a visit to open
                             it. Drag and drop is not enabled yet.
                         </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
                         {board.prev_date && board.next_date && (
                             <>
-                                <Button asChild variant="outline">
+                                <Button
+                                    className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                                    asChild
+                                    variant="outline"
+                                >
                                     <Link
                                         href={`/scheduled-visits/calendar?view=${board.view}&group=${board.group}&date=${board.prev_date}${navSuffix}`}
                                     >
                                         Previous
                                     </Link>
                                 </Button>
-                                <Button asChild variant="outline">
+                                <Button
+                                    className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                                    asChild
+                                    variant="outline"
+                                >
                                     <Link
                                         href={`/scheduled-visits/calendar?view=${board.view}&group=${board.group}&date=${board.next_date}${navSuffix}`}
                                     >
@@ -419,11 +518,18 @@ export default function ScheduledVisitsCalendar({
                                 </Button>
                             </>
                         )}
-                        <Button asChild variant="secondary">
+                        <Button
+                            className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                            asChild
+                            variant="secondary"
+                        >
                             <Link href={list_url}>List View</Link>
                         </Button>
                         {can.create && (
-                            <Button asChild>
+                            <Button
+                                className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                                asChild
+                            >
                                 <Link href="/scheduled-visits/create">
                                     Add visit
                                 </Link>
@@ -436,7 +542,7 @@ export default function ScheduledVisitsCalendar({
                     <Form
                         action="/scheduled-visits/calendar"
                         method="get"
-                        className="grid gap-3 md:grid-cols-4 xl:grid-cols-8"
+                        className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-8"
                     >
                         <select
                             name="view"
@@ -519,38 +625,56 @@ export default function ScheduledVisitsCalendar({
                             <option value="cancelled">Cancelled</option>
                             <option value="completed">Completed</option>
                         </select>
-                        <Button type="submit" variant="secondary">
+                        <Button
+                            type="submit"
+                            variant="secondary"
+                            className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                        >
                             Apply
                         </Button>
-                        <Button asChild variant="ghost">
+                        <Button
+                            className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                            asChild
+                            variant="ghost"
+                        >
                             <Link href="/scheduled-visits/calendar">Reset</Link>
                         </Button>
                     </Form>
                 </Panel>
 
-                {board.rows.length === 0 ? (
-                    <Panel title="Coverage">
-                        <p className="text-muted-foreground text-sm">
-                            No visits in this range.
-                        </p>
-                    </Panel>
-                ) : board.view === 'day' ? (
-                    <DayTimetable rows={board.rows} group={board.group} />
-                ) : board.view === 'month' ? (
-                    <MonthGrid
-                        days={days}
-                        leadingBlanks={board.leading_blanks ?? 0}
-                        weekdayLabels={weekdayLabels}
-                        rows={board.rows}
-                        group={board.group}
-                    />
-                ) : (
-                    <WeekGrid
-                        days={days}
-                        rows={board.rows}
-                        group={board.group}
-                    />
-                )}
+                <Panel
+                    title="Agenda"
+                    description="Phone agenda for this range. Open List View for the Visits index."
+                    className="md:hidden"
+                >
+                    <PhoneAgenda rows={board.rows} group={board.group} />
+                </Panel>
+
+                <div className="hidden md:block">
+                    {board.rows.length === 0 ? (
+                        <Panel title="Coverage">
+                            <p className="text-muted-foreground text-sm">
+                                No visits in this range.
+                            </p>
+                        </Panel>
+                    ) : board.view === 'day' ? (
+                        <DayTimetable rows={board.rows} group={board.group} />
+                    ) : board.view === 'month' ? (
+                        <MonthGrid
+                            days={days}
+                            leadingBlanks={board.leading_blanks ?? 0}
+                            weekdayLabels={weekdayLabels}
+                            rows={board.rows}
+                            group={board.group}
+                        />
+                    ) : (
+                        <WeekGrid
+                            days={days}
+                            rows={board.rows}
+                            group={board.group}
+                        />
+                    )}
+                </div>
             </div>
         </>
     );
