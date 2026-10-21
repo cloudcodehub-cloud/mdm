@@ -12,12 +12,16 @@ use App\Models\IncidentHistoryEvent;
 use App\Models\IncidentReportingRecord;
 use App\Models\IncidentReview;
 use App\Models\User;
+use App\Services\Documents\RetainedDocumentService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class IncidentWorkflowService
 {
-    public function __construct(private SettingsService $settings) {}
+    public function __construct(
+        private SettingsService $settings,
+        private RetainedDocumentService $retainedDocuments,
+    ) {}
 
     /**
      * Amendable reporter fields. Original submission values stay on the Incident row
@@ -408,7 +412,12 @@ class IncidentWorkflowService
                 newValue: IncidentStatus::Closed->value,
             );
 
-            return $incident->refresh();
+            $incident = $incident->refresh();
+
+            // MDM 10-02 / 10-15 — Closed milestone PDF; reopen+reclose → new version.
+            $this->retainedDocuments->retainIncidentFinal($incident, $user);
+
+            return $incident;
         });
     }
 

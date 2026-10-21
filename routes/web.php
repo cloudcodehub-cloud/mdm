@@ -162,6 +162,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('documents.incident-final.preview');
     Route::get('incidents/{incident}/documents/final/download', [DocumentController::class, 'incidentFinalPdf'])
         ->name('documents.incident-final.pdf');
+    Route::get('documents/retained/{artifact}', [DocumentController::class, 'retainedPreview'])
+        ->name('documents.retained.preview');
+    Route::get('documents/retained/{artifact}/download', [DocumentController::class, 'retainedDownload'])
+        ->name('documents.retained.download');
+    Route::get('documents/retained/{artifact}/inline', [DocumentController::class, 'retainedInline'])
+        ->name('documents.retained.inline');
     Route::get('reports/hours-attendance/documents', [DocumentController::class, 'hoursAttendancePreview'])
         ->name('documents.hours-attendance.preview');
     Route::get('reports/hours-attendance/documents/download', [DocumentController::class, 'hoursAttendancePdf'])

@@ -5,10 +5,12 @@ namespace App\Services;
 use App\Enums\AdminDocumentCategory;
 use App\Enums\AdminDocumentOrigin;
 use App\Enums\IncidentStatus;
+use App\Enums\RetainedDocumentKey;
 use App\Enums\VisitStatus;
 use App\Models\EmployeeCredential;
 use App\Models\EmployeeTraining;
 use App\Models\Incident;
+use App\Models\RetainedDocumentArtifact;
 use App\Models\User;
 use App\Models\Visit;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -132,6 +134,8 @@ class AdminDocumentIndexService
                 ));
             });
 
+        $retainedIncidentIds = $this->appendRetainedIncidentArtifacts($rows);
+
         Incident::query()
             ->with(['client:id,first_name,last_name', 'reporter:id,first_name,last_name'])
             ->whereIn('status', [
@@ -141,25 +145,32 @@ class AdminDocumentIndexService
             ])
             ->orderByDesc('id')
             ->get()
-            ->each(function (Incident $incident) use ($rows): void {
-                $category = AdminDocumentCategory::IncidentSubmittedPdf;
-                $rows->push($this->entry(
-                    key: 'incident-submitted:'.$incident->id,
-                    category: $category,
-                    title: 'Incident submitted report #'.$incident->id,
-                    subtitle: $incident->client?->full_name,
-                    datedAt: $incident->submitted_at ?? $incident->updated_at ?? $incident->created_at,
-                    employeeName: $incident->reporter?->full_name,
-                    employeeId: $incident->reporter_employee_id,
-                    clientName: $incident->client?->full_name,
-                    clientId: $incident->client_id,
-                    status: $incident->status->label(),
-                    sourceUrl: route('incidents.show', $incident),
-                    previewUrl: route('documents.incident-submitted.preview', $incident),
-                    downloadUrl: route('documents.incident-submitted.pdf', $incident),
-                ));
+            ->each(function (Incident $incident) use ($rows, $retainedIncidentIds): void {
+                // Prefer retained exact binaries (MDM 10-15). Virtual on-demand rows
+                // remain only for legacy formal incidents without a retained snapshot.
+                if (! isset($retainedIncidentIds[$incident->id][RetainedDocumentKey::IncidentSubmitted->value])) {
+                    $category = AdminDocumentCategory::IncidentSubmittedPdf;
+                    $rows->push($this->entry(
+                        key: 'incident-submitted:'.$incident->id,
+                        category: $category,
+                        title: 'Incident submitted report #'.$incident->id,
+                        subtitle: $incident->client?->full_name,
+                        datedAt: $incident->submitted_at ?? $incident->updated_at ?? $incident->created_at,
+                        employeeName: $incident->reporter?->full_name,
+                        employeeId: $incident->reporter_employee_id,
+                        clientName: $incident->client?->full_name,
+                        clientId: $incident->client_id,
+                        status: $incident->status->label(),
+                        sourceUrl: route('incidents.show', $incident),
+                        previewUrl: route('documents.incident-submitted.preview', $incident),
+                        downloadUrl: route('documents.incident-submitted.pdf', $incident),
+                    ));
+                }
 
-                if ($incident->status === IncidentStatus::Closed) {
+                if (
+                    $incident->status === IncidentStatus::Closed
+                    && ! isset($retainedIncidentIds[$incident->id][RetainedDocumentKey::IncidentFinal->value])
+                ) {
                     $final = AdminDocumentCategory::IncidentFinalPdf;
                     $rows->push($this->entry(
                         key: 'incident-final:'.$incident->id,
@@ -221,6 +232,92 @@ class AdminDocumentIndexService
         ));
 
         return $rows;
+    }
+
+    /**
+     * Index retained Incident PDF snapshots (current + superseded).
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return array<int, array<string, true>> incident_id => [document_key => true]
+     */
+    private function appendRetainedIncidentArtifacts(Collection $rows): array
+    {
+        $covered = [];
+        $incidentMorph = (new Incident)->getMorphClass();
+
+        $artifacts = RetainedDocumentArtifact::query()
+            ->where('source_type', $incidentMorph)
+            ->whereIn('document_key', [
+                RetainedDocumentKey::IncidentSubmitted->value,
+                RetainedDocumentKey::IncidentFinal->value,
+            ])
+            ->orderByDesc('generated_at')
+            ->orderByDesc('id')
+            ->get();
+
+        if ($artifacts->isEmpty()) {
+            return $covered;
+        }
+
+        $incidents = Incident::query()
+            ->with(['client:id,first_name,last_name', 'reporter:id,first_name,last_name'])
+            ->whereIn('id', $artifacts->pluck('source_id')->unique()->all())
+            ->get()
+            ->keyBy('id');
+
+        foreach ($artifacts as $artifact) {
+            $source = $incidents->get($artifact->source_id);
+            if ($source === null) {
+                continue;
+            }
+
+            $key = $artifact->document_key instanceof RetainedDocumentKey
+                ? $artifact->document_key
+                : RetainedDocumentKey::from((string) $artifact->document_key);
+
+            $covered[$source->id][$key->value] = true;
+
+            $statusParts = ['Retained'];
+            $statusParts[] = $artifact->is_current
+                ? 'current v'.$artifact->version
+                : 'superseded v'.$artifact->version;
+
+            $previewUrl = $artifact->is_current
+                ? match ($key) {
+                    RetainedDocumentKey::IncidentSubmitted => route('documents.incident-submitted.preview', $source),
+                    RetainedDocumentKey::IncidentFinal => $source->status === IncidentStatus::Closed
+                        ? route('documents.incident-final.preview', $source)
+                        : route('documents.retained.preview', $artifact),
+                }
+                : route('documents.retained.preview', $artifact);
+
+            $downloadUrl = $artifact->is_current
+                ? match ($key) {
+                    RetainedDocumentKey::IncidentSubmitted => route('documents.incident-submitted.pdf', $source),
+                    RetainedDocumentKey::IncidentFinal => $source->status === IncidentStatus::Closed
+                        ? route('documents.incident-final.pdf', $source)
+                        : route('documents.retained.download', $artifact),
+                }
+                : route('documents.retained.download', $artifact);
+
+            $rows->push($this->entry(
+                key: 'retained:'.$artifact->id,
+                category: $key->adminCategory(),
+                title: $artifact->title,
+                subtitle: $artifact->subtitle ?? $source->client?->full_name,
+                datedAt: $artifact->generated_at,
+                employeeName: $source->reporter?->full_name,
+                employeeId: $source->reporter_employee_id,
+                clientName: $source->client?->full_name,
+                clientId: $source->client_id,
+                status: implode(' · ', $statusParts),
+                sourceUrl: route('incidents.show', $source),
+                previewUrl: $previewUrl,
+                downloadUrl: $downloadUrl,
+            ));
+        }
+
+        return $covered;
     }
 
     /**

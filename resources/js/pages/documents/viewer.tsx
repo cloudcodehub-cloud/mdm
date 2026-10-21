@@ -7,14 +7,18 @@ import { dashboard } from '@/routes';
 export default function DocumentViewer({
     title,
     html,
+    pdfUrl = null,
     backUrl,
     downloadUrl,
 }: {
     title: string;
     html: string;
+    pdfUrl?: string | null;
     backUrl: string;
     downloadUrl: string;
 }) {
+    const showRetainedPdf = Boolean(pdfUrl);
+
     return (
         <>
             <Head title={title} />
@@ -30,21 +34,31 @@ export default function DocumentViewer({
                                 Download PDF
                             </a>
                         </Button>
-                        <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => window.print()}
-                        >
-                            <Printer aria-hidden />
-                            Print
-                        </Button>
+                        {!showRetainedPdf ? (
+                            <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => window.print()}
+                            >
+                                <Printer aria-hidden />
+                                Print
+                            </Button>
+                        ) : null}
                     </div>
                 </div>
                 <div className="document-stage flex justify-center px-0 py-2 md:py-4">
-                    <article
-                        className="document-paper w-full max-w-[820px] overflow-auto rounded-sm border px-6 py-8 md:px-10 md:py-12"
-                        dangerouslySetInnerHTML={{ __html: html }}
-                    />
+                    {showRetainedPdf ? (
+                        <iframe
+                            title={title}
+                            src={pdfUrl ?? undefined}
+                            className="document-paper h-[80vh] w-full max-w-[900px] rounded-sm border bg-white"
+                        />
+                    ) : (
+                        <article
+                            className="document-paper w-full max-w-[820px] overflow-auto rounded-sm border px-6 py-8 md:px-10 md:py-12"
+                            dangerouslySetInnerHTML={{ __html: html }}
+                        />
+                    )}
                 </div>
             </RecordPage>
         </>

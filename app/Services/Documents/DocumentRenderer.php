@@ -11,11 +11,31 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class DocumentRenderer
 {
-    public function preview(DocumentDefinition $document, string $backUrl, string $downloadUrl): InertiaResponse
-    {
+    public function preview(
+        DocumentDefinition $document,
+        string $backUrl,
+        string $downloadUrl,
+        ?string $pdfUrl = null,
+    ): InertiaResponse {
         return Inertia::render('documents/viewer', [
             'title' => $document->title,
-            'html' => $this->html($document),
+            'html' => $pdfUrl === null ? $this->html($document) : '',
+            'pdfUrl' => $pdfUrl,
+            'backUrl' => $backUrl,
+            'downloadUrl' => $downloadUrl,
+        ]);
+    }
+
+    public function retainedPreview(
+        string $title,
+        string $backUrl,
+        string $downloadUrl,
+        string $pdfUrl,
+    ): InertiaResponse {
+        return Inertia::render('documents/viewer', [
+            'title' => $title,
+            'html' => '',
+            'pdfUrl' => $pdfUrl,
             'backUrl' => $backUrl,
             'downloadUrl' => $downloadUrl,
         ]);

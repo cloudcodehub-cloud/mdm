@@ -18,6 +18,7 @@ use App\Models\IncidentHistoryEvent;
 use App\Models\IncidentParty;
 use App\Models\User;
 use App\Models\Visit;
+use App\Services\Documents\RetainedDocumentService;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -29,6 +30,7 @@ class IncidentService
     public function __construct(
         private SettingsService $settings,
         private InAppNotificationService $notifications,
+        private RetainedDocumentService $retainedDocuments,
     ) {}
 
     public function acknowledgmentThresholdMinutes(): int
@@ -190,6 +192,9 @@ class IncidentService
             );
 
             $this->notifySubmitted($incident->refresh());
+
+            // MDM 10-02 / 10-15 — immutable Submitted milestone PDF snapshot.
+            $this->retainedDocuments->retainIncidentSubmitted($incident, $user);
 
             return $incident;
         });
