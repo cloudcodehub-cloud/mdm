@@ -14,6 +14,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Drop before SQLite FK rebuild so the partial unique is not recreated
+        // as an unconditional UNIQUE(employee_id).
+        $this->dropOneActivePerEmployee();
+
         Schema::table('visits', function (Blueprint $table) {
             $table->foreignId('replaced_visit_id')
                 ->nullable()
@@ -39,6 +43,8 @@ return new class extends Migration
 
     public function down(): void
     {
+        $this->dropOneActivePerEmployee();
+
         Schema::table('visits', function (Blueprint $table) {
             $table->dropConstrainedForeignId('handed_off_by_user_id');
             $table->dropConstrainedForeignId('replaced_visit_id');
@@ -95,11 +101,25 @@ return new class extends Migration
         );
     }
 
+    private function dropOneActivePerEmployee(): void
+    {
+        if (Schema::getConnection()->getDriverName() !== 'sqlite') {
+            return;
+        }
+
+        DB::statement('DROP INDEX IF EXISTS visits_one_active_per_employee');
+    }
+
     private function restoreOneActivePerEmployee(): void
     {
+        if (Schema::getConnection()->getDriverName() !== 'sqlite') {
+            return;
+        }
+
         DB::statement('DROP INDEX IF EXISTS visits_one_active_per_employee');
         DB::statement(
             "CREATE UNIQUE INDEX visits_one_active_per_employee ON visits (employee_id) WHERE status = 'in_progress'"
         );
     }
 };
+

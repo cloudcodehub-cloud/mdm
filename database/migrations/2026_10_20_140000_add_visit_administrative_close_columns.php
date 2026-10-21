@@ -9,14 +9,17 @@ use Illuminate\Support\Facades\Schema;
  * MDM 05-03 / MASTER §10.5 — Administrative Close metadata stays separate from
  * DSP clock-out EVV (clocked_out_at / clock-out GPS remain untouched).
  *
- * SQLite rebuilds the table when a constrained foreign key is added; recreate the
- * partial one-active-visit-per-employee index afterward so completed Visits (and
- * later linked handoff Visits) are not blocked.
+ * SQLite rebuilds the table when a constrained foreign key is added. Drop the
+ * partial one-active-visit-per-employee index before that rebuild so Laravel
+ * cannot recreate it as an unconditional UNIQUE(employee_id), then restore the
+ * exact conditional definition afterward.
  */
 return new class extends Migration
 {
     public function up(): void
     {
+        $this->dropActiveVisitPartialIndex();
+
         Schema::table('visits', function (Blueprint $table) {
             $table->timestamp('administrative_effective_ended_at')->nullable()->after('clocked_out_at');
             $table->timestamp('administratively_closed_at')->nullable()->after('administrative_effective_ended_at');
@@ -33,6 +36,8 @@ return new class extends Migration
 
     public function down(): void
     {
+        $this->dropActiveVisitPartialIndex();
+
         Schema::table('visits', function (Blueprint $table) {
             $table->dropConstrainedForeignId('administratively_closed_by_user_id');
             $table->dropColumn([
@@ -45,8 +50,21 @@ return new class extends Migration
         $this->restoreOneActiveVisitIndex();
     }
 
+    private function dropActiveVisitPartialIndex(): void
+    {
+        if (Schema::getConnection()->getDriverName() !== 'sqlite') {
+            return;
+        }
+
+        DB::statement('DROP INDEX IF EXISTS visits_one_active_per_employee');
+    }
+
     private function restoreOneActiveVisitIndex(): void
     {
+        if (Schema::getConnection()->getDriverName() !== 'sqlite') {
+            return;
+        }
+
         DB::statement('DROP INDEX IF EXISTS visits_one_active_per_employee');
         DB::statement(
             "CREATE UNIQUE INDEX visits_one_active_per_employee ON visits (employee_id) WHERE status = 'in_progress'"

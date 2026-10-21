@@ -8,13 +8,16 @@ use Illuminate\Support\Facades\Schema;
 /**
  * MDM 03 §8 — Admin reopen of resolved Visit Exceptions with preserved resolution history.
  *
- * SQLite rebuilds the table when adding constrained foreign IDs, which drops the
- * partial unique indexes required for task/safety-scoped exceptions. Restore them.
+ * SQLite rebuilds the table when adding constrained foreign IDs. Drop the partial
+ * unique indexes before that rebuild so Laravel cannot recreate them without their
+ * WHERE clauses, then restore the exact conditional definitions afterward.
  */
 return new class extends Migration
 {
     public function up(): void
     {
+        $this->dropPartialUniques();
+
         Schema::table('visit_exceptions', function (Blueprint $table) {
             $table->timestamp('original_resolved_at')->nullable()->after('resolution_notes');
             $table->foreignId('original_resolved_by_user_id')->nullable()->after('original_resolved_at')
@@ -31,6 +34,8 @@ return new class extends Migration
 
     public function down(): void
     {
+        $this->dropPartialUniques();
+
         Schema::table('visit_exceptions', function (Blueprint $table) {
             $table->dropConstrainedForeignId('original_resolved_by_user_id');
             $table->dropConstrainedForeignId('reopened_by_user_id');
@@ -45,8 +50,23 @@ return new class extends Migration
         $this->restorePartialUniques();
     }
 
+    private function dropPartialUniques(): void
+    {
+        if (Schema::getConnection()->getDriverName() !== 'sqlite') {
+            return;
+        }
+
+        DB::statement('DROP INDEX IF EXISTS visit_exceptions_task_unique');
+        DB::statement('DROP INDEX IF EXISTS visit_exceptions_safety_unique');
+        DB::statement('DROP INDEX IF EXISTS visit_exceptions_visit_unique');
+    }
+
     private function restorePartialUniques(): void
     {
+        if (Schema::getConnection()->getDriverName() !== 'sqlite') {
+            return;
+        }
+
         DB::statement('DROP INDEX IF EXISTS visit_exceptions_task_unique');
         DB::statement('DROP INDEX IF EXISTS visit_exceptions_safety_unique');
         DB::statement('DROP INDEX IF EXISTS visit_exceptions_visit_unique');
