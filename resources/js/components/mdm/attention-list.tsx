@@ -27,9 +27,11 @@ export function AttentionList({
                                 item.tone === 'neutral' && 'bg-slate-400',
                             )}
                         />
-                        <div className="min-w-0">
-                            <p className="text-sm font-medium">{item.title}</p>
-                            <p className="text-muted-foreground truncate text-xs">
+                        <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium break-words">
+                                {item.title}
+                            </p>
+                            <p className="text-muted-foreground line-clamp-2 text-xs break-words">
                                 {item.detail}
                             </p>
                         </div>
@@ -41,12 +43,14 @@ export function AttentionList({
                         {item.href ? (
                             <Link
                                 href={item.href}
-                                className="interactive-row -mx-1 flex gap-3 rounded-md px-1 py-0.5"
+                                className="interactive-row -mx-1 flex min-h-11 gap-3 rounded-md px-1 py-2"
                             >
                                 {content}
                             </Link>
                         ) : (
-                            <div className="flex gap-3">{content}</div>
+                            <div className="flex min-h-11 gap-3 py-2">
+                                {content}
+                            </div>
                         )}
                     </li>
                 );

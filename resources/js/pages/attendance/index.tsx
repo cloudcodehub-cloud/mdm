@@ -1,6 +1,10 @@
 import { Form, Head, Link, router } from '@inertiajs/react';
 import { ConfirmAction } from '@/components/mdm/confirm-action';
 import { Pagination, StatusBadge, controlClassName } from '@/components/mdm/directory';
+import {
+    OpsRecordCard,
+    ResponsiveOpsList,
+} from '@/components/mdm/responsive-ops-list';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { SegmentedStatusBar } from '@/components/mdm/visual-summaries';
 import { Button } from '@/components/ui/button';
@@ -63,7 +67,7 @@ export default function AttendanceIndex({
                     <Form
                         action={attendanceIndex.url()}
                         method="get"
-                        className="grid gap-3 md:grid-cols-3 xl:grid-cols-7"
+                        className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-7"
                     >
                         <input
                             type="date"
@@ -138,10 +142,19 @@ export default function AttendanceIndex({
                                 </option>
                             ))}
                         </select>
-                        <Button type="submit" variant="secondary">
+                        <Button
+                            type="submit"
+                            variant="secondary"
+                            className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                        >
                             Apply
                         </Button>
-                        <Button type="button" variant="ghost" asChild>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                            asChild
+                        >
                             <Link href={attendanceIndex()}>Reset</Link>
                         </Button>
                     </Form>
@@ -287,94 +300,162 @@ export default function AttendanceIndex({
                     </Panel>
                 ) : (
                     <Panel title="Attendance records">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm">
-                                <thead className="text-muted-foreground text-xs uppercase">
-                                    <tr>
-                                        <th className="pb-2 font-medium">
-                                            Employee
-                                        </th>
-                                        <th className="pb-2 font-medium">
-                                            Client
-                                        </th>
-                                        <th className="pb-2 font-medium">
-                                            Scheduled
-                                        </th>
-                                        <th className="pb-2 font-medium">
-                                            Clock-in
-                                        </th>
-                                        <th className="pb-2 font-medium">
-                                            Clock-out
-                                        </th>
-                                        <th className="pb-2 font-medium">
-                                            Duration
-                                        </th>
-                                        <th className="pb-2 font-medium">
-                                            Status
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {records.data.map((record) => (
-                                        <tr
-                                            key={record.id}
-                                            className="hover:bg-muted/40 cursor-pointer border-t"
-                                            onClick={() =>
-                                                router.visit(show.url(record.id))
-                                            }
-                                        >
-                                            <td className="py-3">
-                                                {record.employee.name}
-                                            </td>
-                                            <td className="py-3">
-                                                {record.client.name}
-                                            </td>
-                                            <td className="py-3">
-                                                <p>{record.service_date}</p>
-                                                <p className="text-muted-foreground text-xs">
-                                                    {record.scheduled_time}
+                        <ResponsiveOpsList
+                            cards={records.data.map((record) => (
+                                <OpsRecordCard
+                                    key={`card-${record.id}`}
+                                    title={record.employee.name}
+                                    subtitle={record.client.name}
+                                    status={
+                                        <StatusBadge
+                                            status={record.status}
+                                            label={record.status_label}
+                                        />
+                                    }
+                                    meta={
+                                        <>
+                                            <p>
+                                                {record.service_date} ·{' '}
+                                                {record.scheduled_time}
+                                            </p>
+                                            <p>
+                                                In{' '}
+                                                {record.effective_clock_in ??
+                                                    record.original_clock_in ??
+                                                    '—'}{' '}
+                                                · Out{' '}
+                                                {record.effective_clock_out ??
+                                                    record.original_clock_out ??
+                                                    '—'}
+                                                {record.worked_duration
+                                                    ? ` · ${record.worked_duration}`
+                                                    : ''}
+                                            </p>
+                                            {(record.has_exception ||
+                                                record.has_gps_issue ||
+                                                record.adjustment_label) && (
+                                                <p>
+                                                    {[
+                                                        record.has_exception
+                                                            ? 'Attention'
+                                                            : null,
+                                                        record.has_gps_issue
+                                                            ? 'GPS issue'
+                                                            : null,
+                                                        record.adjustment_label,
+                                                    ]
+                                                        .filter(Boolean)
+                                                        .join(' · ')}
                                                 </p>
-                                            </td>
-                                            <td className="py-3">
-                                                <ClockCell record={record} kind="in" />
-                                            </td>
-                                            <td className="py-3">
-                                                <ClockCell
-                                                    record={record}
-                                                    kind="out"
-                                                />
-                                            </td>
-                                            <td className="py-3">
-                                                {record.worked_duration ?? '—'}
-                                            </td>
-                                            <td className="py-3">
-                                                <div className="flex flex-col gap-1">
-                                                    <StatusBadge
-                                                        status={record.status}
-                                                        label={record.status_label}
-                                                    />
-                                                    {record.has_exception && (
-                                                        <span className="text-status-warning text-xs">
-                                                            Attention
-                                                        </span>
-                                                    )}
-                                                    {record.has_gps_issue && (
-                                                        <span className="text-muted-foreground text-xs">
-                                                            GPS issue
-                                                        </span>
-                                                    )}
-                                                    {record.adjustment_label && (
-                                                        <span className="text-xs">
-                                                            {record.adjustment_label}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
+                                            )}
+                                        </>
+                                    }
+                                    onClick={() =>
+                                        router.visit(show.url(record.id))
+                                    }
+                                />
+                            ))}
+                            table={
+                                <table className="w-full min-w-[44rem] text-left text-sm">
+                                    <thead className="text-muted-foreground text-xs uppercase">
+                                        <tr>
+                                            <th className="pb-2 font-medium">
+                                                Employee
+                                            </th>
+                                            <th className="pb-2 font-medium">
+                                                Client
+                                            </th>
+                                            <th className="pb-2 font-medium">
+                                                Scheduled
+                                            </th>
+                                            <th className="pb-2 font-medium">
+                                                Clock-in
+                                            </th>
+                                            <th className="pb-2 font-medium">
+                                                Clock-out
+                                            </th>
+                                            <th className="pb-2 font-medium">
+                                                Duration
+                                            </th>
+                                            <th className="pb-2 font-medium">
+                                                Status
+                                            </th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        {records.data.map((record) => (
+                                            <tr
+                                                key={record.id}
+                                                className="hover:bg-muted/40 cursor-pointer border-t"
+                                                onClick={() =>
+                                                    router.visit(
+                                                        show.url(record.id),
+                                                    )
+                                                }
+                                            >
+                                                <td className="py-3">
+                                                    {record.employee.name}
+                                                </td>
+                                                <td className="py-3">
+                                                    {record.client.name}
+                                                </td>
+                                                <td className="py-3">
+                                                    <p>{record.service_date}</p>
+                                                    <p className="text-muted-foreground text-xs">
+                                                        {record.scheduled_time}
+                                                    </p>
+                                                </td>
+                                                <td className="py-3">
+                                                    <ClockCell
+                                                        record={record}
+                                                        kind="in"
+                                                    />
+                                                </td>
+                                                <td className="py-3">
+                                                    <ClockCell
+                                                        record={record}
+                                                        kind="out"
+                                                    />
+                                                </td>
+                                                <td className="py-3">
+                                                    {record.worked_duration ??
+                                                        '—'}
+                                                </td>
+                                                <td className="py-3">
+                                                    <div className="flex flex-col gap-1">
+                                                        <StatusBadge
+                                                            status={
+                                                                record.status
+                                                            }
+                                                            label={
+                                                                record.status_label
+                                                            }
+                                                        />
+                                                        {record.has_exception && (
+                                                            <span className="text-status-warning text-xs">
+                                                                Attention
+                                                            </span>
+                                                        )}
+                                                        {record.has_gps_issue && (
+                                                            <span className="text-muted-foreground text-xs">
+                                                                GPS issue
+                                                            </span>
+                                                        )}
+                                                        {record.adjustment_label && (
+                                                            <span className="text-xs">
+                                                                {
+                                                                    record.adjustment_label
+                                                                }
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            }
+                        />
                         <Pagination
                             meta={records.meta}
                             links={records.links}

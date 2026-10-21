@@ -34,10 +34,10 @@ export function VisitList({
                         className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between"
                     >
                     <div className="min-w-0">
-                        <p className="truncate font-medium">
+                        <p className="font-medium break-words">
                             {visit.client.name}
                         </p>
-                        <p className="text-muted-foreground text-xs">
+                        <p className="text-muted-foreground text-xs break-words">
                             {visit.service_type}
                             {showEmployee ? ` · ${visit.employee.name}` : ''}
                         </p>

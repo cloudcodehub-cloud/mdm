@@ -1,6 +1,10 @@
 import { Link, router } from '@inertiajs/react';
 import { StatusBadge } from '@/components/mdm/directory';
 import { HighPriorityIndicator } from '@/components/mdm/priority-indicator';
+import {
+    OpsRecordCard,
+    ResponsiveOpsList,
+} from '@/components/mdm/responsive-ops-list';
 import { EmptyState, Panel, StatCard } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { show as showClient } from '@/routes/clients';
@@ -22,27 +26,35 @@ export function OperationsBoardView({
 }) {
     return (
         <div className="page-shell">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+                <div className="min-w-0">
                     <h1 className="text-xl font-semibold tracking-tight">
                         {heading}
                     </h1>
-                    <p className="text-muted-foreground text-sm">
+                    <p className="text-muted-foreground text-sm break-words">
                         {description ??
                             `Caseload board for ${operations.today} (${operations.timezone_label}).`}
                     </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                    <Button asChild variant="secondary">
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+                    <Button
+                        className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                        asChild
+                        variant="secondary"
+                    >
                         <Link href={incidentsIndex()}>Incident register</Link>
                     </Button>
-                    <Button asChild variant="secondary">
+                    <Button
+                        className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                        asChild
+                        variant="secondary"
+                    >
                         <Link href={exceptionsIndex()}>Exception review</Link>
                     </Button>
                 </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="grid gap-3 grid-cols-2 sm:gap-4 xl:grid-cols-5">
                 {operations.metrics.map((metric) => (
                     <StatCard
                         key={metric.key}
@@ -316,28 +328,30 @@ export function OperationsBoardView({
                             <ul className="space-y-2 text-sm">
                                 {operations.material_corrections.map((item) => (
                                     <li key={item.key}>
-                                        {item.url ? (
-                                            <Link
-                                                href={item.url}
-                                                className="hover:text-foreground font-medium"
-                                            >
-                                                {item.kind_label}
-                                            </Link>
-                                        ) : (
-                                            <span className="font-medium">
-                                                {item.kind_label}
-                                            </span>
-                                        )}
-                                        <p className="text-muted-foreground text-xs">
-                                            {[
-                                                item.client_name,
-                                                item.employee_name,
-                                                item.service_date,
-                                                item.occurred_at,
-                                            ]
-                                                .filter(Boolean)
-                                                .join(' · ')}
-                                        </p>
+                                        <div className="rounded-lg border border-border/70 px-3 py-2.5">
+                                            {item.url ? (
+                                                <Link
+                                                    href={item.url}
+                                                    className="hover:text-foreground font-medium break-words"
+                                                >
+                                                    {item.kind_label}
+                                                </Link>
+                                            ) : (
+                                                <span className="font-medium break-words">
+                                                    {item.kind_label}
+                                                </span>
+                                            )}
+                                            <p className="text-muted-foreground mt-1 text-xs break-words">
+                                                {[
+                                                    item.client_name,
+                                                    item.employee_name,
+                                                    item.service_date,
+                                                    item.occurred_at,
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' · ')}
+                                            </p>
+                                        </div>
                                     </li>
                                 ))}
                             </ul>
@@ -443,9 +457,9 @@ export function StaffingQueueList({
                     <li key={visit.scheduled_visit_id}>
                         <Link
                             href={showScheduled.url(visit.scheduled_visit_id)}
-                            className="hover:text-foreground block text-sm"
+                            className="hover:text-foreground block rounded-lg border border-border/70 px-3 py-2.5 text-sm"
                         >
-                            <span className="flex items-center gap-2 font-medium">
+                            <span className="flex flex-wrap items-center gap-2 font-medium break-words">
                                 {visit.client.name}
                                 {visit.staffing_urgency_label && (
                                     <span
@@ -459,15 +473,15 @@ export function StaffingQueueList({
                                     </span>
                                 )}
                             </span>
-                            <span className="text-muted-foreground block text-xs">
+                            <span className="text-muted-foreground mt-1 block text-xs break-words">
                                 {visit.service_date} · {visit.time_label} ·{' '}
                                 {visit.service_type}
                             </span>
-                            <span className="text-muted-foreground block text-xs">
+                            <span className="text-muted-foreground block text-xs break-words">
                                 {visit.employee?.name ?? 'No DSP assigned'}
                             </span>
                             {note && (
-                                <span className="text-muted-foreground block text-xs">
+                                <span className="text-muted-foreground mt-1 block text-xs break-words">
                                     {note}
                                 </span>
                             )}
@@ -490,84 +504,136 @@ export function OperationsVisitTable({
         return <EmptyState compact message={empty} />;
     }
 
+    const openVisit = (visit: OperationsVisitRow) => {
+        router.visit(
+            visit.visit_id
+                ? showVisit.url(visit.visit_id)
+                : showScheduled.url(visit.scheduled_visit_id),
+        );
+    };
+
     return (
-        <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-                <thead className="text-muted-foreground text-xs uppercase">
-                    <tr>
-                        <th className="pb-2 font-medium">Client / DSP</th>
-                        <th className="pb-2 font-medium">Service</th>
-                        <th className="pb-2 font-medium">Scheduled</th>
-                        <th className="pb-2 font-medium">Clock</th>
-                        <th className="pb-2 font-medium">Tasks</th>
-                        <th className="pb-2 font-medium">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {visits.map((visit) => (
-                        <tr
-                            key={`${visit.scheduled_visit_id}-${visit.visit_id ?? 'scheduled'}`}
-                            className="hover:bg-muted/40 cursor-pointer border-t"
-                            onClick={() =>
-                                router.visit(
-                                    visit.visit_id
-                                        ? showVisit.url(visit.visit_id)
-                                        : showScheduled.url(
-                                              visit.scheduled_visit_id,
-                                          ),
-                                )
-                            }
-                        >
-                            <td className="py-3">
-                                <p className="font-medium">
-                                    {visit.client.name}
-                                </p>
-                                <p className="text-muted-foreground text-xs">
-                                    {visit.employee?.name ??
-                                        visit.staffing_urgency_label ??
-                                        'Staffing Needed'}
-                                </p>
-                            </td>
-                            <td className="py-3">{visit.service_type}</td>
-                            <td className="py-3">
-                                <p>{visit.time_label}</p>
-                                <p className="text-muted-foreground text-xs">
-                                    {visit.service_date}
-                                </p>
-                            </td>
-                            <td className="py-3 text-xs">
-                                <p>In {visit.clocked_in_at_label ?? '—'}</p>
-                                <p>Out {visit.clocked_out_at_label ?? '—'}</p>
-                                {visit.location_status_label && (
-                                    <p className="text-muted-foreground">
-                                        {visit.location_status_label}
-                                    </p>
-                                )}
-                            </td>
-                            <td className="py-3 text-xs">
+        <ResponsiveOpsList
+            cards={visits.map((visit) => (
+                <OpsRecordCard
+                    key={`card-${visit.scheduled_visit_id}-${visit.visit_id ?? 'scheduled'}`}
+                    title={visit.client.name}
+                    subtitle={
+                        visit.employee?.name ??
+                        visit.staffing_urgency_label ??
+                        'Staffing Needed'
+                    }
+                    status={
+                        <>
+                            <HighPriorityIndicator
+                                active={Boolean(visit.has_high_priority_open)}
+                                label="Unresolved high-priority exception"
+                            />
+                            <StatusBadge
+                                status={visit.operational_status}
+                                label={visit.operational_status_label}
+                            />
+                        </>
+                    }
+                    meta={
+                        <>
+                            <p>
+                                {visit.service_type} · {visit.service_date} ·{' '}
+                                {visit.time_label}
+                            </p>
+                            <p>
+                                In {visit.clocked_in_at_label ?? '—'} · Out{' '}
+                                {visit.clocked_out_at_label ?? '—'}
+                                {visit.location_status_label
+                                    ? ` · ${visit.location_status_label}`
+                                    : ''}
+                            </p>
+                            <p>
                                 {visit.task_summary.completed}/
-                                {visit.task_summary.total} done
+                                {visit.task_summary.total} tasks done
                                 {visit.task_summary.skipped > 0
                                     ? ` · ${visit.task_summary.skipped} skipped`
                                     : ''}
-                            </td>
-                            <td className="py-3">
-                                <div className="flex items-center gap-2">
-                                    <HighPriorityIndicator
-                                        active={Boolean(visit.has_high_priority_open)}
-                                        label="Unresolved high-priority exception"
-                                    />
-                                    <StatusBadge
-                                        status={visit.operational_status}
-                                        label={visit.operational_status_label}
-                                    />
-                                </div>
-                            </td>
+                            </p>
+                        </>
+                    }
+                    onClick={() => openVisit(visit)}
+                />
+            ))}
+            table={
+                <table className="w-full min-w-[40rem] text-left text-sm">
+                    <thead className="text-muted-foreground text-xs uppercase">
+                        <tr>
+                            <th className="pb-2 font-medium">Client / DSP</th>
+                            <th className="pb-2 font-medium">Service</th>
+                            <th className="pb-2 font-medium">Scheduled</th>
+                            <th className="pb-2 font-medium">Clock</th>
+                            <th className="pb-2 font-medium">Tasks</th>
+                            <th className="pb-2 font-medium">Status</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
+                    </thead>
+                    <tbody>
+                        {visits.map((visit) => (
+                            <tr
+                                key={`${visit.scheduled_visit_id}-${visit.visit_id ?? 'scheduled'}`}
+                                className="hover:bg-muted/40 cursor-pointer border-t"
+                                onClick={() => openVisit(visit)}
+                            >
+                                <td className="py-3">
+                                    <p className="font-medium">
+                                        {visit.client.name}
+                                    </p>
+                                    <p className="text-muted-foreground text-xs">
+                                        {visit.employee?.name ??
+                                            visit.staffing_urgency_label ??
+                                            'Staffing Needed'}
+                                    </p>
+                                </td>
+                                <td className="py-3">{visit.service_type}</td>
+                                <td className="py-3">
+                                    <p>{visit.time_label}</p>
+                                    <p className="text-muted-foreground text-xs">
+                                        {visit.service_date}
+                                    </p>
+                                </td>
+                                <td className="py-3 text-xs">
+                                    <p>In {visit.clocked_in_at_label ?? '—'}</p>
+                                    <p>Out {visit.clocked_out_at_label ?? '—'}</p>
+                                    {visit.location_status_label && (
+                                        <p className="text-muted-foreground">
+                                            {visit.location_status_label}
+                                        </p>
+                                    )}
+                                </td>
+                                <td className="py-3 text-xs">
+                                    {visit.task_summary.completed}/
+                                    {visit.task_summary.total} done
+                                    {visit.task_summary.skipped > 0
+                                        ? ` · ${visit.task_summary.skipped} skipped`
+                                        : ''}
+                                </td>
+                                <td className="py-3">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <HighPriorityIndicator
+                                            active={Boolean(
+                                                visit.has_high_priority_open,
+                                            )}
+                                            label="Unresolved high-priority exception"
+                                        />
+                                        <StatusBadge
+                                            status={visit.operational_status}
+                                            label={
+                                                visit.operational_status_label
+                                            }
+                                        />
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            }
+        />
     );
 }
 
@@ -595,18 +661,18 @@ export function ExceptionLinks({
                 <li key={exception.id}>
                     <Link
                         href={showException.url(exception.id)}
-                        className="hover:text-foreground block text-sm"
+                        className="hover:text-foreground block rounded-lg border border-border/70 px-3 py-2.5 text-sm"
                     >
-                        <span className="flex items-center gap-2 font-medium">
+                        <span className="flex flex-wrap items-center gap-2 font-medium break-words">
                             <HighPriorityIndicator
                                 active={Boolean(exception.is_high_priority_open)}
                             />
                             {exception.type_label}
                         </span>
-                        <span className="text-muted-foreground block text-xs">
+                        <span className="text-muted-foreground mt-1 block text-xs break-words">
                             {exception.client_name} · {exception.dsp_name}
                         </span>
-                        <span className="text-muted-foreground block text-xs">
+                        <span className="text-muted-foreground block text-xs break-words">
                             {exception.message}
                         </span>
                     </Link>

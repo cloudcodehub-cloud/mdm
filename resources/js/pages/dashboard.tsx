@@ -87,14 +87,28 @@ export default function Dashboard({
 function RoleQuickActions({ data }: { data: DashboardPayload }) {
     if (data.role === 'ADMIN') {
         return (
-            <div className="mt-3 flex flex-wrap gap-2">
-                <Button size="sm" asChild>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <Button
+                    size="sm"
+                    className="min-h-11 w-full sm:min-h-8 sm:w-auto"
+                    asChild
+                >
                     <Link href={createEmployee()}>Add Employee</Link>
                 </Button>
-                <Button size="sm" variant="secondary" asChild>
+                <Button
+                    size="sm"
+                    variant="secondary"
+                    className="min-h-11 w-full sm:min-h-8 sm:w-auto"
+                    asChild
+                >
                     <Link href={createClient()}>Add Client</Link>
                 </Button>
-                <Button size="sm" variant="secondary" asChild>
+                <Button
+                    size="sm"
+                    variant="secondary"
+                    className="min-h-11 w-full sm:min-h-8 sm:w-auto"
+                    asChild
+                >
                     <Link href={createScheduledVisit()}>Schedule Visit</Link>
                 </Button>
             </div>
@@ -103,11 +117,20 @@ function RoleQuickActions({ data }: { data: DashboardPayload }) {
 
     if (data.role === 'SUPERVISOR') {
         return (
-            <div className="mt-3 flex flex-wrap gap-2">
-                <Button size="sm" asChild>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <Button
+                    size="sm"
+                    className="min-h-11 w-full sm:min-h-8 sm:w-auto"
+                    asChild
+                >
                     <Link href={operationsIndex()}>Open Operations</Link>
                 </Button>
-                <Button size="sm" variant="secondary" asChild>
+                <Button
+                    size="sm"
+                    variant="secondary"
+                    className="min-h-11 w-full sm:min-h-8 sm:w-auto"
+                    asChild
+                >
                     <Link href={exceptionsIndex()}>Review exceptions</Link>
                 </Button>
             </div>
@@ -117,7 +140,7 @@ function RoleQuickActions({ data }: { data: DashboardPayload }) {
     return (
         <div className="mt-3 flex flex-wrap gap-2">
             {data.active_visit && (
-                <Button size="sm" className="min-h-10" asChild>
+                <Button size="sm" className="min-h-10 w-full sm:w-auto" asChild>
                     <Link href={showVisit(data.active_visit.id)}>
                         Continue Visit
                     </Link>

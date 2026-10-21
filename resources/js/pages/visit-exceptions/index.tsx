@@ -1,6 +1,10 @@
 import { Form, Head, Link, router } from '@inertiajs/react';
 import { Pagination, StatusBadge, controlClassName } from '@/components/mdm/directory';
 import { HighPriorityIndicator } from '@/components/mdm/priority-indicator';
+import {
+    OpsRecordCard,
+    ResponsiveOpsList,
+} from '@/components/mdm/responsive-ops-list';
 import { EmptyState, Panel } from '@/components/mdm/stat-card';
 import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
@@ -22,7 +26,7 @@ export default function VisitExceptionsIndex({
     return (
         <>
             <Head title="Exception review" />
-            <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
+            <div className="page-shell">
                 <div>
                     <p className="text-muted-foreground text-sm">
                         <Link
@@ -44,12 +48,13 @@ export default function VisitExceptionsIndex({
                     <Form
                         action={exceptionsIndex.url()}
                         method="get"
-                        className="grid gap-3 md:grid-cols-3"
+                        className="grid gap-3 sm:grid-cols-2 md:grid-cols-3"
                     >
                         <select
                             name="status"
                             defaultValue={filters.status}
                             className={controlClassName}
+                            aria-label="Exception status"
                         >
                             <option value="">Open and reviewed</option>
                             <option value="open">Open</option>
@@ -60,6 +65,7 @@ export default function VisitExceptionsIndex({
                             name="type"
                             defaultValue={filters.type}
                             className={controlClassName}
+                            aria-label="Exception type"
                         >
                             <option value="">All types</option>
                             <option value="gps_unavailable">
@@ -76,7 +82,11 @@ export default function VisitExceptionsIndex({
                                 Unfinished-task exception
                             </option>
                         </select>
-                        <Button type="submit" variant="secondary">
+                        <Button
+                            type="submit"
+                            variant="secondary"
+                            className="min-h-11 w-full sm:min-h-9 sm:w-auto md:w-full"
+                        >
                             Apply
                         </Button>
                     </Form>
@@ -87,72 +97,119 @@ export default function VisitExceptionsIndex({
                         <EmptyState message="No exceptions match these filters." />
                     ) : (
                         <div className="space-y-3">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm">
-                                    <thead className="text-muted-foreground text-xs uppercase">
-                                        <tr>
-                                            <th className="pb-2 font-medium">
-                                                Type
-                                            </th>
-                                            <th className="pb-2 font-medium">
-                                                Visit
-                                            </th>
-                                            <th className="pb-2 font-medium">
-                                                Status
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {exceptions.data.map((exception) => (
-                                            <tr
-                                                key={exception.id}
-                                                className="hover:bg-muted/40 cursor-pointer border-t"
-                                                onClick={() =>
-                                                    router.visit(
-                                                        showException.url(
-                                                            exception.id,
-                                                        ),
-                                                    )
-                                                }
-                                            >
-                                                <td className="py-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <HighPriorityIndicator
-                                                            active={Boolean(
-                                                                exception.is_high_priority_open,
-                                                            )}
-                                                        />
-                                                        <p className="font-medium">
-                                                            {exception.type_label}
-                                                        </p>
-                                                    </div>
-                                                    <p className="text-muted-foreground text-xs">
-                                                        {exception.message}
-                                                    </p>
-                                                </td>
-                                                <td className="py-3">
-                                                    <p>
-                                                        {exception.client_name}
-                                                    </p>
-                                                    <p className="text-muted-foreground text-xs">
-                                                        {exception.dsp_name}
-                                                    </p>
-                                                </td>
-                                                <td className="py-3">
-                                                    <StatusBadge
-                                                        status={
-                                                            exception.status
-                                                        }
-                                                        label={
-                                                            exception.status_label
-                                                        }
-                                                    />
-                                                </td>
+                            <ResponsiveOpsList
+                                cards={exceptions.data.map((exception) => (
+                                    <OpsRecordCard
+                                        key={`card-${exception.id}`}
+                                        title={exception.type_label}
+                                        subtitle={exception.message}
+                                        status={
+                                            <>
+                                                <HighPriorityIndicator
+                                                    active={Boolean(
+                                                        exception.is_high_priority_open,
+                                                    )}
+                                                />
+                                                <StatusBadge
+                                                    status={exception.status}
+                                                    label={
+                                                        exception.status_label
+                                                    }
+                                                />
+                                            </>
+                                        }
+                                        meta={
+                                            <p>
+                                                {exception.client_name}
+                                                {exception.dsp_name
+                                                    ? ` · ${exception.dsp_name}`
+                                                    : ''}
+                                            </p>
+                                        }
+                                        onClick={() =>
+                                            router.visit(
+                                                showException.url(exception.id),
+                                            )
+                                        }
+                                    />
+                                ))}
+                                table={
+                                    <table className="w-full min-w-[32rem] text-left text-sm">
+                                        <thead className="text-muted-foreground text-xs uppercase">
+                                            <tr>
+                                                <th className="pb-2 font-medium">
+                                                    Type
+                                                </th>
+                                                <th className="pb-2 font-medium">
+                                                    Visit
+                                                </th>
+                                                <th className="pb-2 font-medium">
+                                                    Status
+                                                </th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                        </thead>
+                                        <tbody>
+                                            {exceptions.data.map(
+                                                (exception) => (
+                                                    <tr
+                                                        key={exception.id}
+                                                        className="hover:bg-muted/40 cursor-pointer border-t"
+                                                        onClick={() =>
+                                                            router.visit(
+                                                                showException.url(
+                                                                    exception.id,
+                                                                ),
+                                                            )
+                                                        }
+                                                    >
+                                                        <td className="py-3">
+                                                            <div className="flex items-center gap-2">
+                                                                <HighPriorityIndicator
+                                                                    active={Boolean(
+                                                                        exception.is_high_priority_open,
+                                                                    )}
+                                                                />
+                                                                <p className="font-medium">
+                                                                    {
+                                                                        exception.type_label
+                                                                    }
+                                                                </p>
+                                                            </div>
+                                                            <p className="text-muted-foreground text-xs">
+                                                                {
+                                                                    exception.message
+                                                                }
+                                                            </p>
+                                                        </td>
+                                                        <td className="py-3">
+                                                            <p>
+                                                                {
+                                                                    exception.client_name
+                                                                }
+                                                            </p>
+                                                            <p className="text-muted-foreground text-xs">
+                                                                {
+                                                                    exception.dsp_name
+                                                                }
+                                                            </p>
+                                                        </td>
+                                                        <td className="py-3">
+                                                            <StatusBadge
+                                                                status={
+                                                                    exception.status
+                                                                }
+                                                                label={
+                                                                    exception.status_label
+                                                                }
+                                                            />
+                                                        </td>
+                                                    </tr>
+                                                ),
+                                            )}
+                                        </tbody>
+                                    </table>
+                                }
+                            />
                             <Pagination
                                 meta={exceptions.meta}
                                 links={exceptions.links}

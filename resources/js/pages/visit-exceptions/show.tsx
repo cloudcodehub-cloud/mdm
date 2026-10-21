@@ -77,7 +77,11 @@ export default function VisitExceptionsShow({
                         </>
                     }
                     actions={
-                        <Button asChild variant="secondary">
+                        <Button
+                            className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                            asChild
+                            variant="secondary"
+                        >
                             <Link href={showVisit.url(exception.visit_id)}>
                                 Open visit
                             </Link>
@@ -227,6 +231,7 @@ export default function VisitExceptionsShow({
                                 </div>
                                 <Button
                                     type="submit"
+                                    className="min-h-11 w-full sm:w-auto"
                                     disabled={reviewForm.processing}
                                 >
                                     Mark reviewed
@@ -273,6 +278,7 @@ export default function VisitExceptionsShow({
                                 </div>
                                 <Button
                                     type="submit"
+                                    className="min-h-11 w-full sm:w-auto"
                                     disabled={resolveForm.processing}
                                 >
                                     Resolve exception
@@ -327,6 +333,7 @@ export default function VisitExceptionsShow({
                                 <Button
                                     type="submit"
                                     variant="secondary"
+                                    className="min-h-11 w-full sm:w-auto"
                                     disabled={reopenForm.processing}
                                 >
                                     Reopen exception
